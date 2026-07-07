@@ -51,6 +51,14 @@ interface WorkspaceState {
   mutateBlockToGame: (anchorId: string, gameType: BlockMode, payload?: GamePayload) => void;
   completeBlockGame: (blockId: string) => void;
 
+  // --- Gamification (XP / levels) ---
+  xp: number;
+  completedChapters: string[];
+  /** Bumped whenever a chapter is newly mastered — drives the level-up burst. */
+  levelUpTick: number;
+  /** Transient label for the burst overlay ("Level 2 · The Nucleus"). */
+  levelUpLabel: string;
+
   // --- Agentic viewport control ---
   scrollTarget: string | null;
   activeHighlight: string | null;
@@ -97,6 +105,10 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       unlockedAnchors: chapters.length ? [chapters[0].anchorId] : [],
       blockGames: {},
       completedBlocks: [],
+      xp: 0,
+      completedChapters: [],
+      levelUpTick: 0,
+      levelUpLabel: "",
     });
   },
 
@@ -104,6 +116,10 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   unlockedAnchors: [],
   blockGames: {},
   completedBlocks: [],
+  xp: 0,
+  completedChapters: [],
+  levelUpTick: 0,
+  levelUpLabel: "",
 
   unlockChapter: (anchorId) =>
     set((s) =>
@@ -136,17 +152,35 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
 
   completeBlockGame: (blockId) => {
+    const { chapters, completedChapters, completedBlocks } = get();
+    const alreadyDone = completedBlocks.includes(blockId);
+    const chapter = chapters.find((c) => c.blocks.some((b) => b.id === blockId));
+    const anchor = chapter?.anchorId;
+    // A chapter is "mastered" the first time a mini-game in it is completed.
+    const newlyMasteredChapter =
+      anchor && !completedChapters.includes(anchor) ? anchor : null;
+
     set((s) => {
-      const next = { ...s.blockGames };
-      delete next[blockId];
+      const games = { ...s.blockGames };
+      delete games[blockId];
+      const level = s.completedChapters.length + (newlyMasteredChapter ? 1 : 0);
       return {
-        blockGames: next,
-        completedBlocks: s.completedBlocks.includes(blockId)
-          ? s.completedBlocks
-          : [...s.completedBlocks, blockId],
+        blockGames: games,
+        completedBlocks: alreadyDone ? s.completedBlocks : [...s.completedBlocks, blockId],
+        xp: s.xp + 20, // +20 XP per completed mini-game
+        completedChapters: newlyMasteredChapter
+          ? [...s.completedChapters, newlyMasteredChapter]
+          : s.completedChapters,
+        levelUpTick: newlyMasteredChapter ? s.levelUpTick + 1 : s.levelUpTick,
+        levelUpLabel: newlyMasteredChapter
+          ? `Level ${level + 1} · ${chapter?.title ?? "Chapter"} mastered`
+          : s.levelUpLabel,
       };
     });
     playDing();
+
+    // Reward: reveal the next chapter when one is mastered.
+    if (newlyMasteredChapter) setTimeout(() => get().unlockNextChapter(), 900);
   },
 
   scrollTarget: null,
@@ -226,6 +260,9 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         break;
       case "trigger_spot_the_lie":
         if (anchor) get().mutateBlockToGame(anchor, "spot_the_lie", ui_action.game_payload);
+        break;
+      case "trigger_order":
+        if (anchor) get().mutateBlockToGame(anchor, "order", ui_action.game_payload);
         break;
     }
 

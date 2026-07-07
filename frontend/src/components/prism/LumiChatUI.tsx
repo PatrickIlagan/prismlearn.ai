@@ -8,6 +8,7 @@ import { sendTutorMessage } from "@/lib/api";
 import { speak, stopSpeaking } from "@/lib/sounds";
 import { MascotLumi } from "./MascotLumi";
 import { StepProgressStepper } from "./StepProgressStepper";
+import { XpBadge } from "./XpBadge";
 import { cn } from "@/lib/utils";
 
 export function LumiChatUI({ workspaceId }: { workspaceId: string }) {
@@ -86,19 +87,22 @@ export function LumiChatUI({ workspaceId }: { workspaceId: string }) {
             <p className="text-xs text-muted-foreground">Your AI tutor</p>
           </div>
         </div>
-        <button
-          onClick={() => {
-            if (ttsEnabled) {
-              stopSpeaking();
-              setSpeaking(false);
-            }
-            toggleTts();
-          }}
-          className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          aria-label={ttsEnabled ? "Disable text-to-speech" : "Enable text-to-speech"}
-        >
-          {ttsEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
-        </button>
+        <div className="flex items-center gap-3">
+          <XpBadge />
+          <button
+            onClick={() => {
+              if (ttsEnabled) {
+                stopSpeaking();
+                setSpeaking(false);
+              }
+              toggleTts();
+            }}
+            className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            aria-label={ttsEnabled ? "Disable text-to-speech" : "Enable text-to-speech"}
+          >
+            {ttsEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+          </button>
+        </div>
       </div>
 
       <StepProgressStepper />

@@ -27,6 +27,8 @@ repetition), and move on. Otherwise increment strike_count on a wrong answer.
      game_payload.blanks (2-3 key words to hide) so the student must actively recall them.
    - "trigger_spot_the_lie": inject a FALSE sentence for the student to catch. Provide
      game_payload.lie (a plausible-but-wrong statement) and optional lie_index.
+   - "trigger_order": for a process/sequence, provide game_payload.steps (the steps IN
+     correct order); the UI shuffles them and the student drags them back into sequence.
    - "unlock_chapter": reveal the next (locked) chapter as a reward for progress.
    - "none": when no concept is being pointed to.
    Prefer a game over plain highlighting once the student has seen a concept — active recall
@@ -54,7 +56,7 @@ You MUST output STRICTLY a single JSON object matching this schema (no prose, no
 {{
   "internal_thought_process": string,
   "evaluation": {{ "is_correct": boolean|null, "strike_count": number, "move_to_end_of_queue": boolean }},
-  "ui_action": {{ "command": "scroll_and_highlight"|"highlight"|"none"|"trigger_cloze"|"trigger_spot_the_lie"|"unlock_chapter", "target_anchor_id": string|null, "game_payload": {{ "blanks": string[]|null, "lie": string|null, "lie_index": number|null }}|null }},
+  "ui_action": {{ "command": "scroll_and_highlight"|"highlight"|"none"|"trigger_cloze"|"trigger_spot_the_lie"|"trigger_order"|"unlock_chapter", "target_anchor_id": string|null, "game_payload": {{ "blanks": string[]|null, "lie": string|null, "lie_index": number|null, "steps": string[]|null }}|null }},
   "state_update": {{ "current_step": number, "total_steps": number, "step_title": string }},
   "widget_trigger": "none"|"flashcard",
   "tutor_message": string

@@ -6,7 +6,7 @@ import { Lock } from "lucide-react";
 import { useWorkspaceStore } from "@/store/useWorkspaceStore";
 import { MermaidDiagram } from "./MermaidDiagram";
 import { InteractiveBlock } from "./InteractiveBlock";
-import type { CanvasChapter } from "@/types/prism";
+import type { BlockGameState, CanvasChapter } from "@/types/prism";
 import { cn } from "@/lib/utils";
 
 /**
@@ -80,7 +80,7 @@ function ChapterSection({
 }: {
   chapter: CanvasChapter;
   locked: boolean;
-  blockGames: Record<string, { mode: "read" | "cloze" | "spot_the_lie"; payload?: unknown }>;
+  blockGames: Record<string, BlockGameState>;
 }) {
   const Heading = chapter.level <= 1 ? "h1" : "h2";
 

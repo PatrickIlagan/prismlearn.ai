@@ -12,6 +12,7 @@ import { SidebarAccordion } from "./SidebarAccordion";
 import { DocumentViewer } from "./DocumentViewer";
 import { LumiChatUI } from "./LumiChatUI";
 import { InteractiveQuizModal } from "./InteractiveQuizModal";
+import { LevelUpBurst } from "./LevelUpBurst";
 import { cn } from "@/lib/utils";
 
 const { Group, Panel, Separator } = ResizablePanels;
@@ -84,6 +85,8 @@ export function WorkspaceShell({
     <div className="h-screen w-full">
       {/* Assessment overlay (opened from the sidebar) */}
       <InteractiveQuizModal />
+      {/* Level-up celebration on chapter mastery */}
+      <LevelUpBurst />
 
       {/* ---------- Desktop: resizable 3-pane ---------- */}
       <div className="hidden h-full p-3 md:block">

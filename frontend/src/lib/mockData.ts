@@ -127,6 +127,28 @@ export const MOCK_TUTOR_TURNS: TutorResponse[] = [
     tutor_message:
       "You've earned it — I've unlocked **Cell Division** for you. Ready to keep going?",
   },
+  {
+    internal_thought_process:
+      "Reinforce the sequence of mitosis with a drag-to-order game on Cell Division.",
+    evaluation: { is_correct: true, strike_count: 1, move_to_end_of_queue: false },
+    ui_action: {
+      command: "trigger_order",
+      target_anchor_id: "concept_division",
+      game_payload: {
+        steps: [
+          "Interphase — DNA replicates",
+          "Prophase — chromosomes condense",
+          "Metaphase — chromosomes align",
+          "Anaphase — chromatids separate",
+          "Telophase — two nuclei form",
+        ],
+      },
+    },
+    state_update: { current_step: 4, total_steps: 4, step_title: "Sequence: Mitosis" },
+    widget_trigger: "none",
+    tutor_message:
+      "Last one! Drag the phases of mitosis into the correct order on the left.",
+  },
 ];
 
 /** Canned quiz so the assessment modal is fully demonstrable without the backend. */

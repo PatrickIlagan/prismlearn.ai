@@ -20,6 +20,9 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// Mock-mode lesson cursor (advances through MOCK_TUTOR_TURNS per session).
+let mockTurnIndex = 0;
+
 // --- Session-scoped reviewer cache -------------------------------------------
 // Until Supabase persistence lands, a freshly-ingested reviewer is kept in
 // sessionStorage keyed by workspace id, so navigating to /workspace/[id] and
@@ -225,9 +228,13 @@ export async function sendTutorMessage(
 ): Promise<TutorResponse> {
   if (USE_MOCKS) {
     await delay(700);
-    // Progress the mock lesson by how many student turns have happened.
-    const priorStudentTurns = ctx.recentHistory.filter((t) => t.role === "student").length;
-    return MOCK_TUTOR_TURNS[Math.min(priorStudentTurns, MOCK_TUTOR_TURNS.length - 1)];
+    // Walk the canned lesson turn-by-turn. recentHistory is capped for real
+    // requests, so use a dedicated counter that resets when a fresh session
+    // starts (no prior turns) — this reaches every scripted game.
+    if (ctx.recentHistory.length === 0) mockTurnIndex = 0;
+    const turn = MOCK_TUTOR_TURNS[Math.min(mockTurnIndex, MOCK_TUTOR_TURNS.length - 1)];
+    mockTurnIndex += 1;
+    return turn;
   }
   const res = await fetch(`${API_URL}/workspaces/${workspaceId}/tutor`, {
     method: "POST",

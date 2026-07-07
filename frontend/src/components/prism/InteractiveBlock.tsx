@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
-import { motion, useAnimationControls } from "framer-motion";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { motion, Reorder, useAnimationControls } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { GripVertical } from "lucide-react";
 import { useWorkspaceStore } from "@/store/useWorkspaceStore";
 import { boldTerms, splitSentences } from "@/lib/canvas";
-import type { CanvasBlock, GamePayload } from "@/types/prism";
+import type { BlockMode, CanvasBlock, GamePayload } from "@/types/prism";
 import { cn } from "@/lib/utils";
 
 const norm = (s: string) => s.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -22,7 +23,7 @@ export function InteractiveBlock({
   payload,
 }: {
   block: CanvasBlock;
-  mode: "read" | "cloze" | "spot_the_lie";
+  mode: BlockMode;
   payload?: GamePayload;
 }) {
   const completeBlockGame = useWorkspaceStore((s) => s.completeBlockGame);
@@ -58,6 +59,7 @@ export function InteractiveBlock({
       {mode === "spot_the_lie" && (
         <SpotTheLieBlock block={block} payload={payload} onSolved={celebrate} solved={solved} />
       )}
+      {mode === "order" && <OrderBlock payload={payload} onSolved={celebrate} solved={solved} />}
     </motion.div>
   );
 }
@@ -238,6 +240,70 @@ function SpotTheLieBlock({
           </motion.span>
         ))}
       </p>
+    </div>
+  );
+}
+
+// ── drag to order ─────────────────────────────────────────────────────────────
+function shuffled(items: string[]): string[] {
+  if (items.length < 2) return items;
+  let out = items;
+  // reshuffle until it differs from the correct order
+  for (let tries = 0; tries < 8 && out.join("|") === items.join("|"); tries++) {
+    out = [...items].sort(() => Math.random() - 0.5);
+  }
+  return out;
+}
+
+function OrderBlock({
+  payload,
+  onSolved,
+  solved,
+}: {
+  payload?: GamePayload;
+  onSolved: () => void;
+  solved: boolean;
+}) {
+  const correct = useMemo(() => payload?.steps ?? [], [payload]);
+  const [items, setItems] = useState<string[]>(() => shuffled(correct));
+
+  useEffect(() => {
+    if (!solved && correct.length > 0 && items.join("|") === correct.join("|")) onSolved();
+  }, [items, correct, solved, onSolved]);
+
+  if (correct.length === 0) return null;
+
+  return (
+    <div className="rounded-xl border border-sky-300/60 bg-sky-50/40 p-3 text-sm backdrop-blur-sm">
+      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-sky-600">
+        🔀 Put the steps in order — drag to rearrange
+      </p>
+      <Reorder.Group axis="y" values={items} onReorder={setItems} className="space-y-2">
+        {items.map((item, i) => {
+          const inPlace = solved || item === correct[i];
+          return (
+            <Reorder.Item
+              key={item}
+              value={item}
+              className={cn(
+                "flex cursor-grab items-center gap-2 rounded-lg border bg-white/70 px-3 py-2 backdrop-blur-sm active:cursor-grabbing",
+                inPlace ? "border-emerald-400/70" : "border-white/60",
+              )}
+            >
+              <span
+                className={cn(
+                  "flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold",
+                  inPlace ? "bg-emerald-500 text-white" : "bg-sky-500/15 text-sky-600",
+                )}
+              >
+                {i + 1}
+              </span>
+              <span className="flex-1">{item}</span>
+              <GripVertical size={15} className="text-muted-foreground/60" />
+            </Reorder.Item>
+          );
+        })}
+      </Reorder.Group>
     </div>
   );
 }

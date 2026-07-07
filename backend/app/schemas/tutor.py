@@ -20,6 +20,7 @@ class UiCommand(str, Enum):
     # Active Learning Canvas — Lumi mutates the center pane into mini-games.
     trigger_cloze = "trigger_cloze"
     trigger_spot_the_lie = "trigger_spot_the_lie"
+    trigger_order = "trigger_order"
     unlock_chapter = "unlock_chapter"
 
 
@@ -52,6 +53,7 @@ class GamePayload(BaseModel):
     blanks: Optional[list[str]] = None  # cloze: words to blank out
     lie: Optional[str] = None  # spot_the_lie: the false sentence to inject
     lie_index: Optional[int] = None  # spot_the_lie: where to insert it
+    steps: Optional[list[str]] = None  # order: steps in correct sequence
 
 
 class UiAction(BaseModel):
