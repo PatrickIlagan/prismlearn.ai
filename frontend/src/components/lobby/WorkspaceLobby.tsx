@@ -163,8 +163,8 @@ export function WorkspaceLobby({ workspaceId }: { workspaceId: string }) {
           <LaunchButton
             icon={AlertTriangle}
             title="Review Weaknesses"
-            subtitle={`${weak.length} concepts to shore up`}
-            onClick={() => router.push(`/workspace/${workspaceId}?focus=review`)}
+            subtitle={weak.length ? `${weak.length} concepts to shore up` : "All clear!"}
+            onClick={() => router.push(`/workspace/${workspaceId}/review`)}
           />
           <LaunchButton
             icon={FileQuestion}

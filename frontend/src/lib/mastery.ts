@@ -16,13 +16,37 @@ export interface ConceptMastery {
   strikes: number; // failed attempts (0 = never failed)
 }
 
+const BOOST_KEY = "prism_mastery_boost";
+
+function readBoosts(): Record<string, number> {
+  if (typeof window === "undefined") return {};
+  try {
+    return JSON.parse(localStorage.getItem(BOOST_KEY) || "{}") as Record<string, number>;
+  } catch {
+    return {};
+  }
+}
+
+/** Persist mastery gained by reviewing a concept (until real data lands). */
+export function boostConcept(anchorId: string, amount: number): void {
+  if (typeof window === "undefined") return;
+  try {
+    const boosts = readBoosts();
+    boosts[anchorId] = Math.min(100, (boosts[anchorId] ?? 0) + amount);
+    localStorage.setItem(BOOST_KEY, JSON.stringify(boosts));
+  } catch {
+    /* non-fatal */
+  }
+}
+
 export function conceptStrength(anchorId: string): number {
   let h = 2166136261;
   for (let i = 0; i < anchorId.length; i++) {
     h ^= anchorId.charCodeAt(i);
     h = Math.imul(h, 16777619);
   }
-  return 18 + (Math.abs(h) % 80); // 18–97
+  const base = 18 + (Math.abs(h) % 80); // 18–97
+  return Math.min(100, base + (readBoosts()[anchorId] ?? 0));
 }
 
 function strikesFor(strength: number): number {
