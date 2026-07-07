@@ -142,10 +142,13 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   mutateBlockToGame: (anchorId, gameType, payload) => {
     const chapter = get().chapters.find((c) => c.anchorId === anchorId);
     if (!chapter) return;
-    // Pick the first substantial text block that isn't already a game.
-    const block = chapter.blocks.find(
-      (b) => b.kind === "text" && b.plain.length > 40 && !get().blockGames[b.id],
-    );
+    // Hotspot games attach to a diagram; the rest to a substantial paragraph.
+    const block =
+      gameType === "hotspot"
+        ? chapter.blocks.find((b) => b.kind === "mermaid" && !get().blockGames[b.id])
+        : chapter.blocks.find(
+            (b) => b.kind === "text" && b.plain.length > 40 && !get().blockGames[b.id],
+          );
     if (!block) return;
     get().unlockChapter(anchorId); // can't play a game in a locked chapter
     set((s) => ({
@@ -266,6 +269,9 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         break;
       case "trigger_order":
         if (anchor) get().mutateBlockToGame(anchor, "order", ui_action.game_payload);
+        break;
+      case "trigger_hotspot":
+        if (anchor) get().mutateBlockToGame(anchor, "hotspot", ui_action.game_payload);
         break;
     }
 

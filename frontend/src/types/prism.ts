@@ -26,6 +26,7 @@ export type UiCommand =
   | "trigger_cloze"
   | "trigger_spot_the_lie"
   | "trigger_order"
+  | "trigger_hotspot"
   | "unlock_chapter";
 
 /** Optional game configuration attached to a ui_action. */
@@ -38,6 +39,8 @@ export interface GamePayload {
   lie_index?: number;
   /** order: the steps in their correct sequence (UI shuffles them to solve). */
   steps?: string[];
+  /** hotspot: the diagram node label the student must click. */
+  target?: string;
 }
 
 export interface UiAction {
@@ -99,7 +102,7 @@ export interface QuizConfig {
 // ---------- Active Learning Canvas ----------
 
 export type BlockKind = "text" | "quote" | "mermaid";
-export type BlockMode = "read" | "cloze" | "spot_the_lie" | "order";
+export type BlockMode = "read" | "cloze" | "spot_the_lie" | "order" | "hotspot";
 
 export interface CanvasBlock {
   id: string;

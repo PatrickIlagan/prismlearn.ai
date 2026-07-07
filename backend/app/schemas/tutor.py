@@ -21,6 +21,7 @@ class UiCommand(str, Enum):
     trigger_cloze = "trigger_cloze"
     trigger_spot_the_lie = "trigger_spot_the_lie"
     trigger_order = "trigger_order"
+    trigger_hotspot = "trigger_hotspot"
     unlock_chapter = "unlock_chapter"
 
 
@@ -54,6 +55,7 @@ class GamePayload(BaseModel):
     lie: Optional[str] = None  # spot_the_lie: the false sentence to inject
     lie_index: Optional[int] = None  # spot_the_lie: where to insert it
     steps: Optional[list[str]] = None  # order: steps in correct sequence
+    target: Optional[str] = None  # hotspot: the diagram node label to click
 
 
 class UiAction(BaseModel):

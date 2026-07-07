@@ -83,6 +83,7 @@ function ChapterSection({
   blockGames: Record<string, BlockGameState>;
 }) {
   const Heading = chapter.level <= 1 ? "h1" : "h2";
+  const completeBlockGame = useWorkspaceStore((s) => s.completeBlockGame);
 
   return (
     <section className="relative">
@@ -102,10 +103,20 @@ function ChapterSection({
 
         <div className={cn("mt-3 space-y-3", locked && "blur-md")}>
           {chapter.blocks.map((block) => {
-            if (block.kind === "mermaid") {
-              return <MermaidDiagram key={block.id} code={extractMermaid(block.markdown)} />;
-            }
             const game = blockGames[block.id];
+            if (block.kind === "mermaid") {
+              const hotspot =
+                game?.mode === "hotspot" && game.payload?.target
+                  ? { target: game.payload.target, onSolved: () => completeBlockGame(block.id) }
+                  : undefined;
+              return (
+                <MermaidDiagram
+                  key={block.id}
+                  code={extractMermaid(block.markdown)}
+                  hotspot={hotspot}
+                />
+              );
+            }
             return (
               <InteractiveBlock
                 key={block.id}

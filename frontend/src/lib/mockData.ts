@@ -68,6 +68,20 @@ export const MOCK_TUTOR_TURNS: TutorResponse[] = [
   },
   {
     internal_thought_process:
+      "Turn the Cell diagram into a hotspot game — have them click the organelle that stores DNA.",
+    evaluation: { is_correct: null, strike_count: 0, move_to_end_of_queue: false },
+    ui_action: {
+      command: "trigger_hotspot",
+      target_anchor_id: "concept_cell",
+      game_payload: { target: "Nucleus" },
+    },
+    state_update: { current_step: 1, total_steps: 4, step_title: "Find it on the map" },
+    widget_trigger: "none",
+    tutor_message:
+      "Look at the diagram above — tap the organelle that stores the cell's genetic code.",
+  },
+  {
+    internal_thought_process:
       "Student guessed mitochondria — strike 1. Gently correct, hint about the 'powerhouse vs control center' distinction, keep them on the nucleus.",
     evaluation: { is_correct: false, strike_count: 1, move_to_end_of_queue: false },
     ui_action: { command: "scroll_and_highlight", target_anchor_id: "concept_mitochondria" },
