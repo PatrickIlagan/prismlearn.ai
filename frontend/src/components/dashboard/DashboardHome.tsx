@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth";
 import { StatsBento } from "./StatsBento";
 import { PremiumDropzone } from "./PremiumDropzone";
 import { WorkspaceGrid } from "./WorkspaceGrid";
+import { DailyQuests } from "./DailyQuests";
 
 export function DashboardHome() {
   const { user } = useAuth();
@@ -37,8 +38,9 @@ export function DashboardHome() {
 
       <StatsBento workspaces={workspaces} />
 
-      <section className="mt-6">
+      <section className="mt-6 grid gap-6 lg:grid-cols-[1.4fr_1fr]">
         <PremiumDropzone />
+        <DailyQuests />
       </section>
 
       <section className="mt-8">

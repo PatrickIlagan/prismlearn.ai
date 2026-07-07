@@ -7,6 +7,7 @@ import { Target, Check, X, ArrowRight, TrendingUp } from "lucide-react";
 import { fetchReviewer, generateQuiz } from "@/lib/api";
 import { useWorkspaceStore } from "@/store/useWorkspaceStore";
 import { boostConcept, conceptStrength, needsReview } from "@/lib/mastery";
+import { addXp as profileAddXp, completeQuest, recordActivity } from "@/lib/profile";
 import { playDing } from "@/lib/sounds";
 import type { IngestPayload, Quiz, QuizQuestion } from "@/types/prism";
 import { cn } from "@/lib/utils";
@@ -93,7 +94,13 @@ export function WeaknessReview({ workspaceId }: { workspaceId: string }) {
 
   // XP payout once on finish.
   useEffect(() => {
-    if (phase === "done") awardXp(Object.keys(improved).length * 20);
+    if (phase === "done") {
+      const payout = Object.keys(improved).length * 20;
+      awardXp(payout);
+      profileAddXp(payout);
+      recordActivity();
+      if (payout > 0) completeQuest("review");
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
 

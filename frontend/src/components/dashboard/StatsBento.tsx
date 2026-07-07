@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Flame, Brain, Target } from "lucide-react";
 import { computeStats } from "@/lib/progress";
+import { getProfile } from "@/lib/profile";
 import type { WorkspaceSummary } from "@/types/prism";
 import { cn } from "@/lib/utils";
 
@@ -20,12 +21,16 @@ export function StatsBento({ workspaces }: { workspaces: WorkspaceSummary[] | nu
   const stats = useMemo(() => computeStats(workspaces ?? []), [workspaces]);
   const loading = workspaces === null;
 
+  // Real streak from the persistent profile (hydrated client-side).
+  const [streak, setStreak] = useState(0);
+  useEffect(() => setStreak(getProfile().streak), []);
+
   const cards: StatCard[] = [
     {
       key: "streak",
       label: "Learning streak",
-      value: `${stats.streak}`,
-      hint: stats.streak === 1 ? "day — keep it going" : "days in a row",
+      value: `${streak}`,
+      hint: streak === 1 ? "day — keep it going" : streak === 0 ? "start today!" : "days in a row",
       icon: Flame,
       tile: "from-orange-400/20 to-amber-500/20 text-orange-500",
     },

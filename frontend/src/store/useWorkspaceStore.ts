@@ -13,6 +13,7 @@ import type {
 } from "@/types/prism";
 import { parseCanvas } from "@/lib/canvas";
 import { playDing } from "@/lib/sounds";
+import { addXp as profileAddXp, completeQuest, recordActivity } from "@/lib/profile";
 
 /**
  * The agentic UI-manipulation pipeline lives here.
@@ -184,6 +185,11 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       };
     });
     playDing();
+
+    // Persist to the lifetime player profile (dashboard streak/quests).
+    profileAddXp(20);
+    recordActivity();
+    completeQuest("game");
 
     // Reward: reveal the next chapter when one is mastered.
     if (newlyMasteredChapter) setTimeout(() => get().unlockNextChapter(), 900);
