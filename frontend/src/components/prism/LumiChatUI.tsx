@@ -78,7 +78,7 @@ export function LumiChatUI({ workspaceId }: { workspaceId: string }) {
   return (
     <div className="flex h-full flex-col">
       {/* Header: mascot + TTS toggle */}
-      <div className="flex items-center justify-between border-b px-4 py-3">
+      <div className="flex items-center justify-between border-b border-white/40 px-4 py-3">
         <div className="flex items-center gap-2.5">
           <MascotLumi size={38} speaking={speaking} />
           <div>
@@ -126,11 +126,11 @@ export function LumiChatUI({ workspaceId }: { workspaceId: string }) {
             >
               <div
                 className={cn(
-                  "max-w-[80%] rounded-2xl px-3.5 py-2 text-sm",
+                  "max-w-[80%] rounded-2xl px-3.5 py-2 text-sm shadow-sm",
                   m.role === "student"
-                    ? "rounded-br-sm bg-primary text-primary-foreground"
-                    : "rounded-bl-sm bg-muted text-foreground",
-                  m.verdict === "correct" && "ring-2 ring-emerald-400 ring-offset-1",
+                    ? "rounded-br-md bg-gradient-to-br from-violet-500 to-violet-600 text-white shadow-violet-500/20"
+                    : "rounded-bl-md border border-white/50 bg-white/40 text-foreground backdrop-blur-md",
+                  m.verdict === "correct" && "ring-2 ring-emerald-400/70 ring-offset-1",
                 )}
               >
                 {m.text}
@@ -140,7 +140,7 @@ export function LumiChatUI({ workspaceId }: { workspaceId: string }) {
         </AnimatePresence>
         {isThinking && (
           <div className="flex justify-start">
-            <div className="flex gap-1 rounded-2xl rounded-bl-sm bg-muted px-3.5 py-3">
+            <div className="flex gap-1 rounded-2xl rounded-bl-md border border-white/50 bg-white/40 px-3.5 py-3 backdrop-blur-md">
               {[0, 0.15, 0.3].map((d) => (
                 <motion.span
                   key={d}
@@ -155,7 +155,7 @@ export function LumiChatUI({ workspaceId }: { workspaceId: string }) {
       </div>
 
       {/* Composer */}
-      <div className="border-t p-3">
+      <div className="border-t border-white/40 p-3">
         <div className="flex items-end gap-2">
           <textarea
             value={input}
@@ -168,12 +168,12 @@ export function LumiChatUI({ workspaceId }: { workspaceId: string }) {
             }}
             rows={1}
             placeholder="Answer Lumi or ask a question…"
-            className="max-h-32 flex-1 resize-none rounded-xl border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/40"
+            className="max-h-32 flex-1 resize-none rounded-xl border border-white/50 bg-white/35 px-3 py-2 text-sm outline-none backdrop-blur-md transition-shadow placeholder:text-muted-foreground/70 focus:ring-2 focus:ring-primary/40"
           />
           <button
             onClick={handleSend}
             disabled={!input.trim() || isThinking}
-            className="rounded-xl bg-primary p-2.5 text-primary-foreground transition-opacity disabled:opacity-40"
+            className="rounded-xl bg-gradient-to-b from-violet-500 to-violet-600 p-2.5 text-white shadow-lg shadow-violet-500/25 transition-all hover:shadow-violet-500/40 disabled:opacity-40 disabled:shadow-none"
             aria-label="Send message"
           >
             <Send size={18} />

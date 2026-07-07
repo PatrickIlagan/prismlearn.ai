@@ -144,7 +144,7 @@ export function InteractiveQuizModal() {
               <select
                 value={scope}
                 onChange={(e) => setScope(e.target.value)}
-                className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/40"
+                className="w-full rounded-lg border bg-white/50 backdrop-blur-sm px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/40"
               >
                 <option value="all">Entire document</option>
                 {toc.map((c) => (
@@ -347,7 +347,7 @@ function QuestionBody({
           disabled={revealed}
           placeholder="Type your answer…"
           onKeyDown={(e) => e.key === "Enter" && text.trim() && onAnswer(text)}
-          className="flex-1 rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/40"
+          className="flex-1 rounded-lg border bg-white/50 backdrop-blur-sm px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/40"
         />
         {!revealed && (
           <Button onClick={() => text.trim() && onAnswer(text)} disabled={!text.trim()}>
@@ -367,7 +367,7 @@ function QuestionBody({
         disabled={revealed}
         rows={3}
         placeholder="Write your answer, then reveal the model answer…"
-        className="w-full resize-none rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/40"
+        className="w-full resize-none rounded-lg border bg-white/50 backdrop-blur-sm px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/40"
       />
       {!revealed ? (
         <Button variant="outline" className="w-full" onClick={() => onAnswer("self:pending")}>

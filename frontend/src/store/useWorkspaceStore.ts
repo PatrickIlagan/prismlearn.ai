@@ -1,12 +1,17 @@
 import { create } from "zustand";
 import type {
+  BlockGameState,
+  BlockMode,
+  CanvasChapter,
   ChatMessage,
   Flashcard,
+  GamePayload,
   HighlightTone,
   IngestPayload,
   StudyMode,
   TutorResponse,
 } from "@/types/prism";
+import { parseCanvas } from "@/lib/canvas";
 import { playDing } from "@/lib/sounds";
 
 /**
@@ -14,10 +19,10 @@ import { playDing } from "@/lib/sounds";
  *
  * The frontend NEVER renders Lumi's raw output. FastAPI returns a TutorResponse
  * JSON; `applyTutorResponse` reads its `ui_action`, `evaluation`, `state_update`,
- * and `widget_trigger` fields and mutates this store. Components subscribe to the
- * slices they care about (DocumentViewer -> activeHighlight; StepProgressStepper
- * -> step state; LumiChatUI -> messages), so a single AI payload fans out into
- * scrolling, highlighting, a stepper update, a flashcard spawn, and a sound.
+ * and `widget_trigger` fields and mutates this store. Beyond scrolling and
+ * highlighting, Lumi can now reshape the center pane into an Active Learning
+ * Canvas: unlock chapters (fog of war) and turn paragraphs into inline
+ * mini-games (cloze, spot-the-lie).
  */
 
 let messageCounterSeed = 0;
@@ -34,10 +39,20 @@ interface WorkspaceState {
   ingest: IngestPayload | null;
   setIngest: (payload: IngestPayload) => void;
 
+  // --- Active Learning Canvas ---
+  chapters: CanvasChapter[];
+  /** Fog of war: only these chapters are fully visible; the rest are locked. */
+  unlockedAnchors: string[];
+  /** Runtime mini-game state per block id (absent = plain "read" mode). */
+  blockGames: Record<string, BlockGameState>;
+  completedBlocks: string[];
+  unlockChapter: (anchorId: string) => void;
+  unlockNextChapter: () => void;
+  mutateBlockToGame: (anchorId: string, gameType: BlockMode, payload?: GamePayload) => void;
+  completeBlockGame: (blockId: string) => void;
+
   // --- Agentic viewport control ---
-  /** anchor_id the DocumentViewer should scroll to; consumed then cleared */
   scrollTarget: string | null;
-  /** anchor_id currently glowing, plus its tone */
   activeHighlight: string | null;
   highlightTone: HighlightTone;
   requestScrollTo: (anchorId: string, tone?: HighlightTone) => void;
@@ -51,8 +66,6 @@ interface WorkspaceState {
 
   // --- Progress stepper ---
   step: StepState;
-
-  // --- 3-strike tracking (sent to the backend on each tutor turn) ---
   strikeCount: number;
 
   // --- Flashcards (widget spawning) ---
@@ -75,7 +88,66 @@ interface WorkspaceState {
 
 export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   ingest: null,
-  setIngest: (payload) => set({ ingest: payload }),
+  setIngest: (payload) => {
+    const chapters = parseCanvas(payload);
+    set({
+      ingest: payload,
+      chapters,
+      // Fog of war: first chapter starts unlocked, the rest are hidden.
+      unlockedAnchors: chapters.length ? [chapters[0].anchorId] : [],
+      blockGames: {},
+      completedBlocks: [],
+    });
+  },
+
+  chapters: [],
+  unlockedAnchors: [],
+  blockGames: {},
+  completedBlocks: [],
+
+  unlockChapter: (anchorId) =>
+    set((s) =>
+      s.unlockedAnchors.includes(anchorId)
+        ? s
+        : { unlockedAnchors: [...s.unlockedAnchors, anchorId] },
+    ),
+
+  unlockNextChapter: () => {
+    const { chapters, unlockedAnchors } = get();
+    const next = chapters.find((c) => !unlockedAnchors.includes(c.anchorId));
+    if (!next) return;
+    get().unlockChapter(next.anchorId);
+    setTimeout(() => get().requestScrollTo(next.anchorId, "mint"), 250);
+  },
+
+  mutateBlockToGame: (anchorId, gameType, payload) => {
+    const chapter = get().chapters.find((c) => c.anchorId === anchorId);
+    if (!chapter) return;
+    // Pick the first substantial text block that isn't already a game.
+    const block = chapter.blocks.find(
+      (b) => b.kind === "text" && b.plain.length > 40 && !get().blockGames[b.id],
+    );
+    if (!block) return;
+    get().unlockChapter(anchorId); // can't play a game in a locked chapter
+    set((s) => ({
+      blockGames: { ...s.blockGames, [block.id]: { mode: gameType, payload } },
+    }));
+    setTimeout(() => get().requestScrollTo(anchorId, "purple"), 200);
+  },
+
+  completeBlockGame: (blockId) => {
+    set((s) => {
+      const next = { ...s.blockGames };
+      delete next[blockId];
+      return {
+        blockGames: next,
+        completedBlocks: s.completedBlocks.includes(blockId)
+          ? s.completedBlocks
+          : [...s.completedBlocks, blockId],
+      };
+    });
+    playDing();
+  },
 
   scrollTarget: null,
   activeHighlight: null,
@@ -119,31 +191,42 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
           : undefined;
 
     set((s) => ({
-      messages: [
-        ...s.messages,
-        { id: uid("msg"), role: "lumi", text: tutor_message, verdict },
-      ],
+      messages: [...s.messages, { id: uid("msg"), role: "lumi", text: tutor_message, verdict }],
       isTutorThinking: false,
       step: {
         currentStep: state_update.current_step,
         totalSteps: state_update.total_steps,
         stepTitle: state_update.step_title,
       },
-      // Backend owns strike arithmetic; mirror it so the next turn reports it.
       strikeCount: evaluation.strike_count,
     }));
 
-    // 2. Agentic viewport control.
-    if (
-      (ui_action.command === "scroll_and_highlight" || ui_action.command === "highlight") &&
-      ui_action.target_anchor_id
-    ) {
-      const tone: HighlightTone = evaluation.is_correct === true ? "mint" : "purple";
-      if (ui_action.command === "scroll_and_highlight") {
-        get().requestScrollTo(ui_action.target_anchor_id, tone);
-      } else {
-        set({ activeHighlight: ui_action.target_anchor_id, highlightTone: tone });
-      }
+    // 2. Agentic canvas control.
+    const anchor = ui_action.target_anchor_id;
+    switch (ui_action.command) {
+      case "scroll_and_highlight":
+        if (anchor)
+          get().requestScrollTo(anchor, evaluation.is_correct === true ? "mint" : "purple");
+        break;
+      case "highlight":
+        if (anchor)
+          set({
+            activeHighlight: anchor,
+            highlightTone: evaluation.is_correct === true ? "mint" : "purple",
+          });
+        break;
+      case "unlock_chapter":
+        if (anchor) {
+          get().unlockChapter(anchor);
+          get().requestScrollTo(anchor, "mint");
+        }
+        break;
+      case "trigger_cloze":
+        if (anchor) get().mutateBlockToGame(anchor, "cloze", ui_action.game_payload);
+        break;
+      case "trigger_spot_the_lie":
+        if (anchor) get().mutateBlockToGame(anchor, "spot_the_lie", ui_action.game_payload);
+        break;
     }
 
     // 3. Autonomous widget spawning.

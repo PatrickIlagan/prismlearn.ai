@@ -81,27 +81,27 @@ export function WorkspaceShell({
   }
 
   return (
-    <div className="h-screen w-full bg-gradient-to-br from-violet-50 via-white to-slate-50">
+    <div className="h-screen w-full">
       {/* Assessment overlay (opened from the sidebar) */}
       <InteractiveQuizModal />
 
       {/* ---------- Desktop: resizable 3-pane ---------- */}
-      <div className="hidden h-full md:block">
-        <Group orientation="horizontal" className="h-full">
+      <div className="hidden h-full p-3 md:block">
+        <Group orientation="horizontal" className="h-full gap-2">
           <Panel defaultSize="20%" minSize="15%" maxSize="30%">
-            <div className="glass h-full border-r">
+            <div className="glass h-full overflow-hidden rounded-2xl">
               <SidebarAccordion workspaceTitle={workspaceTitle} />
             </div>
           </Panel>
-          <Separator className="w-px cursor-col-resize bg-border transition-colors hover:bg-primary/40" />
+          <Separator className="w-1.5 cursor-col-resize rounded-full bg-transparent transition-colors hover:bg-primary/30" />
           <Panel defaultSize="52%" minSize="35%">
-            <div className="h-full bg-card/40">
+            <div className="glass-pane h-full overflow-hidden rounded-2xl">
               <DocumentViewer />
             </div>
           </Panel>
-          <Separator className="w-px cursor-col-resize bg-border transition-colors hover:bg-primary/40" />
+          <Separator className="w-1.5 cursor-col-resize rounded-full bg-transparent transition-colors hover:bg-primary/30" />
           <Panel defaultSize="28%" minSize="22%" maxSize="40%">
-            <div className="glass h-full border-l">
+            <div className="glass h-full overflow-hidden rounded-2xl">
               <LumiChatUI workspaceId={workspaceId} />
             </div>
           </Panel>
@@ -117,14 +117,14 @@ export function WorkspaceShell({
             <SidebarAccordion workspaceTitle={workspaceTitle} />
           )}
         </div>
-        <nav className="grid grid-cols-4 border-t bg-card">
+        <nav className="glass grid grid-cols-4">
           {MOBILE_TABS.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               onClick={() => setMobileTab(id)}
               className={cn(
-                "flex flex-col items-center gap-0.5 py-2 text-xs transition-colors",
-                mobileTab === id ? "text-primary" : "text-muted-foreground",
+                "flex flex-col items-center gap-0.5 py-2.5 text-xs transition-colors",
+                mobileTab === id ? "font-medium text-primary" : "text-muted-foreground",
               )}
             >
               <Icon size={20} />

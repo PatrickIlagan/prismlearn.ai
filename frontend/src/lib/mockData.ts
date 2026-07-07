@@ -84,7 +84,48 @@ export const MOCK_TUTOR_TURNS: TutorResponse[] = [
     state_update: { current_step: 2, total_steps: 4, step_title: "The Powerhouse" },
     widget_trigger: "flashcard",
     tutor_message:
-      "Exactly right — the **nucleus** stores the DNA and directs the cell! 🎉 I've saved a flashcard for you. Next: what molecule do the mitochondria produce to power the cell?",
+      "Exactly right — the **nucleus** stores the DNA and directs the cell! 🎉 I've saved a flashcard for you. Let's test that: fill in the blanks I've opened on the left.",
+  },
+  {
+    internal_thought_process:
+      "Turn the Nucleus paragraph into a cloze exercise so the student actively recalls the key terms.",
+    evaluation: { is_correct: null, strike_count: 1, move_to_end_of_queue: false },
+    ui_action: {
+      command: "trigger_cloze",
+      target_anchor_id: "concept_nucleus",
+      game_payload: { blanks: ["nucleus", "DNA"] },
+    },
+    state_update: { current_step: 3, total_steps: 4, step_title: "Recall: The Nucleus" },
+    widget_trigger: "none",
+    tutor_message:
+      "Type the missing words directly into the paragraph. Which organelle is it, and what does it store?",
+  },
+  {
+    internal_thought_process:
+      "Now a spot-the-lie on Mitochondria to check they can distinguish energy vs. genetics.",
+    evaluation: { is_correct: true, strike_count: 1, move_to_end_of_queue: false },
+    ui_action: {
+      command: "trigger_spot_the_lie",
+      target_anchor_id: "concept_mitochondria",
+      game_payload: {
+        lie: "Mitochondria are also where the cell permanently stores its DNA.",
+        lie_index: 1,
+      },
+    },
+    state_update: { current_step: 4, total_steps: 4, step_title: "Spot the Lie: Mitochondria" },
+    widget_trigger: "none",
+    tutor_message:
+      "Nice! One of these sentences about the mitochondria is false — click the lie to catch it.",
+  },
+  {
+    internal_thought_process:
+      "Student is doing great — unlock the final chapter as a reward.",
+    evaluation: { is_correct: true, strike_count: 1, move_to_end_of_queue: false },
+    ui_action: { command: "unlock_chapter", target_anchor_id: "concept_division" },
+    state_update: { current_step: 4, total_steps: 4, step_title: "Unlocked: Cell Division" },
+    widget_trigger: "none",
+    tutor_message:
+      "You've earned it — I've unlocked **Cell Division** for you. Ready to keep going?",
   },
 ];
 

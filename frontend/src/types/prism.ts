@@ -18,11 +18,29 @@ export interface IngestPayload {
 
 // ---------- [MODE: TUTOR] ----------
 
-export type UiCommand = "scroll_and_highlight" | "highlight" | "none";
+export type UiCommand =
+  | "scroll_and_highlight"
+  | "highlight"
+  | "none"
+  // Active Learning Canvas commands — Lumi mutates the center pane:
+  | "trigger_cloze"
+  | "trigger_spot_the_lie"
+  | "unlock_chapter";
+
+/** Optional game configuration attached to a ui_action. */
+export interface GamePayload {
+  /** cloze: exact words to blank out (defaults to the block's bold terms). */
+  blanks?: string[];
+  /** spot_the_lie: the false sentence Lumi injects for the user to catch. */
+  lie?: string;
+  /** spot_the_lie: where to insert the lie among the real sentences. */
+  lie_index?: number;
+}
 
 export interface UiAction {
   command: UiCommand;
   target_anchor_id: string | null;
+  game_payload?: GamePayload;
 }
 
 export interface TutorEvaluation {
@@ -73,6 +91,34 @@ export interface QuizConfig {
   scope: string;
   question_count: number;
   study_focus: StudyMode;
+}
+
+// ---------- Active Learning Canvas ----------
+
+export type BlockKind = "text" | "quote" | "mermaid";
+export type BlockMode = "read" | "cloze" | "spot_the_lie";
+
+export interface CanvasBlock {
+  id: string;
+  chapterAnchor: string;
+  kind: BlockKind;
+  /** Raw markdown (for read/mermaid rendering). */
+  markdown: string;
+  /** Plain text with markdown stripped (for the mini-games). */
+  plain: string;
+}
+
+export interface CanvasChapter {
+  anchorId: string;
+  title: string;
+  level: number;
+  blocks: CanvasBlock[];
+}
+
+/** Runtime game state for a single block, keyed by block id in the store. */
+export interface BlockGameState {
+  mode: BlockMode;
+  payload?: GamePayload;
 }
 
 // ---------- Frontend-side models ----------

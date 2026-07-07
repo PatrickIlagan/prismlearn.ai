@@ -12,16 +12,16 @@ export function StepProgressStepper() {
   const pct = Math.round((currentStep / totalSteps) * 100);
 
   return (
-    <div className="border-b bg-card/60 px-4 py-3">
+    <div className="border-b border-white/40 px-4 py-3">
       <div className="mb-1.5 flex items-center justify-between text-xs">
-        <span className="font-medium text-foreground">
+        <span className="font-semibold text-foreground">
           Step {currentStep} of {totalSteps}
         </span>
         <span className="max-w-[60%] truncate text-muted-foreground">{stepTitle}</span>
       </div>
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-violet-500/10">
         <motion.div
-          className="h-full rounded-full bg-primary"
+          className="h-full rounded-full bg-gradient-to-r from-violet-500 via-fuchsia-500 to-cyan-400"
           initial={{ width: 0 }}
           animate={{ width: `${pct}%` }}
           transition={{ type: "spring", stiffness: 120, damping: 20 }}

@@ -1,20 +1,26 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import rehypeRaw from "rehype-raw";
+import { useEffect, useRef } from "react";
+import { motion } from "framer-motion";
+import { Lock } from "lucide-react";
 import { useWorkspaceStore } from "@/store/useWorkspaceStore";
 import { MermaidDiagram } from "./MermaidDiagram";
+import { InteractiveBlock } from "./InteractiveBlock";
+import type { CanvasChapter } from "@/types/prism";
 import { cn } from "@/lib/utils";
 
 /**
- * Center pane. Renders the INGEST markdown (raw <span id> anchors preserved via
- * rehype-raw) and reacts to the agentic pipeline: when the store's scrollTarget
- * changes, it scrolls that anchor into view and applies a glowing highlight.
+ * The Active Learning Canvas (center pane).
+ *
+ * Renders the reviewer as unlockable chapters (fog of war) instead of a wall of
+ * markdown. Each visible chapter maps its blocks to InteractiveBlocks that Lumi
+ * can mutate into mini-games. Locked chapters are blurred behind a padlock until
+ * the store unlocks them.
  */
 export function DocumentViewer() {
-  const ingest = useWorkspaceStore((s) => s.ingest);
+  const chapters = useWorkspaceStore((s) => s.chapters);
+  const unlockedAnchors = useWorkspaceStore((s) => s.unlockedAnchors);
+  const blockGames = useWorkspaceStore((s) => s.blockGames);
   const scrollTarget = useWorkspaceStore((s) => s.scrollTarget);
   const activeHighlight = useWorkspaceStore((s) => s.activeHighlight);
   const highlightTone = useWorkspaceStore((s) => s.highlightTone);
@@ -25,27 +31,25 @@ export function DocumentViewer() {
   useEffect(() => {
     if (!scrollTarget || !rootRef.current) return;
     const el = rootRef.current.querySelector<HTMLElement>(`#${CSS.escape(scrollTarget)}`);
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
     clearScrollTarget();
   }, [scrollTarget, clearScrollTarget]);
 
-  // Apply/remove the glow class on the active anchor as the store changes.
+  // Apply/remove the glow highlight on the active chapter heading.
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
-    const glowClasses = ["prism-glow-purple", "prism-glow-mint"];
+    const glow = ["prism-glow-purple", "prism-glow-mint"];
     root.querySelectorAll(".prism-glow-purple, .prism-glow-mint").forEach((n) =>
-      n.classList.remove(...glowClasses),
+      n.classList.remove(...glow),
     );
     if (activeHighlight) {
       const el = root.querySelector(`#${CSS.escape(activeHighlight)}`);
       el?.classList.add(highlightTone === "mint" ? "prism-glow-mint" : "prism-glow-purple");
     }
-  }, [activeHighlight, highlightTone, ingest]);
+  }, [activeHighlight, highlightTone, chapters]);
 
-  const content = useMemo(() => ingest?.markdown_content ?? "", [ingest]);
-
-  if (!ingest) {
+  if (chapters.length === 0) {
     return (
       <div className="flex h-full items-center justify-center text-muted-foreground">
         Loading your study guide…
@@ -54,32 +58,88 @@ export function DocumentViewer() {
   }
 
   return (
-    <div ref={rootRef} className="h-full overflow-y-auto px-8 py-6">
-      <article
-        className={cn(
-          "prose prose-slate max-w-3xl",
-          "prose-headings:scroll-mt-24 prose-headings:font-semibold",
-          "prose-h1:text-2xl prose-h2:text-xl",
-        )}
-      >
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
-          rehypePlugins={[rehypeRaw]}
-          components={{
-            code({ className, children, ...props }) {
-              const match = /language-mermaid/.exec(className ?? "");
-              if (match) return <MermaidDiagram code={String(children)} />;
-              return (
-                <code className={className} {...props}>
-                  {children}
-                </code>
-              );
-            },
-          }}
-        >
-          {content}
-        </ReactMarkdown>
-      </article>
+    <div ref={rootRef} className="h-full overflow-y-auto px-6 py-6 md:px-8">
+      <div className="mx-auto max-w-3xl space-y-6">
+        {chapters.map((chapter) => (
+          <ChapterSection
+            key={chapter.anchorId}
+            chapter={chapter}
+            locked={!unlockedAnchors.includes(chapter.anchorId)}
+            blockGames={blockGames}
+          />
+        ))}
+      </div>
     </div>
   );
+}
+
+function ChapterSection({
+  chapter,
+  locked,
+  blockGames,
+}: {
+  chapter: CanvasChapter;
+  locked: boolean;
+  blockGames: Record<string, { mode: "read" | "cloze" | "spot_the_lie"; payload?: unknown }>;
+}) {
+  const Heading = chapter.level <= 1 ? "h1" : "h2";
+
+  return (
+    <section className="relative">
+      {/* anchor target for scroll + glow */}
+      <span id={chapter.anchorId} className="block scroll-mt-6" />
+
+      <div className={cn("transition-all duration-500", locked && "pointer-events-none select-none")}>
+        <Heading
+          className={cn(
+            "font-semibold tracking-tight",
+            chapter.level <= 1 ? "text-2xl" : "text-xl",
+            locked && "blur-[6px]",
+          )}
+        >
+          {chapter.title}
+        </Heading>
+
+        <div className={cn("mt-3 space-y-3", locked && "blur-md")}>
+          {chapter.blocks.map((block) => {
+            if (block.kind === "mermaid") {
+              return <MermaidDiagram key={block.id} code={extractMermaid(block.markdown)} />;
+            }
+            const game = blockGames[block.id];
+            return (
+              <InteractiveBlock
+                key={block.id}
+                block={block}
+                mode={game?.mode ?? "read"}
+                payload={game?.payload as never}
+              />
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Fog-of-war padlock overlay */}
+      {locked && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="absolute inset-0 flex flex-col items-center justify-center gap-2"
+        >
+          <div className="glass flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-foreground/80 shadow-lg">
+            <Lock size={15} className="text-primary" /> Locked
+          </div>
+          <p className="max-w-[16rem] text-center text-xs text-muted-foreground">
+            Keep learning with Lumi to unlock this chapter.
+          </p>
+        </motion.div>
+      )}
+    </section>
+  );
+}
+
+function extractMermaid(markdown: string): string {
+  return markdown
+    .replace(/^```mermaid\s*/i, "")
+    .replace(/```$/, "")
+    .trim();
 }

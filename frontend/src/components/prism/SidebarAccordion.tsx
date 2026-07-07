@@ -38,7 +38,7 @@ export function SidebarAccordion({ workspaceTitle }: { workspaceTitle: string })
 
   return (
     <div className="flex h-full flex-col">
-      <div className="border-b p-3">
+      <div className="border-b border-white/40 p-3">
         <Link href="/dashboard">
           <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-muted-foreground">
             <ArrowLeft size={16} /> Back to Dashboard
@@ -133,7 +133,7 @@ export function SidebarAccordion({ workspaceTitle }: { workspaceTitle: string })
         </Accordion>
       </div>
 
-      <div className="border-t p-3">
+      <div className="border-t border-white/40 p-3">
         <Button
           className="w-full gap-2"
           disabled={!hasCards}

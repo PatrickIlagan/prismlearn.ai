@@ -38,11 +38,14 @@ export function AuthCard({ mode }: { mode: "sign-in" | "sign-up" }) {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-violet-100 via-white to-slate-50 px-4">
-      <div className="glass w-full max-w-sm rounded-2xl border p-7 shadow-xl">
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden px-4">
+      <div className="prism-orb -left-20 top-0 h-72 w-72 bg-violet-400/40" />
+      <div className="prism-orb -right-16 bottom-0 h-72 w-72 bg-cyan-300/35" />
+
+      <div className="glass relative z-10 w-full max-w-sm rounded-3xl p-7">
         <div className="mb-6 flex flex-col items-center text-center">
-          <MascotLumi size={44} />
-          <h1 className="mt-3 text-xl font-bold">
+          <MascotLumi size={46} />
+          <h1 className="mt-3 text-xl font-bold tracking-tight">
             {isSignUp ? "Create your account" : "Welcome back"}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -52,7 +55,7 @@ export function AuthCard({ mode }: { mode: "sign-in" | "sign-up" }) {
 
         <button
           onClick={demoGoogle}
-          className="mb-4 flex w-full items-center justify-center gap-2 rounded-lg border bg-background py-2.5 text-sm font-medium transition-colors hover:bg-muted"
+          className="mb-4 flex w-full items-center justify-center gap-2 rounded-lg border border-white/60 bg-white/50 py-2.5 text-sm font-medium backdrop-blur-sm transition-colors hover:bg-white/80"
         >
           <GoogleGlyph /> Continue with Google
         </button>
@@ -115,7 +118,7 @@ export function AuthCard({ mode }: { mode: "sign-in" | "sign-up" }) {
 
 function Field({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-2 rounded-lg border bg-background px-3 focus-within:ring-2 focus-within:ring-primary/40">
+    <div className="flex items-center gap-2 rounded-lg border border-white/60 bg-white/45 px-3 backdrop-blur-sm focus-within:ring-2 focus-within:ring-primary/40">
       <span className="text-muted-foreground">{icon}</span>
       {children}
     </div>

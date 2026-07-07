@@ -17,6 +17,10 @@ class UiCommand(str, Enum):
     scroll_and_highlight = "scroll_and_highlight"
     highlight = "highlight"
     none = "none"
+    # Active Learning Canvas — Lumi mutates the center pane into mini-games.
+    trigger_cloze = "trigger_cloze"
+    trigger_spot_the_lie = "trigger_spot_the_lie"
+    unlock_chapter = "unlock_chapter"
 
 
 class WidgetTrigger(str, Enum):
@@ -44,9 +48,16 @@ class TutorEvaluation(BaseModel):
     move_to_end_of_queue: bool = False
 
 
+class GamePayload(BaseModel):
+    blanks: Optional[list[str]] = None  # cloze: words to blank out
+    lie: Optional[str] = None  # spot_the_lie: the false sentence to inject
+    lie_index: Optional[int] = None  # spot_the_lie: where to insert it
+
+
 class UiAction(BaseModel):
     command: UiCommand = UiCommand.none
     target_anchor_id: Optional[str] = None
+    game_payload: Optional[GamePayload] = None
 
 
 class TutorStateUpdate(BaseModel):
