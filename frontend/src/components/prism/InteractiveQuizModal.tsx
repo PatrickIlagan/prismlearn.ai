@@ -1,0 +1,388 @@
+"use client";
+
+import { useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { Check, X, Sparkles, RotateCcw, Download } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { useWorkspaceStore } from "@/store/useWorkspaceStore";
+import { generateQuiz } from "@/lib/api";
+import { exportQuizPdf } from "@/lib/exportPdf";
+import { playDing } from "@/lib/sounds";
+import type { Quiz, QuizQuestion } from "@/types/prism";
+import { cn } from "@/lib/utils";
+
+type Phase = "config" | "loading" | "active" | "done";
+
+/** Stable reference so the selector never returns a fresh [] (avoids
+ *  useSyncExternalStore's "Maximum update depth exceeded" loop). */
+const EMPTY_TOC: never[] = [];
+
+const norm = (s: string) => s.trim().toLowerCase().replace(/[^a-z0-9 ]/g, "");
+
+/** Grade an objective question client-side; short-answer is self-assessed. */
+function isCorrect(q: QuizQuestion, given: string): boolean {
+  if (q.type === "short_answer") return given === "self:correct";
+  return norm(given) === norm(q.answer);
+}
+
+export function InteractiveQuizModal() {
+  const open = useWorkspaceStore((s) => s.quizOpen);
+  const setOpen = useWorkspaceStore((s) => s.setQuizOpen);
+  const toc = useWorkspaceStore((s) => s.ingest?.table_of_contents ?? EMPTY_TOC);
+  const ingest = useWorkspaceStore((s) => s.ingest);
+  const studyMode = useWorkspaceStore((s) => s.studyMode);
+  const requestScrollTo = useWorkspaceStore((s) => s.requestScrollTo);
+
+  const [phase, setPhase] = useState<Phase>("config");
+  const [scope, setScope] = useState("all");
+  const [count, setCount] = useState(5);
+  const [quiz, setQuiz] = useState<Quiz | null>(null);
+  const [index, setIndex] = useState(0);
+  const [given, setGiven] = useState("");
+  const [revealed, setRevealed] = useState(false);
+  const [score, setScore] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+
+  function reset() {
+    setPhase("config");
+    setQuiz(null);
+    setIndex(0);
+    setGiven("");
+    setRevealed(false);
+    setScore(0);
+    setError(null);
+  }
+
+  function close() {
+    setOpen(false);
+    // Delay reset so it doesn't flicker during the close animation.
+    setTimeout(reset, 200);
+  }
+
+  async function handleGenerate() {
+    if (!ingest) return;
+    setPhase("loading");
+    setError(null);
+    try {
+      const q = await generateQuiz(
+        "current",
+        { scope, question_count: count, study_focus: studyMode },
+        ingest,
+      );
+      setQuiz(q);
+      setPhase("active");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not generate the quiz.");
+      setPhase("config");
+    }
+  }
+
+  const current = quiz?.questions[index];
+
+  function check(answer: string) {
+    if (!current) return;
+
+    // Short answer is two-stage: reveal the model answer first, then self-assess.
+    if (current.type === "short_answer") {
+      if (answer === "self:pending") {
+        if (revealed) return;
+        setGiven("self:pending");
+        setRevealed(true); // reveal without scoring
+        return;
+      }
+      // self:correct / self:wrong — the scoring stage (after reveal)
+      setGiven(answer);
+      if (answer === "self:correct") {
+        setScore((s) => s + 1);
+        playDing();
+      }
+      return;
+    }
+
+    // Objective questions: grade immediately on selection.
+    if (revealed) return;
+    setGiven(answer);
+    setRevealed(true);
+    if (isCorrect(current, answer)) {
+      setScore((s) => s + 1);
+      playDing();
+    }
+  }
+
+  function next() {
+    if (!quiz) return;
+    if (index + 1 >= quiz.questions.length) {
+      setPhase("done");
+    } else {
+      setIndex((i) => i + 1);
+      setGiven("");
+      setRevealed(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => (o ? setOpen(true) : close())}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Sparkles size={18} className="text-primary" />
+            {phase === "done" ? "Quiz Results" : quiz?.title ?? "Generate a Quiz"}
+          </DialogTitle>
+        </DialogHeader>
+
+        {/* ---------- CONFIG ---------- */}
+        {phase === "config" && (
+          <div className="space-y-4">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Scope</label>
+              <select
+                value={scope}
+                onChange={(e) => setScope(e.target.value)}
+                className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/40"
+              >
+                <option value="all">Entire document</option>
+                {toc.map((c) => (
+                  <option key={c.anchor_id} value={c.anchor_id}>
+                    {c.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">
+                Questions: {count}
+              </label>
+              <input
+                type="range"
+                min={3}
+                max={10}
+                value={count}
+                onChange={(e) => setCount(Number(e.target.value))}
+                className="w-full accent-primary"
+              />
+            </div>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            <Button className="w-full" onClick={handleGenerate} disabled={!ingest}>
+              Generate Quiz
+            </Button>
+          </div>
+        )}
+
+        {/* ---------- LOADING ---------- */}
+        {phase === "loading" && (
+          <div className="flex flex-col items-center gap-3 py-10">
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+              className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent"
+            />
+            <p className="text-sm text-muted-foreground">Building your questions…</p>
+          </div>
+        )}
+
+        {/* ---------- ACTIVE ---------- */}
+        {phase === "active" && current && quiz && (
+          <div>
+            <div className="mb-3 flex items-center justify-between text-xs text-muted-foreground">
+              <span>
+                Question {index + 1} of {quiz.questions.length}
+              </span>
+              <span className="uppercase tracking-wide">{current.type.replace("_", " ")}</span>
+            </div>
+            <div className="mb-1 h-1 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full bg-primary transition-all"
+                style={{ width: `${((index + 1) / quiz.questions.length) * 100}%` }}
+              />
+            </div>
+
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={current.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ type: "spring", stiffness: 220, damping: 24 }}
+                className="py-3"
+              >
+                <p className="mb-4 font-medium">{current.prompt}</p>
+                <QuestionBody
+                  question={current}
+                  given={given}
+                  revealed={revealed}
+                  onAnswer={check}
+                />
+              </motion.div>
+            </AnimatePresence>
+
+            {revealed && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                className={cn(
+                  "mt-3 rounded-lg border p-3 text-sm",
+                  isCorrect(current, given)
+                    ? "border-emerald-300 bg-emerald-50 text-emerald-900"
+                    : "border-amber-300 bg-amber-50 text-amber-900",
+                )}
+              >
+                <p className="font-medium">
+                  {isCorrect(current, given) ? "Correct!" : `Answer: ${current.answer}`}
+                </p>
+                {current.explanation && <p className="mt-1 opacity-80">{current.explanation}</p>}
+                {current.anchor_id && (
+                  <button
+                    onClick={() => {
+                      requestScrollTo(current.anchor_id!, "purple");
+                      close();
+                    }}
+                    className="mt-2 text-xs font-medium text-primary underline-offset-2 hover:underline"
+                  >
+                    Review this concept →
+                  </button>
+                )}
+              </motion.div>
+            )}
+
+            <div className="mt-4 flex justify-end">
+              {revealed && (
+                <Button onClick={next}>
+                  {index + 1 >= quiz.questions.length ? "See Results" : "Next"}
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ---------- DONE ---------- */}
+        {phase === "done" && quiz && (
+          <div className="flex flex-col items-center gap-3 py-6 text-center">
+            <div className="text-4xl font-bold text-primary">
+              {score}/{quiz.questions.length}
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {score === quiz.questions.length
+                ? "Perfect score — you've mastered this!"
+                : score >= quiz.questions.length / 2
+                  ? "Nice work! Review the misses and try again."
+                  : "Keep going — revisit the highlighted concepts and retry."}
+            </p>
+            <div className="mt-2 flex flex-wrap justify-center gap-2">
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() => exportQuizPdf(quiz.title, quiz)}
+              >
+                <Download size={15} /> Export PDF
+              </Button>
+              <Button variant="outline" className="gap-2" onClick={reset}>
+                <RotateCcw size={15} /> New Quiz
+              </Button>
+              <Button onClick={close}>Done</Button>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function QuestionBody({
+  question,
+  given,
+  revealed,
+  onAnswer,
+}: {
+  question: QuizQuestion;
+  given: string;
+  revealed: boolean;
+  onAnswer: (answer: string) => void;
+}) {
+  const [text, setText] = useState("");
+
+  // --- MCQ / True-False: option buttons ---
+  if (question.type === "mcq" || question.type === "true_false") {
+    const options = question.type === "true_false" ? ["True", "False"] : question.options;
+    return (
+      <div className="space-y-2">
+        {options.map((opt) => {
+          const chosen = given === opt;
+          const correct = norm(opt) === norm(question.answer);
+          return (
+            <motion.button
+              key={opt}
+              onClick={() => onAnswer(opt)}
+              disabled={revealed}
+              animate={revealed && chosen && !correct ? { x: [0, -6, 6, -4, 4, 0] } : {}}
+              className={cn(
+                "flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-sm transition-colors",
+                !revealed && "hover:border-primary/50 hover:bg-muted",
+                revealed && correct && "border-emerald-400 bg-emerald-50",
+                revealed && chosen && !correct && "border-red-400 bg-red-50",
+              )}
+            >
+              {opt}
+              {revealed && correct && <Check size={16} className="text-emerald-600" />}
+              {revealed && chosen && !correct && <X size={16} className="text-red-500" />}
+            </motion.button>
+          );
+        })}
+      </div>
+    );
+  }
+
+  // --- Fill in the blank: text input ---
+  if (question.type === "fill_blank") {
+    return (
+      <div className="flex gap-2">
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          disabled={revealed}
+          placeholder="Type your answer…"
+          onKeyDown={(e) => e.key === "Enter" && text.trim() && onAnswer(text)}
+          className="flex-1 rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/40"
+        />
+        {!revealed && (
+          <Button onClick={() => text.trim() && onAnswer(text)} disabled={!text.trim()}>
+            Check
+          </Button>
+        )}
+      </div>
+    );
+  }
+
+  // --- Short answer: reveal model answer, then self-assess ---
+  return (
+    <div className="space-y-3">
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        disabled={revealed}
+        rows={3}
+        placeholder="Write your answer, then reveal the model answer…"
+        className="w-full resize-none rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/40"
+      />
+      {!revealed ? (
+        <Button variant="outline" className="w-full" onClick={() => onAnswer("self:pending")}>
+          Reveal model answer
+        </Button>
+      ) : given === "self:pending" ? (
+        <div className="flex gap-2">
+          <Button variant="outline" className="flex-1 gap-1.5" onClick={() => onAnswer("self:wrong")}>
+            <X size={14} /> I missed it
+          </Button>
+          <Button className="flex-1 gap-1.5" onClick={() => onAnswer("self:correct")}>
+            <Check size={14} /> I got it
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  );
+}

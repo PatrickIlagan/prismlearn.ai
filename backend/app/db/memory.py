@@ -1,0 +1,85 @@
+"""
+In-memory repository for local dev and tests.
+
+Not durable (process-scoped) but fully implements the interface, including per-user
+isolation so behavior matches the RLS-enforced Supabase repo.
+"""
+
+from __future__ import annotations
+
+import uuid
+from datetime import datetime, timezone
+
+from app.db.base import WorkspaceRepository
+from app.schemas.ingest import IngestPayload, SourceType
+from app.schemas.workspace import (
+    FlashcardCreate,
+    FlashcardRecord,
+    WorkspaceRecord,
+    WorkspaceSummary,
+    to_summary,
+)
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+class InMemoryRepository(WorkspaceRepository):
+    def __init__(self) -> None:
+        self._workspaces: dict[str, WorkspaceRecord] = {}
+        self._flashcards: dict[str, list[FlashcardRecord]] = {}
+
+    async def create_workspace(
+        self,
+        *,
+        user_id: str,
+        title: str,
+        source_type: SourceType,
+        reviewer: IngestPayload,
+    ) -> WorkspaceRecord:
+        record = WorkspaceRecord(
+            id=uuid.uuid4().hex,
+            user_id=user_id,
+            title=title,
+            source_type=source_type,
+            reviewer=reviewer,
+            created_at=_now(),
+        )
+        self._workspaces[record.id] = record
+        return record
+
+    async def get_workspace(self, *, user_id: str, workspace_id: str) -> WorkspaceRecord | None:
+        record = self._workspaces.get(workspace_id)
+        if record is None or record.user_id != user_id:
+            return None
+        return record
+
+    async def list_workspaces(self, *, user_id: str) -> list[WorkspaceSummary]:
+        rows = [w for w in self._workspaces.values() if w.user_id == user_id]
+        rows.sort(key=lambda w: w.created_at, reverse=True)
+        return [to_summary(w) for w in rows]
+
+    async def add_flashcard(
+        self, *, user_id: str, workspace_id: str, card: FlashcardCreate
+    ) -> FlashcardRecord:
+        # Ownership check keeps parity with RLS.
+        owner = await self.get_workspace(user_id=user_id, workspace_id=workspace_id)
+        if owner is None:
+            raise KeyError("workspace not found for user")
+        record = FlashcardRecord(
+            id=uuid.uuid4().hex,
+            workspace_id=workspace_id,
+            created_at=_now(),
+            **card.model_dump(),
+        )
+        self._flashcards.setdefault(workspace_id, []).append(record)
+        return record
+
+    async def list_flashcards(
+        self, *, user_id: str, workspace_id: str
+    ) -> list[FlashcardRecord]:
+        owner = await self.get_workspace(user_id=user_id, workspace_id=workspace_id)
+        if owner is None:
+            return []
+        return list(self._flashcards.get(workspace_id, []))

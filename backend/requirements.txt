@@ -1,0 +1,22 @@
+# --- Core API framework ---
+fastapi~=0.115.0
+uvicorn[standard]~=0.30.0
+pydantic~=2.9
+pydantic-settings~=2.5
+python-multipart~=0.0.12        # multipart/form-data file uploads
+python-dotenv~=1.0
+
+# --- AI inference (Fireworks AI via the OpenAI-compatible SDK) ---
+openai~=1.50
+
+# --- Document & media extraction ---
+python-pptx~=1.0                # .pptx slide text extraction
+pdfplumber~=0.11                # .pdf text extraction
+youtube-transcript-api~=1.0     # YouTube transcripts without video download
+
+# --- Database & storage ---
+supabase~=2.8                   # Supabase PostgreSQL + S3 bucket client
+
+# --- Auth (Clerk JWT verification) ---
+PyJWT[crypto]~=2.9              # verify Clerk session tokens via JWKS
+httpx~=0.27                     # async HTTP (JWKS fetch, webhooks)
