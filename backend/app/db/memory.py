@@ -11,6 +11,12 @@ import uuid
 from datetime import datetime, timezone
 
 from app.db.base import WorkspaceRepository
+from app.schemas.gamification import (
+    ConceptMasteryRecord,
+    ConceptMasteryUpsert,
+    PlayerProfile,
+    ProfileUpsert,
+)
 from app.schemas.ingest import IngestPayload, SourceType
 from app.schemas.workspace import (
     FlashcardCreate,
@@ -27,6 +33,9 @@ def _now() -> datetime:
 
 class InMemoryRepository(WorkspaceRepository):
     def __init__(self) -> None:
+        self._profiles: dict[str, PlayerProfile] = {}
+        # (user_id, workspace_id, anchor_id) -> record
+        self._mastery: dict[tuple[str, str, str], ConceptMasteryRecord] = {}
         self._workspaces: dict[str, WorkspaceRecord] = {}
         self._flashcards: dict[str, list[FlashcardRecord]] = {}
 
@@ -83,3 +92,56 @@ class InMemoryRepository(WorkspaceRepository):
         if owner is None:
             return []
         return list(self._flashcards.get(workspace_id, []))
+
+    # ---------- Gamification ----------
+
+    async def get_profile(self, *, user_id: str) -> PlayerProfile:
+        existing = self._profiles.get(user_id)
+        if existing:
+            return existing
+        fresh = PlayerProfile(user_id=user_id, updated_at=_now())
+        self._profiles[user_id] = fresh
+        return fresh
+
+    async def upsert_profile(self, *, user_id: str, patch: ProfileUpsert) -> PlayerProfile:
+        current = await self.get_profile(user_id=user_id)
+        data = current.model_dump()
+        data.update(patch.model_dump(exclude_none=True))
+        data["updated_at"] = _now()
+        updated = PlayerProfile.model_validate(data)
+        self._profiles[user_id] = updated
+        return updated
+
+    async def list_mastery(
+        self, *, user_id: str, workspace_id: str
+    ) -> list[ConceptMasteryRecord]:
+        owner = await self.get_workspace(user_id=user_id, workspace_id=workspace_id)
+        if owner is None:
+            return []
+        return [
+            rec
+            for (uid, wid, _anchor), rec in self._mastery.items()
+            if uid == user_id and wid == workspace_id
+        ]
+
+    async def upsert_mastery(
+        self,
+        *,
+        user_id: str,
+        workspace_id: str,
+        anchor_id: str,
+        patch: ConceptMasteryUpsert,
+    ) -> ConceptMasteryRecord:
+        owner = await self.get_workspace(user_id=user_id, workspace_id=workspace_id)
+        if owner is None:
+            raise KeyError("workspace not found for user")
+        key = (user_id, workspace_id, anchor_id)
+        current = self._mastery.get(key) or ConceptMasteryRecord(
+            workspace_id=workspace_id, anchor_id=anchor_id, updated_at=_now()
+        )
+        data = current.model_dump()
+        data.update(patch.model_dump(exclude_none=True))
+        data["updated_at"] = _now()
+        record = ConceptMasteryRecord.model_validate(data)
+        self._mastery[key] = record
+        return record

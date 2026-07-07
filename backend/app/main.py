@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.routers import ingest, quiz, tutor, workspaces
+from app.routers import gamification, ingest, quiz, tutor, workspaces
 
 app = FastAPI(
     title="PrismLearning.AI API",
@@ -22,6 +22,7 @@ app.include_router(ingest.router)
 app.include_router(workspaces.router)
 app.include_router(tutor.router)
 app.include_router(quiz.router)
+app.include_router(gamification.router)
 
 
 @app.get("/health", tags=["system"])

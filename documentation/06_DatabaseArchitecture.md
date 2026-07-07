@@ -347,11 +347,15 @@ create table if not exists public.concept_mastery (
 |-------|--------|-------|
 | `workspaces` | ✅ Implemented | `db/schema.sql`, `db/memory.py`, `db/supabase_repo.py` |
 | `flashcards` | ✅ Implemented | same |
+| `concept_mastery` | ✅ Implemented | same + `routers/gamification.py` (schema uses `strength`/`strikes`/`mastered`, PK `(workspace_id, anchor_id)`) |
+| `player_profiles` | ✅ Implemented | XP + streak + daily quests; `GET/PATCH /profile` (not in the original ERD — added alongside `concept_mastery`) |
 | `accounts` | ⬜ Planned | needs Clerk webhook + `db/schema.sql` addition |
 | `quizzes` | ⬜ Planned | quizzes currently generated on-demand, not persisted |
 | `quiz_attempts` | ⬜ Planned | client-side scoring today |
-| `concept_mastery` | ⬜ Planned | 3-strike state currently held in the Zustand store only |
 
-> **Note:** the deployed `backend/app/db/schema.sql` currently defines `workspaces` and
-> `flashcards` with RLS on `auth.jwt()->>'sub'`. `workspaces.user_id` will gain its FK to
-> `accounts` once the accounts table and Clerk sync are added.
+> **Note:** the deployed `backend/app/db/schema.sql` now defines `workspaces`, `flashcards`,
+> `player_profiles`, and `concept_mastery`, all with RLS on `auth.jwt()->>'sub'`. The backend
+> endpoints run against the in-memory repository until Supabase keys are configured; the
+> frontend still uses its localStorage `prism_profile` / `prism_mastery_boost` and will POST to
+> these endpoints once live. `workspaces.user_id` will gain its FK to `accounts` once the
+> accounts table and Clerk sync are added.

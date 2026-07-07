@@ -17,6 +17,12 @@ from supabase import Client, create_client
 
 from app.core.config import settings
 from app.db.base import WorkspaceRepository
+from app.schemas.gamification import (
+    ConceptMasteryRecord,
+    ConceptMasteryUpsert,
+    PlayerProfile,
+    ProfileUpsert,
+)
 from app.schemas.ingest import IngestPayload, SourceType
 from app.schemas.workspace import (
     FlashcardCreate,
@@ -28,6 +34,8 @@ from app.schemas.workspace import (
 
 _WORKSPACES = "workspaces"
 _FLASHCARDS = "flashcards"
+_PROFILES = "player_profiles"
+_MASTERY = "concept_mastery"
 
 
 def _now_iso() -> str:
@@ -142,3 +150,76 @@ class SupabaseRepository(WorkspaceRepository):
 
         rows = await anyio.to_thread.run_sync(_select)
         return [FlashcardRecord.model_validate(r) for r in rows]
+
+    # ---------- Gamification ----------
+
+    async def get_profile(self, *, user_id: str) -> PlayerProfile:
+        def _select() -> list[dict]:
+            resp = (
+                self._client.table(_PROFILES).select("*").eq("user_id", user_id).limit(1).execute()
+            )
+            return resp.data
+
+        rows = await anyio.to_thread.run_sync(_select)
+        if rows:
+            return PlayerProfile.model_validate(rows[0])
+        # Create a default profile on first access.
+        return await self.upsert_profile(user_id=user_id, patch=ProfileUpsert())
+
+    async def upsert_profile(self, *, user_id: str, patch: ProfileUpsert) -> PlayerProfile:
+        row = {"user_id": user_id, **patch.model_dump(exclude_none=True), "updated_at": _now_iso()}
+
+        def _upsert() -> dict:
+            resp = self._client.table(_PROFILES).upsert(row, on_conflict="user_id").execute()
+            return resp.data[0]
+
+        saved = await anyio.to_thread.run_sync(_upsert)
+        return PlayerProfile.model_validate(saved)
+
+    async def list_mastery(
+        self, *, user_id: str, workspace_id: str
+    ) -> list[ConceptMasteryRecord]:
+        owner = await self.get_workspace(user_id=user_id, workspace_id=workspace_id)
+        if owner is None:
+            return []
+
+        def _select() -> list[dict]:
+            resp = (
+                self._client.table(_MASTERY)
+                .select("*")
+                .eq("workspace_id", workspace_id)
+                .execute()
+            )
+            return resp.data
+
+        rows = await anyio.to_thread.run_sync(_select)
+        return [ConceptMasteryRecord.model_validate(r) for r in rows]
+
+    async def upsert_mastery(
+        self,
+        *,
+        user_id: str,
+        workspace_id: str,
+        anchor_id: str,
+        patch: ConceptMasteryUpsert,
+    ) -> ConceptMasteryRecord:
+        owner = await self.get_workspace(user_id=user_id, workspace_id=workspace_id)
+        if owner is None:
+            raise KeyError("workspace not found for user")
+        row = {
+            "workspace_id": workspace_id,
+            "anchor_id": anchor_id,
+            **patch.model_dump(exclude_none=True),
+            "updated_at": _now_iso(),
+        }
+
+        def _upsert() -> dict:
+            resp = (
+                self._client.table(_MASTERY)
+                .upsert(row, on_conflict="workspace_id,anchor_id")
+                .execute()
+            )
+            return resp.data[0]
+
+        saved = await anyio.to_thread.run_sync(_upsert)
+        return ConceptMasteryRecord.model_validate(saved)
