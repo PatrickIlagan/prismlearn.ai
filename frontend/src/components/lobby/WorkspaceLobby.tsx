@@ -169,8 +169,8 @@ export function WorkspaceLobby({ workspaceId }: { workspaceId: string }) {
           <LaunchButton
             icon={FileQuestion}
             title="Practice Exam"
-            subtitle="Test yourself end-to-end"
-            onClick={() => router.push(`/workspace/${workspaceId}?quiz=1`)}
+            subtitle="Timed gauntlet · earn XP"
+            onClick={() => router.push(`/workspace/${workspaceId}/exam`)}
           />
         </div>
       </div>

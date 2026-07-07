@@ -58,6 +58,8 @@ interface WorkspaceState {
   levelUpTick: number;
   /** Transient label for the burst overlay ("Level 2 · The Nucleus"). */
   levelUpLabel: string;
+  /** Add XP without touching chapter progress (e.g. Practice Exam payout). */
+  awardXp: (amount: number) => void;
 
   // --- Agentic viewport control ---
   scrollTarget: string | null;
@@ -120,6 +122,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   completedChapters: [],
   levelUpTick: 0,
   levelUpLabel: "",
+  awardXp: (amount) => set((s) => ({ xp: s.xp + Math.max(0, amount) })),
 
   unlockChapter: (anchorId) =>
     set((s) =>
