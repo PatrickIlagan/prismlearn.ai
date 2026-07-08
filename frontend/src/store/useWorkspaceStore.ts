@@ -116,6 +116,10 @@ interface WorkspaceState {
   completedBlocks: string[];
   unlockChapter: (anchorId: string) => void;
   unlockNextChapter: () => void;
+  /** Review mode is a recap that walks the WHOLE document — no fog-of-war gating,
+   *  otherwise Lumi referencing an upcoming chapter scrolls the student into a
+   *  blurred, padlocked wall ("locked out" of their own review session). */
+  unlockAllChapters: () => void;
   mutateBlockToGame: (anchorId: string, gameType: BlockMode, payload?: GamePayload) => void;
   completeBlockGame: (blockId: string) => void;
 
@@ -227,6 +231,9 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     get().unlockChapter(next.anchorId);
     setTimeout(() => get().requestScrollTo(next.anchorId, "mint"), 250);
   },
+
+  unlockAllChapters: () =>
+    set((s) => ({ unlockedAnchors: s.chapters.map((c) => c.anchorId) })),
 
   mutateBlockToGame: (anchorId, gameType, payload) => {
     const chapter = get().chapters.find((c) => c.anchorId === anchorId);

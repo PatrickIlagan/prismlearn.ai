@@ -20,7 +20,9 @@ import type { DocumentSummary, IngestPayload, WorkspaceSummary } from "@/types/p
 import { ProgressRing } from "@/components/dashboard/ProgressRing";
 import { ChapterRadar } from "./ChapterRadar";
 import { DiagnosticAssessment } from "./DiagnosticAssessment";
+import { WorkspaceDocuments } from "./WorkspaceDocuments";
 import { cn } from "@/lib/utils";
+import type { SessionMode } from "@/types/prism";
 
 const diagKey = (docId: string) => `prism_diag_done_${docId}`;
 
@@ -71,9 +73,7 @@ export function WorkspaceLobby({ workspaceId }: { workspaceId: string }) {
   }, [workspaceId, setIngest]);
 
   // Switch which document the lobby (and its launches) targets.
-  async function selectDocument(docId: string) {
-    const doc = documents.find((d) => d.id === docId);
-    if (!doc || doc.id === activeDoc?.id) return;
+  async function switchToDocument(doc: DocumentSummary) {
     setActiveDoc(doc);
     setShowDiagnostic(doc.mode === "learn" && !diagnosticDone(doc.id));
     try {
@@ -84,6 +84,29 @@ export function WorkspaceLobby({ workspaceId }: { workspaceId: string }) {
     } catch {
       /* keep the previous reviewer on failure */
     }
+  }
+
+  function selectDocument(docId: string) {
+    const doc = documents.find((d) => d.id === docId);
+    if (doc && doc.id !== activeDoc?.id) switchToDocument(doc);
+  }
+
+  // Optimistic Learn/Review flip from the documents panel (persisted by the
+  // panel itself; this just keeps the lobby's view of the doc list in sync).
+  function handleModeChange(docId: string, mode: SessionMode) {
+    setDocuments((docs) => docs.map((d) => (d.id === docId ? { ...d, mode } : d)));
+    if (activeDoc?.id === docId) {
+      setActiveDoc((d) => (d ? { ...d, mode } : d));
+      setShowDiagnostic(mode === "learn" && !diagnosticDone(docId));
+    }
+  }
+
+  // A document was just added — refresh the list and switch to it directly
+  // (the new doc isn't in `documents` yet, so selectDocument's lookup would miss).
+  function handleDocumentsChanged(docs: DocumentSummary[], newDocId: string) {
+    setDocuments(docs);
+    const newDoc = docs.find((d) => d.id === newDocId);
+    if (newDoc) switchToDocument(newDoc);
   }
 
   // Append ?doc= so the tutor/exam/review open the selected document.
@@ -137,23 +160,6 @@ export function WorkspaceLobby({ workspaceId }: { workspaceId: string }) {
         <div className="glass flex flex-col items-start justify-between gap-5 rounded-3xl p-6 sm:flex-row sm:items-center">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
-            {documents.length > 1 ? (
-              <div className="mt-2 flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">Document:</span>
-                <select
-                  value={activeDoc?.id ?? ""}
-                  onChange={(e) => selectDocument(e.target.value)}
-                  className="glass max-w-[240px] truncate rounded-lg px-2 py-1 text-xs font-medium outline-none"
-                  title="Choose which document to study — the others are skipped"
-                >
-                  {documents.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.title} · {d.mode}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : null}
             <p className="mt-1 text-sm text-muted-foreground">
               {toc.length} chapters · pick up where you left off.
             </p>
@@ -177,6 +183,18 @@ export function WorkspaceLobby({ workspaceId }: { workspaceId: string }) {
             <ProgressRing value={mastery} size={104} stroke={9} />
             <span className="text-xs text-muted-foreground">overall mastery</span>
           </div>
+        </div>
+
+        {/* Documents in this workspace — visible list, not a dropdown */}
+        <div className="mt-6">
+          <WorkspaceDocuments
+            workspaceId={workspaceId}
+            documents={documents}
+            activeDocumentId={activeDoc?.id ?? null}
+            onSelect={selectDocument}
+            onModeChange={handleModeChange}
+            onDocumentsChanged={handleDocumentsChanged}
+          />
         </div>
 
         {/* Optional pre-lesson diagnostic (learn-mode, first visit only) */}

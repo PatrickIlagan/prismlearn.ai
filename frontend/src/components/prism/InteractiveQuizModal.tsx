@@ -343,6 +343,7 @@ function QuestionBody({
               onClick={() => onAnswer(opt)}
               disabled={revealed}
               animate={revealed && chosen && !correct ? { x: [0, -6, 6, -4, 4, 0] } : {}}
+              transition={{ x: { type: "tween", duration: 0.4, ease: "easeInOut" } }}
               className={cn(
                 "flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-sm transition-colors",
                 !revealed && "hover:border-primary/50 hover:bg-muted",

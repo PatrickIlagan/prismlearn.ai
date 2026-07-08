@@ -37,6 +37,7 @@ export function WorkspaceShell({
   const resumeSession = useWorkspaceStore((s) => s.resumeSession);
   const setWorkspaceDocuments = useWorkspaceStore((s) => s.setWorkspaceDocuments);
   const setActiveDocument = useWorkspaceStore((s) => s.setActiveDocument);
+  const unlockAllChapters = useWorkspaceStore((s) => s.unlockAllChapters);
   const [mobileTab, setMobileTab] = useState<MobileTab>("reviewer");
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
@@ -64,6 +65,11 @@ export function WorkspaceShell({
         if (active) setActiveDocument(active.id, active.mode);
         // Rehydrate this document's saved transcript/progress after any reset.
         resumeSession(sessionKey);
+        // Review is a recap that walks the WHOLE document — skip fog-of-war
+        // gating (even overriding a stale partially-locked save) so Lumi can
+        // reference any chapter without "locking out" the student behind a
+        // padlock they never earned past.
+        if (active?.mode === "review") unlockAllChapters();
         setStatus("ready");
       } catch {
         if (alive) setStatus("error");
@@ -72,7 +78,15 @@ export function WorkspaceShell({
     return () => {
       alive = false;
     };
-  }, [workspaceId, initialDocumentId, setIngest, resumeSession, setWorkspaceDocuments, setActiveDocument]);
+  }, [
+    workspaceId,
+    initialDocumentId,
+    setIngest,
+    resumeSession,
+    setWorkspaceDocuments,
+    setActiveDocument,
+    unlockAllChapters,
+  ]);
 
   if (status === "loading") {
     return (

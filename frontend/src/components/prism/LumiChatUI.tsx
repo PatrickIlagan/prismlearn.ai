@@ -129,7 +129,14 @@ export function LumiChatUI({ workspaceId }: { workspaceId: string }) {
                   ? { opacity: 1, y: 0, x: [0, -6, 6, -4, 4, 0] }
                   : { opacity: 1, y: 0 }
               }
-              transition={{ type: "spring", stiffness: 200, damping: 22 }}
+              // The shake (x) is a multi-keyframe array — a spring only supports two
+              // keyframes and THROWS, so give x its own tween while y/opacity spring.
+              transition={{
+                type: "spring",
+                stiffness: 200,
+                damping: 22,
+                x: { type: "tween", duration: 0.4, ease: "easeInOut" },
+              }}
               className={cn("flex", m.role === "student" ? "justify-end" : "justify-start")}
             >
               <div

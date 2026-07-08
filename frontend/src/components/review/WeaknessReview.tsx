@@ -268,6 +268,7 @@ function ReviewAnswers({
               onClick={() => onAnswer(opt)}
               disabled={answered}
               animate={answered && chosen && !correct ? { x: [0, -6, 6, -4, 4, 0] } : {}}
+              transition={{ x: { type: "tween", duration: 0.4, ease: "easeInOut" } }}
               className={cn(
                 "glass flex items-center justify-between rounded-xl px-4 py-3.5 text-left text-sm font-medium transition-all",
                 !answered && "hover:-translate-y-0.5 hover:shadow-lg hover:shadow-violet-500/15",
