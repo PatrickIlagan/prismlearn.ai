@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   Home,
@@ -13,8 +13,8 @@ import {
   PanelLeft,
   LogOut,
 } from "lucide-react";
+import { useClerk, useUser } from "@clerk/nextjs";
 import { MascotLumi } from "@/components/prism/MascotLumi";
-import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -36,8 +36,10 @@ export function AppSidebar({
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
-  const router = useRouter();
-  const { user, signOut } = useAuth();
+  const { user } = useUser();
+  const { signOut } = useClerk();
+  const displayName = user?.fullName || user?.firstName || undefined;
+  const email = user?.primaryEmailAddress?.emailAddress;
 
   const isActive = (href: string, exact?: boolean) =>
     exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
@@ -119,19 +121,16 @@ export function AppSidebar({
       <div className="border-t border-white/40 p-3">
         <div className={cn("flex items-center gap-2.5", collapsed && "justify-center")}>
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-sm font-semibold text-white">
-            {(user?.name || user?.email || "?").charAt(0).toUpperCase()}
+            {(displayName || email || "?").charAt(0).toUpperCase()}
           </div>
           {!collapsed && (
             <>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-xs font-medium">{user?.name}</p>
-                <p className="truncate text-[11px] text-muted-foreground">{user?.email}</p>
+                <p className="truncate text-xs font-medium">{displayName}</p>
+                <p className="truncate text-[11px] text-muted-foreground">{email}</p>
               </div>
               <button
-                onClick={() => {
-                  signOut();
-                  router.replace("/sign-in");
-                }}
+                onClick={() => signOut({ redirectUrl: "/sign-in" })}
                 className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-white/60 hover:text-foreground"
                 aria-label="Sign out"
               >

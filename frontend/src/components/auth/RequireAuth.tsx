@@ -2,22 +2,24 @@
 
 import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { useUser } from "@clerk/nextjs";
 import { Loader2 } from "lucide-react";
-import { useAuth } from "@/lib/auth";
 
 /**
- * Client-side route guard. Redirects to /sign-in when there's no session.
- * (When real Clerk lands, this is replaced by middleware + <SignedIn>/<SignedOut>.)
+ * Client-side loading gate. `middleware.ts` (clerkMiddleware) is the real
+ * guard — it redirects signed-out visitors to /sign-in before any page code
+ * runs. This just covers the brief moment Clerk is still hydrating client-side
+ * so protected pages don't flash their empty/loading state.
  */
 export function RequireAuth({ children }: { children: ReactNode }) {
-  const { user, isLoaded } = useAuth();
+  const { isLoaded, isSignedIn } = useUser();
   const router = useRouter();
 
   useEffect(() => {
-    if (isLoaded && !user) router.replace("/sign-in");
-  }, [isLoaded, user, router]);
+    if (isLoaded && !isSignedIn) router.replace("/sign-in");
+  }, [isLoaded, isSignedIn, router]);
 
-  if (!isLoaded || !user) {
+  if (!isLoaded || !isSignedIn) {
     return (
       <div className="flex h-screen items-center justify-center text-muted-foreground">
         <Loader2 className="animate-spin" size={22} />

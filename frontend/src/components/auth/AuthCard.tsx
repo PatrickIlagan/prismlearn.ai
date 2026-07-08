@@ -1,44 +1,54 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Mail, Lock, User as UserIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { SignIn, SignUp } from "@clerk/nextjs";
 import { MascotLumi } from "@/components/prism/MascotLumi";
-import { useAuth } from "@/lib/auth";
 
 /**
- * Shared glassmorphic auth card for /sign-in and /sign-up.
+ * Glassmorphic wrapper around Clerk's prebuilt <SignIn>/<SignUp>.
  *
- * DEMO ONLY — no credentials are verified. Submitting creates a mock session and
- * routes to the dashboard. The password field is decorative (mirrors the real
- * Clerk UI shape) and is intentionally ignored.
+ * Using Clerk's own components (rather than hand-rolled forms against
+ * useSignIn/useSignUp) means email verification, OAuth, and any other
+ * requirement enabled in the Clerk dashboard just work without us having to
+ * reimplement each flow. The `appearance` prop reads the app's own CSS custom
+ * properties (hsl(var(--prism-violet)) etc.) so it stays in sync with the
+ * Prism theme automatically, and makes Clerk's card transparent so it sits
+ * inside our own `.glass` panel instead of showing its own white card.
  */
+const clerkAppearance = {
+  variables: {
+    colorPrimary: "hsl(var(--prism-violet))",
+    colorText: "hsl(var(--foreground))",
+    colorTextSecondary: "hsl(var(--muted-foreground))",
+    colorBackground: "transparent",
+    colorInputBackground: "hsl(0 0% 100% / 0.45)",
+    colorInputText: "hsl(var(--foreground))",
+    borderRadius: "0.75rem",
+    fontFamily: "var(--font-sans)",
+  },
+  elements: {
+    rootBox: "w-full",
+    card: "!bg-transparent !shadow-none !border-0 !p-0 w-full",
+    header: "hidden", // we render our own MascotLumi + heading above
+    footer: "!bg-transparent",
+    footerActionText: "text-muted-foreground",
+    socialButtonsBlockButton:
+      "!border !border-white/60 !bg-white/50 backdrop-blur-sm hover:!bg-white/80",
+    dividerLine: "!bg-border",
+    dividerText: "text-muted-foreground",
+    formFieldInput:
+      "!border !border-white/60 !bg-white/45 backdrop-blur-sm focus:!ring-2 focus:!ring-primary/40",
+    formButtonPrimary:
+      "!bg-gradient-to-b !from-violet-500 !to-violet-600 hover:!shadow-lg hover:!shadow-violet-500/30 !transition-all",
+    footerActionLink: "!text-primary hover:!underline",
+    identityPreviewEditButton: "!text-primary",
+  },
+} as const;
+
 export function AuthCard({ mode }: { mode: "sign-in" | "sign-up" }) {
-  const { signIn, signUp } = useAuth();
-  const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
-  const [password, setPassword] = useState("");
   const isSignUp = mode === "sign-up";
 
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!email.trim()) return;
-    if (isSignUp) signUp(email, name);
-    else signIn(email);
-    router.push("/dashboard");
-  }
-
-  function demoGoogle() {
-    // Mock "Continue with Google" — just starts a demo session.
-    signIn("demo.student@gmail.com");
-    router.push("/dashboard");
-  }
-
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden px-4">
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10">
       <div className="prism-orb -left-20 top-0 h-72 w-72 bg-violet-400/40" />
       <div className="prism-orb -right-16 bottom-0 h-72 w-72 bg-cyan-300/35" />
 
@@ -53,85 +63,24 @@ export function AuthCard({ mode }: { mode: "sign-in" | "sign-up" }) {
           </p>
         </div>
 
-        <button
-          onClick={demoGoogle}
-          className="mb-4 flex w-full items-center justify-center gap-2 rounded-lg border border-white/60 bg-white/50 py-2.5 text-sm font-medium backdrop-blur-sm transition-colors hover:bg-white/80"
-        >
-          <GoogleGlyph /> Continue with Google
-        </button>
-
-        <div className="mb-4 flex items-center gap-3 text-xs text-muted-foreground">
-          <span className="h-px flex-1 bg-border" /> or <span className="h-px flex-1 bg-border" />
-        </div>
-
-        <form onSubmit={submit} className="space-y-3">
-          {isSignUp && (
-            <Field icon={<UserIcon size={15} />}>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Full name"
-                className="w-full bg-transparent py-2 text-sm outline-none"
-              />
-            </Field>
-          )}
-          <Field icon={<Mail size={15} />}>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@school.edu"
-              className="w-full bg-transparent py-2 text-sm outline-none"
-            />
-          </Field>
-          <Field icon={<Lock size={15} />}>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Password"
-              className="w-full bg-transparent py-2 text-sm outline-none"
-            />
-          </Field>
-          <Button type="submit" className="w-full">
-            {isSignUp ? "Create account" : "Sign in"}
-          </Button>
-        </form>
-
-        <p className="mt-5 text-center text-xs text-muted-foreground">
-          {isSignUp ? "Already have an account? " : "New to PrismLearning? "}
-          <Link
-            href={isSignUp ? "/sign-in" : "/sign-up"}
-            className="font-medium text-primary hover:underline"
-          >
-            {isSignUp ? "Sign in" : "Create one"}
-          </Link>
-        </p>
-        <p className="mt-3 text-center text-[11px] text-muted-foreground/70">
-          Demo mode — no real authentication yet.
-        </p>
+        {isSignUp ? (
+          <SignUp
+            path="/sign-up"
+            routing="path"
+            signInUrl="/sign-in"
+            forceRedirectUrl="/dashboard"
+            appearance={clerkAppearance}
+          />
+        ) : (
+          <SignIn
+            path="/sign-in"
+            routing="path"
+            signUpUrl="/sign-up"
+            forceRedirectUrl="/dashboard"
+            appearance={clerkAppearance}
+          />
+        )}
       </div>
     </main>
-  );
-}
-
-function Field({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-2 rounded-lg border border-white/60 bg-white/45 px-3 backdrop-blur-sm focus-within:ring-2 focus-within:ring-primary/40">
-      <span className="text-muted-foreground">{icon}</span>
-      {children}
-    </div>
-  );
-}
-
-function GoogleGlyph() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 48 48" aria-hidden>
-      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.9 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 6.1 29.6 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.3-.4-3.5z" />
-      <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 6.1 29.6 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
-      <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.5-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.3 0-9.7-3.1-11.3-7.5l-6.5 5C9.5 39.6 16.2 44 24 44z" />
-      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4 5.6l6.2 5.2C41.6 35.9 44 30.4 44 24c0-1.3-.1-2.3-.4-3.5z" />
-    </svg>
   );
 }

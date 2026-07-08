@@ -1,16 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useUser } from "@clerk/nextjs";
 import { listWorkspaces } from "@/lib/api";
 import type { WorkspaceSummary } from "@/types/prism";
-import { useAuth } from "@/lib/auth";
 import { StatsBento } from "./StatsBento";
 import { PremiumDropzone } from "./PremiumDropzone";
 import { WorkspaceGrid } from "./WorkspaceGrid";
 import { DailyQuests } from "./DailyQuests";
 
 export function DashboardHome() {
-  const { user } = useAuth();
+  const { user } = useUser();
   const [workspaces, setWorkspaces] = useState<WorkspaceSummary[] | null>(null);
 
   useEffect(() => {
@@ -23,7 +23,7 @@ export function DashboardHome() {
     };
   }, []);
 
-  const firstName = user?.name?.split(" ")[0] || "there";
+  const firstName = user?.firstName || user?.fullName?.split(" ")[0] || "there";
 
   return (
     <div className="mx-auto max-w-6xl px-1 pb-10 sm:px-2">

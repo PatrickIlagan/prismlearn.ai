@@ -1,7 +1,7 @@
 "use client";
 
+import { useUser } from "@clerk/nextjs";
 import { useWorkspaceStore } from "@/store/useWorkspaceStore";
-import { useAuth } from "@/lib/auth";
 import type { StudyMode } from "@/types/prism";
 import { cn } from "@/lib/utils";
 
@@ -12,7 +12,9 @@ const MODES: { value: StudyMode; label: string; desc: string }[] = [
 ];
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user } = useUser();
+  const displayName = user?.fullName || user?.firstName;
+  const email = user?.primaryEmailAddress?.emailAddress;
   const studyMode = useWorkspaceStore((s) => s.studyMode);
   const setStudyMode = useWorkspaceStore((s) => s.setStudyMode);
   const ttsEnabled = useWorkspaceStore((s) => s.ttsEnabled);
@@ -29,11 +31,11 @@ export default function SettingsPage() {
         <h2 className="text-sm font-semibold">Account</h2>
         <div className="mt-3 flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-lg font-semibold text-white">
-            {(user?.name || user?.email || "?").charAt(0).toUpperCase()}
+            {(displayName || email || "?").charAt(0).toUpperCase()}
           </div>
           <div>
-            <p className="text-sm font-medium">{user?.name}</p>
-            <p className="text-xs text-muted-foreground">{user?.email}</p>
+            <p className="text-sm font-medium">{displayName}</p>
+            <p className="text-xs text-muted-foreground">{email}</p>
           </div>
         </div>
       </div>
