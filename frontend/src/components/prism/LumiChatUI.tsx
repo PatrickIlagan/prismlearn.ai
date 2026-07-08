@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Send, Volume2, VolumeX } from "lucide-react";
+import { Send, Volume2, VolumeX, Mic, MicOff } from "lucide-react";
 import { useWorkspaceStore } from "@/store/useWorkspaceStore";
 import { sendTutorMessage } from "@/lib/api";
 import { speak, stopSpeaking } from "@/lib/sounds";
+import { useVoiceInput } from "@/lib/useVoiceInput";
 import { MascotLumi } from "./MascotLumi";
 import { StepProgressStepper } from "./StepProgressStepper";
 import { XpBadge } from "./XpBadge";
@@ -24,6 +25,11 @@ export function LumiChatUI({ workspaceId }: { workspaceId: string }) {
   const [speaking, setSpeaking] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastSpokenRef = useRef<string | null>(null);
+  // The transcript as of the most recent onresult — read directly by the
+  // voice auto-send path instead of the `input` state closure, since a
+  // same-tick onend right after the final onresult could otherwise fire
+  // before React has flushed that last setInput (a stale-closure race).
+  const transcriptRef = useRef("");
 
   // Auto-scroll chat to newest message.
   useEffect(() => {
@@ -38,8 +44,7 @@ export function LumiChatUI({ workspaceId }: { workspaceId: string }) {
     speak(last.text, { onStart: () => setSpeaking(true), onEnd: () => setSpeaking(false) });
   }, [messages, ttsEnabled]);
 
-  async function handleSend() {
-    const text = input.trim();
+  async function sendMessage(text: string) {
     if (!text || isThinking) return;
 
     // Snapshot the context BEFORE mutating the store: the reviewer, progress,
@@ -61,6 +66,7 @@ export function LumiChatUI({ workspaceId }: { workspaceId: string }) {
       .map((m) => ({ role: m.role, text: m.text }));
 
     setInput("");
+    transcriptRef.current = "";
     pushStudentMessage(text);
     setTutorThinking(true);
     try {
@@ -79,6 +85,23 @@ export function LumiChatUI({ workspaceId }: { workspaceId: string }) {
       setTutorThinking(false);
     }
   }
+
+  function handleSend() {
+    sendMessage(input.trim());
+  }
+
+  // Feature 2 — Voice-to-Voice: transcribe speech into the input live, and
+  // auto-send once the student stops talking (or they click the mic again).
+  const voice = useVoiceInput({
+    onTranscript: (text) => {
+      transcriptRef.current = text;
+      setInput(text);
+    },
+    onStop: () => {
+      const text = transcriptRef.current.trim();
+      if (text) sendMessage(text);
+    },
+  });
 
   return (
     <div className="flex h-full flex-col">
@@ -182,9 +205,46 @@ export function LumiChatUI({ workspaceId }: { workspaceId: string }) {
               }
             }}
             rows={1}
-            placeholder="Answer Lumi or ask a question…"
+            placeholder={voice.listening ? "Listening…" : "Answer Lumi or ask a question…"}
             className="max-h-32 flex-1 resize-none rounded-xl border border-white/50 bg-white/35 px-3 py-2 text-sm outline-none backdrop-blur-md transition-shadow placeholder:text-muted-foreground/70 focus:ring-2 focus:ring-primary/40"
           />
+          {voice.supported && (
+            <button
+              onClick={voice.toggle}
+              disabled={isThinking}
+              title={voice.listening ? "Stop listening" : "Speak your answer"}
+              aria-label={voice.listening ? "Stop listening" : "Speak your answer"}
+              aria-pressed={voice.listening}
+              className={cn(
+                "relative flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-xl transition-all disabled:opacity-40",
+                voice.listening
+                  ? "bg-violet-600 text-white shadow-lg shadow-violet-600/40"
+                  : "border border-white/50 bg-white/35 text-muted-foreground backdrop-blur-md hover:bg-white/60 hover:text-foreground",
+              )}
+            >
+              {voice.listening && (
+                <>
+                  <motion.span
+                    className="absolute inset-0 rounded-xl bg-violet-600/60"
+                    animate={{ scale: [1, 1.9], opacity: [0.55, 0] }}
+                    transition={{ duration: 1.4, repeat: Infinity, ease: "easeOut" }}
+                  />
+                  <motion.span
+                    className="absolute inset-0 rounded-xl bg-violet-600/60"
+                    animate={{ scale: [1, 1.9], opacity: [0.55, 0] }}
+                    transition={{ duration: 1.4, repeat: Infinity, ease: "easeOut", delay: 0.5 }}
+                  />
+                </>
+              )}
+              <motion.span
+                className="relative z-10 flex items-center justify-center"
+                animate={voice.listening ? { scale: [1, 1.12, 1] } : { scale: 1 }}
+                transition={{ duration: 1, repeat: voice.listening ? Infinity : 0, ease: "easeInOut" }}
+              >
+                {voice.listening ? <Mic size={17} /> : <MicOff size={17} />}
+              </motion.span>
+            </button>
+          )}
           <button
             onClick={handleSend}
             disabled={!input.trim() || isThinking}
@@ -194,6 +254,11 @@ export function LumiChatUI({ workspaceId }: { workspaceId: string }) {
             <Send size={18} />
           </button>
         </div>
+        {voice.permissionDenied && (
+          <p className="mt-1.5 text-center text-[11px] text-destructive">
+            Microphone access was denied — allow it in your browser to use voice input.
+          </p>
+        )}
       </div>
     </div>
   );
