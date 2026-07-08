@@ -13,29 +13,53 @@ import {
   Target,
   BookOpen,
 } from "lucide-react";
-import { fetchReviewer, listWorkspaces } from "@/lib/api";
+import { fetchReviewer, listDocuments, listWorkspaces } from "@/lib/api";
 import { useWorkspaceStore } from "@/store/useWorkspaceStore";
 import { chapterMastery, needsReview, overallMastery } from "@/lib/mastery";
-import type { IngestPayload, WorkspaceSummary } from "@/types/prism";
+import type { DocumentSummary, IngestPayload, WorkspaceSummary } from "@/types/prism";
 import { ProgressRing } from "@/components/dashboard/ProgressRing";
 import { ChapterRadar } from "./ChapterRadar";
+import { DiagnosticAssessment } from "./DiagnosticAssessment";
 import { cn } from "@/lib/utils";
+
+const diagKey = (docId: string) => `prism_diag_done_${docId}`;
+
+function diagnosticDone(docId: string): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    return localStorage.getItem(diagKey(docId)) === "1";
+  } catch {
+    return true;
+  }
+}
 
 export function WorkspaceLobby({ workspaceId }: { workspaceId: string }) {
   const router = useRouter();
   const setIngest = useWorkspaceStore((s) => s.setIngest);
   const [reviewer, setReviewer] = useState<IngestPayload | null>(null);
   const [summary, setSummary] = useState<WorkspaceSummary | null>(null);
+  const [activeDoc, setActiveDoc] = useState<DocumentSummary | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [showDiagnostic, setShowDiagnostic] = useState(false);
+  // Bumped after a diagnostic so mastery (read from localStorage boosts) recomputes.
+  const [masteryKey, setMasteryKey] = useState(0);
 
   useEffect(() => {
     let alive = true;
-    Promise.all([fetchReviewer(workspaceId), listWorkspaces().catch(() => [])])
-      .then(([rev, list]) => {
+    Promise.all([
+      fetchReviewer(workspaceId),
+      listWorkspaces().catch(() => []),
+      listDocuments(workspaceId).catch(() => [] as DocumentSummary[]),
+    ])
+      .then(([rev, list, docs]) => {
         if (!alive) return;
         setReviewer(rev);
         setIngest(rev); // seed the store so entering the tutor is instant
         setSummary(list.find((w) => w.id === workspaceId) ?? null);
+        const primary = docs[0] ?? null;
+        setActiveDoc(primary);
+        // Offer the diagnostic once, for first-time (learn-mode) documents.
+        setShowDiagnostic(!!primary && primary.mode === "learn" && !diagnosticDone(primary.id));
         setStatus("ready");
       })
       .catch(() => alive && setStatus("error"));
@@ -44,10 +68,23 @@ export function WorkspaceLobby({ workspaceId }: { workspaceId: string }) {
     };
   }, [workspaceId, setIngest]);
 
+  function completeDiagnostic() {
+    if (activeDoc && typeof window !== "undefined") {
+      try {
+        localStorage.setItem(diagKey(activeDoc.id), "1");
+      } catch {
+        /* non-fatal */
+      }
+    }
+    setShowDiagnostic(false);
+    setMasteryKey((k) => k + 1); // recompute mastery from the new boosts
+  }
+
   const toc = useMemo(() => reviewer?.table_of_contents ?? [], [reviewer]);
-  const mastery = useMemo(() => overallMastery(toc), [toc]);
-  const chapters = useMemo(() => chapterMastery(toc), [toc]);
-  const weak = useMemo(() => needsReview(toc), [toc]);
+  // masteryKey forces these to recompute after a diagnostic writes new boosts.
+  const mastery = useMemo(() => overallMastery(toc), [toc, masteryKey]);
+  const chapters = useMemo(() => chapterMastery(toc), [toc, masteryKey]);
+  const weak = useMemo(() => needsReview(toc), [toc, masteryKey]);
   const title = summary?.title ?? "Workspace";
 
   if (status === "loading") {
@@ -103,6 +140,18 @@ export function WorkspaceLobby({ workspaceId }: { workspaceId: string }) {
             <span className="text-xs text-muted-foreground">overall mastery</span>
           </div>
         </div>
+
+        {/* Optional pre-lesson diagnostic (learn-mode, first visit only) */}
+        {showDiagnostic && reviewer && (
+          <div className="mt-6">
+            <DiagnosticAssessment
+              workspaceId={workspaceId}
+              reviewer={reviewer}
+              documentId={activeDoc?.id}
+              onComplete={completeDiagnostic}
+            />
+          </div>
+        )}
 
         {/* 2-column: weaknesses + radar */}
         <div className="mt-6 grid gap-6 md:grid-cols-2">

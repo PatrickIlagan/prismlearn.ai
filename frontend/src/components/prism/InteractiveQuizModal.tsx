@@ -47,6 +47,7 @@ export function InteractiveQuizModal() {
   const [given, setGiven] = useState("");
   const [revealed, setRevealed] = useState(false);
   const [score, setScore] = useState(0);
+  const [skipped, setSkipped] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   function reset() {
@@ -56,6 +57,7 @@ export function InteractiveQuizModal() {
     setGiven("");
     setRevealed(false);
     setScore(0);
+    setSkipped(0);
     setError(null);
   }
 
@@ -124,6 +126,12 @@ export function InteractiveQuizModal() {
       setGiven("");
       setRevealed(false);
     }
+  }
+
+  /** Skip the current question without answering (no score, counts as seen). */
+  function skip() {
+    setSkipped((n) => n + 1);
+    next();
   }
 
   return (
@@ -250,7 +258,17 @@ export function InteractiveQuizModal() {
               </motion.div>
             )}
 
-            <div className="mt-4 flex justify-end">
+            <div className="mt-4 flex items-center justify-between">
+              {!revealed ? (
+                <button
+                  onClick={skip}
+                  className="text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                >
+                  I know this — skip →
+                </button>
+              ) : (
+                <span />
+              )}
               {revealed && (
                 <Button onClick={next}>
                   {index + 1 >= quiz.questions.length ? "See Results" : "Next"}
@@ -273,6 +291,11 @@ export function InteractiveQuizModal() {
                   ? "Nice work! Review the misses and try again."
                   : "Keep going — revisit the highlighted concepts and retry."}
             </p>
+            {skipped > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {skipped} question{skipped > 1 ? "s" : ""} skipped
+              </p>
+            )}
             <div className="mt-2 flex flex-wrap justify-center gap-2">
               <Button
                 variant="outline"
