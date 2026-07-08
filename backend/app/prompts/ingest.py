@@ -14,7 +14,7 @@ Your job: convert raw, messy source text (from slides, a PDF, or a video transcr
 into a clean, well-structured Master Reviewer study guide.
 
 You MUST return a single JSON object with exactly two keys:
-  - "table_of_contents": an array of { "title": string, "anchor_id": string }
+  - "table_of_contents": an array of {{ "title": string, "anchor_id": string }}
   - "markdown_content": a string of GitHub-flavored Markdown
 
 STRICT RULES:

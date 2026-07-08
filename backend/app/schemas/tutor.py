@@ -88,5 +88,8 @@ class TutorRequest(BaseModel):
     total_steps: int = 0
     strike_count: int = 0
     study_focus: Literal["technical", "conceptual", "comprehensive"] = "comprehensive"
+    # "learn" = first-time teaching (full scaffolding); "review" = rapid recall of
+    # already-seen material, targeting weak spots. Changes Lumi's teaching stance.
+    session_mode: Literal["learn", "review"] = "learn"
     # Trimmed history — PRD Doc 1 §3 prioritizes source material over long histories.
     recent_history: List[ChatTurn] = Field(default_factory=list)

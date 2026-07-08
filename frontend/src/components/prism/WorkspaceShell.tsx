@@ -32,6 +32,7 @@ export function WorkspaceShell({
   workspaceTitle: string;
 }) {
   const setIngest = useWorkspaceStore((s) => s.setIngest);
+  const resumeSession = useWorkspaceStore((s) => s.resumeSession);
   const [mobileTab, setMobileTab] = useState<MobileTab>("reviewer");
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
@@ -39,6 +40,7 @@ export function WorkspaceShell({
     // If ingestion already populated the store (dashboard upload → navigate),
     // keep it. Otherwise load it (session cache, or server once persisted).
     if (useWorkspaceStore.getState().ingest) {
+      resumeSession(workspaceId); // restore chat + progress if this is a revisit
       setStatus("ready");
       return;
     }
@@ -48,13 +50,15 @@ export function WorkspaceShell({
       .then((reviewer) => {
         if (!alive) return;
         setIngest(reviewer);
+        // Rehydrate the saved transcript/progress AFTER the fresh reset above.
+        resumeSession(workspaceId);
         setStatus("ready");
       })
       .catch(() => alive && setStatus("error"));
     return () => {
       alive = false;
     };
-  }, [workspaceId, setIngest]);
+  }, [workspaceId, setIngest, resumeSession]);
 
   if (status === "loading") {
     return (

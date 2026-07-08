@@ -100,6 +100,7 @@ async def run_tutor(
         total_steps=req.total_steps,
         strike_count=req.strike_count,
         recent_history=req.recent_history,
+        session_mode=req.session_mode,
     )
 
     try:

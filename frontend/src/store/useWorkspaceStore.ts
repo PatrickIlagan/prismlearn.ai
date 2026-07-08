@@ -35,10 +35,68 @@ interface StepState {
   stepTitle: string;
 }
 
+/**
+ * Per-workspace session persistence.
+ *
+ * The chat transcript and lesson progress live in this store, which is wiped on
+ * every full page load. Without persistence, refreshing the tab (or the Practice
+ * Exam's window.location.reload()) makes the whole conversation vanish. We snapshot
+ * the learning slice to sessionStorage (same scope as the cached reviewer) and
+ * rehydrate it on mount so a reload resumes exactly where the student left off.
+ */
+const SESSION_PREFIX = "prism_session_";
+
+type PersistedSession = Pick<
+  WorkspaceState,
+  | "messages"
+  | "step"
+  | "strikeCount"
+  | "unlockedAnchors"
+  | "blockGames"
+  | "completedBlocks"
+  | "xp"
+  | "completedChapters"
+>;
+
+function loadPersistedSession(id: string): PersistedSession | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(SESSION_PREFIX + id);
+    return raw ? (JSON.parse(raw) as PersistedSession) : null;
+  } catch {
+    return null;
+  }
+}
+
+function savePersistedSession(id: string, s: WorkspaceState) {
+  if (typeof window === "undefined") return;
+  try {
+    const slice: PersistedSession = {
+      messages: s.messages,
+      step: s.step,
+      strikeCount: s.strikeCount,
+      unlockedAnchors: s.unlockedAnchors,
+      blockGames: s.blockGames,
+      completedBlocks: s.completedBlocks,
+      xp: s.xp,
+      completedChapters: s.completedChapters,
+    };
+    sessionStorage.setItem(SESSION_PREFIX + id, JSON.stringify(slice));
+  } catch {
+    // sessionStorage may be full or unavailable — non-fatal.
+  }
+}
+
 interface WorkspaceState {
   // --- Reviewer content (from [MODE: INGEST]) ---
   ingest: IngestPayload | null;
   setIngest: (payload: IngestPayload) => void;
+
+  // --- Session persistence ---
+  /** Which workspace's session is currently active (gates sessionStorage writes). */
+  activeWorkspaceId: string | null;
+  /** Rehydrate the chat + lesson progress for a workspace after a reload/navigation. */
+  resumeSession: (workspaceId: string) => void;
 
   // --- Active Learning Canvas ---
   chapters: CanvasChapter[];
@@ -86,8 +144,11 @@ interface WorkspaceState {
   // --- Settings ---
   studyMode: StudyMode;
   ttsEnabled: boolean;
+  /** "learn" (first-time teaching) vs "review" (rapid recall of seen material). */
+  sessionMode: "learn" | "review";
   setStudyMode: (mode: StudyMode) => void;
   toggleTts: () => void;
+  setSessionMode: (mode: "learn" | "review") => void;
 
   // --- Quiz modal ---
   quizOpen: boolean;
@@ -112,7 +173,19 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       completedChapters: [],
       levelUpTick: 0,
       levelUpLabel: "",
+      messages: [],
+      step: { currentStep: 0, totalSteps: 0, stepTitle: "" },
+      strikeCount: 0,
+      // Pause persistence: resumeSession() re-establishes it for the right id,
+      // so this fresh reset never clobbers a saved session.
+      activeWorkspaceId: null,
     });
+  },
+
+  activeWorkspaceId: null,
+  resumeSession: (workspaceId) => {
+    const saved = loadPersistedSession(workspaceId);
+    set(saved ? { activeWorkspaceId: workspaceId, ...saved } : { activeWorkspaceId: workspaceId });
   },
 
   chapters: [],
@@ -219,14 +292,19 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
   studyMode: "comprehensive",
   ttsEnabled: false,
+  sessionMode: "learn",
   setStudyMode: (mode) => set({ studyMode: mode }),
   toggleTts: () => set((s) => ({ ttsEnabled: !s.ttsEnabled })),
+  setSessionMode: (mode) => set({ sessionMode: mode }),
 
   quizOpen: false,
   setQuizOpen: (open) => set({ quizOpen: open }),
 
   applyTutorResponse: (res) => {
-    const { evaluation, ui_action, state_update, widget_trigger, tutor_message } = res;
+    const { evaluation, ui_action, state_update, widget_trigger } = res;
+    // Models sometimes emit a literal "\n" (double-escaped) instead of a real
+    // newline; normalize so the bubble (whitespace-pre-line) renders cleanly.
+    const tutor_message = res.tutor_message.replace(/\\n/g, "\n");
 
     // 1. Append Lumi's chat bubble with a verdict for dopamine feedback.
     const verdict =
@@ -300,3 +378,10 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     if (evaluation.is_correct === true) playDing();
   },
 }));
+
+// Persist the learning session (chat + progress) on every change, so a page
+// reload or the Practice Exam's window.location.reload() resumes where the
+// student left off instead of wiping the conversation.
+useWorkspaceStore.subscribe((state) => {
+  if (state.activeWorkspaceId) savePersistedSession(state.activeWorkspaceId, state);
+});

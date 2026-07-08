@@ -49,6 +49,7 @@ export function LumiChatUI({ workspaceId }: { workspaceId: string }) {
       step,
       strikeCount,
       studyMode,
+      sessionMode,
       messages: prior,
     } = useWorkspaceStore.getState();
 
@@ -68,6 +69,7 @@ export function LumiChatUI({ workspaceId }: { workspaceId: string }) {
         totalSteps: step.totalSteps,
         strikeCount,
         studyFocus: studyMode,
+        sessionMode,
         recentHistory,
       });
       applyTutorResponse(res);
@@ -130,7 +132,7 @@ export function LumiChatUI({ workspaceId }: { workspaceId: string }) {
             >
               <div
                 className={cn(
-                  "max-w-[80%] rounded-2xl px-3.5 py-2 text-sm shadow-sm",
+                  "max-w-[80%] whitespace-pre-line rounded-2xl px-3.5 py-2 text-sm shadow-sm",
                   m.role === "student"
                     ? "rounded-br-md bg-gradient-to-br from-violet-500 to-violet-600 text-white shadow-violet-500/20"
                     : "rounded-bl-md border border-white/50 bg-white/40 text-foreground backdrop-blur-md",

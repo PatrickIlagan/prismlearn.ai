@@ -106,6 +106,8 @@ export interface TutorContext {
   totalSteps: number;
   strikeCount: number;
   studyFocus: StudyMode;
+  /** "learn" = first-time teaching; "review" = rapid recall of seen material */
+  sessionMode: "learn" | "review";
   /** prior turns only — the current student message is sent separately */
   recentHistory: { role: "student" | "lumi"; text: string }[];
 }
@@ -245,6 +247,7 @@ export async function sendTutorMessage(
       total_steps: ctx.totalSteps,
       strike_count: ctx.strikeCount,
       study_focus: ctx.studyFocus,
+      session_mode: ctx.sessionMode,
       recent_history: ctx.recentHistory,
       reviewer: ctx.reviewer,
     }),

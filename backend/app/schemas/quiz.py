@@ -7,10 +7,11 @@ choice, true/false, fill-in-the-blank, and short-answer/reasoning.
 
 from __future__ import annotations
 
+import uuid
 from enum import Enum
 from typing import List, Literal, Optional
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
 
 class QuestionType(str, Enum):
@@ -21,14 +22,20 @@ class QuestionType(str, Enum):
 
 
 class QuizQuestion(BaseModel):
-    id: str
+    # LLMs (especially reasoning models) drift on key names, so accept the common
+    # synonyms for each field and fall back to sane defaults instead of 500ing.
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str = Field(default_factory=lambda: uuid.uuid4().hex)
     type: QuestionType
-    prompt: str
+    prompt: str = Field(validation_alias=AliasChoices("prompt", "question", "text"))
     # Present for mcq (2-4 choices); empty for other types.
-    options: List[str] = Field(default_factory=list)
+    options: List[str] = Field(
+        default_factory=list, validation_alias=AliasChoices("options", "choices")
+    )
     # The correct answer (option text for mcq, "True"/"False", the missing word,
     # or a model answer for short_answer).
-    answer: str
+    answer: str = Field(validation_alias=AliasChoices("answer", "correct_answer", "correct"))
     explanation: str = ""
     # Links the question back to a concept anchor for review.
     anchor_id: Optional[str] = None
@@ -41,7 +48,12 @@ class QuizQuestion(BaseModel):
 
 
 class Quiz(BaseModel):
-    title: str
+    model_config = ConfigDict(populate_by_name=True)
+
+    # gpt-oss-120b returns "name" instead of "title"; accept either and default it.
+    title: str = Field(
+        default="Practice Quiz", validation_alias=AliasChoices("title", "name")
+    )
     questions: List[QuizQuestion]
 
 
