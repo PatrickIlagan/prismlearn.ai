@@ -27,9 +27,11 @@ const MOBILE_TABS: { id: MobileTab; label: string; icon: typeof BookOpen }[] = [
 export function WorkspaceShell({
   workspaceId,
   workspaceTitle,
+  initialDocumentId,
 }: {
   workspaceId: string;
   workspaceTitle: string;
+  initialDocumentId?: string;
 }) {
   const setIngest = useWorkspaceStore((s) => s.setIngest);
   const resumeSession = useWorkspaceStore((s) => s.resumeSession);
@@ -46,8 +48,9 @@ export function WorkspaceShell({
         const docs = await listDocuments(workspaceId);
         if (!alive) return;
         setWorkspaceDocuments(docs);
-        // Primary document = newest; a switcher can change the active one later.
-        const active = docs[0] ?? null;
+        // Prefer the document requested via ?doc=; else the primary (newest).
+        const active =
+          (initialDocumentId && docs.find((d) => d.id === initialDocumentId)) || docs[0] || null;
         const sessionKey = active?.id ?? workspaceId;
 
         const state = useWorkspaceStore.getState();
@@ -69,7 +72,7 @@ export function WorkspaceShell({
     return () => {
       alive = false;
     };
-  }, [workspaceId, setIngest, resumeSession, setWorkspaceDocuments, setActiveDocument]);
+  }, [workspaceId, initialDocumentId, setIngest, resumeSession, setWorkspaceDocuments, setActiveDocument]);
 
   if (status === "loading") {
     return (

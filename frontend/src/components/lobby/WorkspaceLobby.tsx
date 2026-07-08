@@ -38,6 +38,7 @@ export function WorkspaceLobby({ workspaceId }: { workspaceId: string }) {
   const setIngest = useWorkspaceStore((s) => s.setIngest);
   const [reviewer, setReviewer] = useState<IngestPayload | null>(null);
   const [summary, setSummary] = useState<WorkspaceSummary | null>(null);
+  const [documents, setDocuments] = useState<DocumentSummary[]>([]);
   const [activeDoc, setActiveDoc] = useState<DocumentSummary | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [showDiagnostic, setShowDiagnostic] = useState(false);
@@ -56,6 +57,7 @@ export function WorkspaceLobby({ workspaceId }: { workspaceId: string }) {
         setReviewer(rev);
         setIngest(rev); // seed the store so entering the tutor is instant
         setSummary(list.find((w) => w.id === workspaceId) ?? null);
+        setDocuments(docs);
         const primary = docs[0] ?? null;
         setActiveDoc(primary);
         // Offer the diagnostic once, for first-time (learn-mode) documents.
@@ -67,6 +69,25 @@ export function WorkspaceLobby({ workspaceId }: { workspaceId: string }) {
       alive = false;
     };
   }, [workspaceId, setIngest]);
+
+  // Switch which document the lobby (and its launches) targets.
+  async function selectDocument(docId: string) {
+    const doc = documents.find((d) => d.id === docId);
+    if (!doc || doc.id === activeDoc?.id) return;
+    setActiveDoc(doc);
+    setShowDiagnostic(doc.mode === "learn" && !diagnosticDone(doc.id));
+    try {
+      const rev = await fetchReviewer(workspaceId, doc.id);
+      setReviewer(rev);
+      setIngest(rev);
+      setMasteryKey((k) => k + 1);
+    } catch {
+      /* keep the previous reviewer on failure */
+    }
+  }
+
+  // Append ?doc= so the tutor/exam/review open the selected document.
+  const docQuery = activeDoc ? `?doc=${activeDoc.id}` : "";
 
   function completeDiagnostic() {
     if (activeDoc && typeof window !== "undefined") {
@@ -116,6 +137,23 @@ export function WorkspaceLobby({ workspaceId }: { workspaceId: string }) {
         <div className="glass flex flex-col items-start justify-between gap-5 rounded-3xl p-6 sm:flex-row sm:items-center">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+            {documents.length > 1 ? (
+              <div className="mt-2 flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Document:</span>
+                <select
+                  value={activeDoc?.id ?? ""}
+                  onChange={(e) => selectDocument(e.target.value)}
+                  className="glass max-w-[240px] truncate rounded-lg px-2 py-1 text-xs font-medium outline-none"
+                  title="Choose which document to study — the others are skipped"
+                >
+                  {documents.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.title} · {d.mode}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
             <p className="mt-1 text-sm text-muted-foreground">
               {toc.length} chapters · pick up where you left off.
             </p>
@@ -207,19 +245,19 @@ export function WorkspaceLobby({ workspaceId }: { workspaceId: string }) {
             icon={Play}
             title="Resume Tutor"
             subtitle="Continue your guided lesson"
-            onClick={() => router.push(`/workspace/${workspaceId}`)}
+            onClick={() => router.push(`/workspace/${workspaceId}${docQuery}`)}
           />
           <LaunchButton
             icon={AlertTriangle}
             title="Review Weaknesses"
             subtitle={weak.length ? `${weak.length} concepts to shore up` : "All clear!"}
-            onClick={() => router.push(`/workspace/${workspaceId}/review`)}
+            onClick={() => router.push(`/workspace/${workspaceId}/review${docQuery}`)}
           />
           <LaunchButton
             icon={FileQuestion}
             title="Practice Exam"
             subtitle="Timed gauntlet · earn XP"
-            onClick={() => router.push(`/workspace/${workspaceId}/exam`)}
+            onClick={() => router.push(`/workspace/${workspaceId}/exam${docQuery}`)}
           />
         </div>
       </div>

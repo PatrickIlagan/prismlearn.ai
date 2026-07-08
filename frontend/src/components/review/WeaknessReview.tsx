@@ -18,9 +18,17 @@ const BOOST_PER_CONCEPT = 30; // enough to clear a 1–2 strike concept
 const norm = (s: string) => s.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
 const isCorrect = (q: QuizQuestion, given: string) => norm(given) === norm(q.answer);
 
-export function WeaknessReview({ workspaceId }: { workspaceId: string }) {
+export function WeaknessReview({
+  workspaceId,
+  documentId,
+}: {
+  workspaceId: string;
+  documentId?: string;
+}) {
   const awardXp = useWorkspaceStore((s) => s.awardXp);
   const studyMode = useWorkspaceStore((s) => s.studyMode);
+  const storeActiveDoc = useWorkspaceStore((s) => s.activeDocumentId);
+  const docId = documentId ?? storeActiveDoc ?? undefined;
 
   const [phase, setPhase] = useState<Phase>("loading");
   const [deck, setDeck] = useState<QuizQuestion[]>([]);
@@ -31,7 +39,7 @@ export function WeaknessReview({ workspaceId }: { workspaceId: string }) {
 
   useEffect(() => {
     let alive = true;
-    fetchReviewer(workspaceId)
+    fetchReviewer(workspaceId, docId)
       .then(async (reviewer: IngestPayload) => {
         const weak = needsReview(reviewer.table_of_contents);
         if (weak.length === 0) {
@@ -44,6 +52,7 @@ export function WeaknessReview({ workspaceId }: { workspaceId: string }) {
           workspaceId,
           { scope: "all", question_count: 10, study_focus: studyMode },
           reviewer,
+          docId,
         );
         const targeted = quiz.questions.filter(
           (q) => q.anchor_id && weakAnchors.has(q.anchor_id),
@@ -60,7 +69,7 @@ export function WeaknessReview({ workspaceId }: { workspaceId: string }) {
     return () => {
       alive = false;
     };
-  }, [workspaceId, studyMode, weakTitlesRef]);
+  }, [workspaceId, studyMode, docId, weakTitlesRef]);
 
   const current = deck[index];
   const answered = given !== null;
