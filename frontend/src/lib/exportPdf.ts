@@ -2,11 +2,12 @@ import { jsPDF } from "jspdf";
 import type { Flashcard, Quiz, QuizQuestion } from "@/types/prism";
 
 /**
- * Client-side flashcard export (PRD Doc 1 §4).
+ * Client-side flashcard export (PRD Doc 1 §4 / Feature 3 "wow factor" spec).
  *
- * Renders the deck as a printable A4 grid of "cut-out squares": each card has a
- * dashed border to cut along, the term on top, a dashed fold/divider line, and
- * the answer below. Runs entirely in the browser — no backend, no credentials.
+ * Renders the deck as a printable A4 2×4 grid of "cut-out squares": each card
+ * has a dashed border to cut along (with a small scissors icon on the top
+ * edge), the term on top, a dashed fold/divider line, and the answer below.
+ * Runs entirely in the browser — no backend, no credentials.
  */
 
 // A4 portrait, millimetres.
@@ -15,9 +16,9 @@ const PAGE_H = 297;
 const MARGIN = 12;
 const HEADER_H = 12;
 const COLS = 2;
-const ROWS = 3;
+const ROWS = 4;
 const GUTTER = 6;
-const PAD = 6;
+const PAD = 5;
 
 const CARD_W = (PAGE_W - 2 * MARGIN - (COLS - 1) * GUTTER) / COLS;
 const CARD_H = (PAGE_H - 2 * MARGIN - HEADER_H - (ROWS - 1) * GUTTER) / ROWS;
@@ -25,6 +26,25 @@ const PER_PAGE = COLS * ROWS;
 
 function dashed(doc: jsPDF, on: boolean) {
   doc.setLineDashPattern(on ? [1.2, 1.2] : [], 0);
+}
+
+/**
+ * A small vector scissors icon (two crossing blades + two finger loops),
+ * centered at (cx, cy). Drawn with primitives rather than a Unicode "✂️"
+ * character — jsPDF's standard 14 fonts (Helvetica etc.) don't include
+ * emoji/dingbat glyphs, so a font-rendered scissors character would print as
+ * a missing-glyph box; plain lines/circles render identically everywhere.
+ */
+function drawScissorsIcon(doc: jsPDF, cx: number, cy: number, size = 3.2) {
+  dashed(doc, false);
+  doc.setDrawColor(150);
+  doc.setLineWidth(0.25);
+  const pivotX = cx + size * 0.4;
+  const loopX = cx - size * 0.35;
+  doc.line(pivotX, cy, loopX, cy - size * 0.4);
+  doc.line(pivotX, cy, loopX, cy + size * 0.4);
+  doc.circle(loopX, cy - size * 0.4, size * 0.16, "S");
+  doc.circle(loopX, cy + size * 0.4, size * 0.16, "S");
 }
 
 function drawHeader(doc: jsPDF, title: string, kind = "Flashcards") {
@@ -49,15 +69,21 @@ function drawCard(doc: jsPDF, card: Flashcard, x: number, y: number) {
   doc.roundedRect(x, y, CARD_W, CARD_H, 2, 2, "S");
   dashed(doc, false);
 
+  // Scissors icon sitting on the top edge — the classic "cut along this
+  // line" marker — with a small white gap in the dashed line behind it.
+  doc.setFillColor(255, 255, 255);
+  doc.rect(x + CARD_W / 2 - 3, y - 1.6, 6, 3.2, "F");
+  drawScissorsIcon(doc, x + CARD_W / 2, y);
+
   const innerW = CARD_W - 2 * PAD;
   const midY = y + CARD_H / 2;
 
-  // Front (term).
+  // Front (term). Cards are shorter in a 2x4 grid than 2x3, so fewer lines fit.
   doc.setTextColor(30);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(12);
+  doc.setFontSize(11);
   const front = doc.splitTextToSize(card.front, innerW);
-  doc.text(front.slice(0, 4), x + PAD, y + PAD + 4);
+  doc.text(front.slice(0, 3), x + PAD, y + PAD + 3.5);
 
   // Divider (fold/cut line).
   dashed(doc, true);
@@ -67,10 +93,10 @@ function drawCard(doc: jsPDF, card: Flashcard, x: number, y: number) {
 
   // Back (answer).
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
+  doc.setFontSize(9);
   doc.setTextColor(70);
   const back = doc.splitTextToSize(card.back, innerW);
-  doc.text(back.slice(0, 6), x + PAD, midY + 6);
+  doc.text(back.slice(0, 4), x + PAD, midY + 5);
 }
 
 export function exportFlashcardsPdf(workspaceTitle: string, flashcards: Flashcard[]): void {
