@@ -25,14 +25,17 @@ from app.schemas.gamification import (
 )
 from app.schemas.ingest import IngestPayload, SourceType
 from app.schemas.workspace import (
+    DocumentRecord,
     FlashcardCreate,
     FlashcardRecord,
+    StudyModeLiteral,
     WorkspaceRecord,
     WorkspaceSummary,
     to_summary,
 )
 
 _WORKSPACES = "workspaces"
+_DOCUMENTS = "documents"
 _FLASHCARDS = "flashcards"
 _PROFILES = "player_profiles"
 _MASTERY = "concept_mastery"
@@ -48,30 +51,22 @@ class SupabaseRepository(WorkspaceRepository):
             settings.supabase_url, settings.supabase_service_role_key
         )
 
-    def _record_from_row(self, row: dict) -> WorkspaceRecord:
-        return WorkspaceRecord(
+    def _document_from_row(self, row: dict) -> DocumentRecord:
+        return DocumentRecord(
             id=row["id"],
-            user_id=row["user_id"],
+            workspace_id=row["workspace_id"],
             title=row["title"],
             source_type=SourceType(row["source_type"]),
             reviewer=IngestPayload.model_validate(row["reviewer"]),
+            mode=row.get("mode", "learn"),
             created_at=row["created_at"],
         )
 
-    async def create_workspace(
-        self,
-        *,
-        user_id: str,
-        title: str,
-        source_type: SourceType,
-        reviewer: IngestPayload,
-    ) -> WorkspaceRecord:
+    async def create_workspace(self, *, user_id: str, title: str) -> WorkspaceRecord:
         row = {
             "id": uuid.uuid4().hex,
             "user_id": user_id,
             "title": title,
-            "source_type": source_type.value,
-            "reviewer": reviewer.model_dump(),
             "created_at": _now_iso(),
         }
 
@@ -80,7 +75,57 @@ class SupabaseRepository(WorkspaceRepository):
             return resp.data[0]
 
         inserted = await anyio.to_thread.run_sync(_insert)
-        return self._record_from_row(inserted)
+        return WorkspaceRecord(
+            id=inserted["id"],
+            user_id=inserted["user_id"],
+            title=inserted["title"],
+            created_at=inserted["created_at"],
+            documents=[],
+        )
+
+    async def add_document(
+        self,
+        *,
+        user_id: str,
+        workspace_id: str,
+        title: str,
+        source_type: SourceType,
+        reviewer: IngestPayload,
+        mode: StudyModeLiteral = "learn",
+    ) -> DocumentRecord:
+        owner = await self.get_workspace(user_id=user_id, workspace_id=workspace_id)
+        if owner is None:
+            raise KeyError("workspace not found for user")
+        row = {
+            "id": uuid.uuid4().hex,
+            "workspace_id": workspace_id,
+            "title": title,
+            "source_type": source_type.value,
+            "reviewer": reviewer.model_dump(),
+            "mode": mode,
+            "created_at": _now_iso(),
+        }
+
+        def _insert() -> dict:
+            resp = self._client.table(_DOCUMENTS).insert(row).execute()
+            return resp.data[0]
+
+        inserted = await anyio.to_thread.run_sync(_insert)
+        return self._document_from_row(inserted)
+
+    async def _load_documents(self, workspace_id: str) -> list[DocumentRecord]:
+        def _select() -> list[dict]:
+            resp = (
+                self._client.table(_DOCUMENTS)
+                .select("*")
+                .eq("workspace_id", workspace_id)
+                .order("created_at", desc=True)
+                .execute()
+            )
+            return resp.data
+
+        rows = await anyio.to_thread.run_sync(_select)
+        return [self._document_from_row(r) for r in rows]
 
     async def get_workspace(self, *, user_id: str, workspace_id: str) -> WorkspaceRecord | None:
         def _select() -> list[dict]:
@@ -95,7 +140,37 @@ class SupabaseRepository(WorkspaceRepository):
             return resp.data
 
         rows = await anyio.to_thread.run_sync(_select)
-        return self._record_from_row(rows[0]) if rows else None
+        if not rows:
+            return None
+        row = rows[0]
+        documents = await self._load_documents(workspace_id)
+        return WorkspaceRecord(
+            id=row["id"],
+            user_id=row["user_id"],
+            title=row["title"],
+            created_at=row["created_at"],
+            documents=documents,
+        )
+
+    async def set_document_mode(
+        self, *, user_id: str, workspace_id: str, document_id: str, mode: StudyModeLiteral
+    ) -> DocumentRecord:
+        owner = await self.get_workspace(user_id=user_id, workspace_id=workspace_id)
+        if owner is None or owner.find_document(document_id) is None:
+            raise KeyError("document not found for user")
+
+        def _update() -> list[dict]:
+            resp = (
+                self._client.table(_DOCUMENTS)
+                .update({"mode": mode})
+                .eq("id", document_id)
+                .eq("workspace_id", workspace_id)
+                .execute()
+            )
+            return resp.data
+
+        rows = await anyio.to_thread.run_sync(_update)
+        return self._document_from_row(rows[0])
 
     async def list_workspaces(self, *, user_id: str) -> list[WorkspaceSummary]:
         def _select() -> list[dict]:
@@ -109,7 +184,21 @@ class SupabaseRepository(WorkspaceRepository):
             return resp.data
 
         rows = await anyio.to_thread.run_sync(_select)
-        return [to_summary(self._record_from_row(r)) for r in rows]
+        summaries: list[WorkspaceSummary] = []
+        for r in rows:
+            documents = await self._load_documents(r["id"])
+            summaries.append(
+                to_summary(
+                    WorkspaceRecord(
+                        id=r["id"],
+                        user_id=r["user_id"],
+                        title=r["title"],
+                        created_at=r["created_at"],
+                        documents=documents,
+                    )
+                )
+            )
+        return summaries
 
     async def add_flashcard(
         self, *, user_id: str, workspace_id: str, card: FlashcardCreate

@@ -23,6 +23,8 @@ router = APIRouter(prefix="/workspaces", tags=["tutor"])
 
 
 class TutorTurnRequest(TutorRequest):
+    # Which document in the workspace to tutor; defaults to the primary document.
+    document_id: str | None = None
     # Optional fallback; the persisted reviewer is preferred when available.
     reviewer: IngestPayload | None = None
 
@@ -33,8 +35,15 @@ async def tutor_turn(
     body: TutorTurnRequest,
     user_id: str = Depends(get_current_user_id),
 ) -> TutorResponse:
-    record = await get_repository().get_workspace(user_id=user_id, workspace_id=workspace_id)
-    reviewer = record.reviewer if record is not None else body.reviewer
+    document = await get_repository().get_document(
+        user_id=user_id, workspace_id=workspace_id, document_id=body.document_id
+    )
+    if document is not None:
+        reviewer = document.reviewer
+        # The document's saved study mode is authoritative for learn vs review.
+        body.session_mode = document.mode
+    else:
+        reviewer = body.reviewer
     if reviewer is None:
         raise HTTPException(status_code=404, detail="Workspace reviewer not found.")
 

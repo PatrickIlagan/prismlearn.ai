@@ -3,17 +3,31 @@
 
 create extension if not exists "pgcrypto";
 
--- ── workspaces ──────────────────────────────────────────────────────────────
+-- ── workspaces (containers) ─────────────────────────────────────────────────
+-- A workspace groups one or more documents the user is studying together.
 create table if not exists public.workspaces (
     id          text primary key,
     user_id     text not null,
     title       text not null,
-    source_type text not null check (source_type in ('pdf', 'pptx', 'youtube')),
-    reviewer    jsonb not null,
     created_at  timestamptz not null default now()
 );
 
 create index if not exists workspaces_user_id_idx on public.workspaces (user_id);
+
+-- ── documents ───────────────────────────────────────────────────────────────
+-- Each ingested source (pdf/pptx/youtube) with its Master Reviewer and study mode.
+-- mode: 'learn' (first-time teaching) or 'review' (recap that still walks the doc).
+create table if not exists public.documents (
+    id           text primary key,
+    workspace_id text not null references public.workspaces (id) on delete cascade,
+    title        text not null,
+    source_type  text not null check (source_type in ('pdf', 'pptx', 'youtube')),
+    reviewer     jsonb not null,
+    mode         text not null default 'learn' check (mode in ('learn', 'review')),
+    created_at   timestamptz not null default now()
+);
+
+create index if not exists documents_workspace_id_idx on public.documents (workspace_id);
 
 -- ── flashcards ──────────────────────────────────────────────────────────────
 create table if not exists public.flashcards (
@@ -54,6 +68,7 @@ create table if not exists public.concept_mastery (
 -- service-role key (which bypasses RLS) and additionally filters by user_id in
 -- code, so these policies protect any direct client access.
 alter table public.workspaces enable row level security;
+alter table public.documents enable row level security;
 alter table public.flashcards enable row level security;
 alter table public.player_profiles enable row level security;
 alter table public.concept_mastery enable row level security;
@@ -63,6 +78,24 @@ create policy workspaces_owner on public.workspaces
     for all
     using (user_id = auth.jwt() ->> 'sub')
     with check (user_id = auth.jwt() ->> 'sub');
+
+drop policy if exists documents_owner on public.documents;
+create policy documents_owner on public.documents
+    for all
+    using (
+        exists (
+            select 1 from public.workspaces w
+            where w.id = documents.workspace_id
+              and w.user_id = auth.jwt() ->> 'sub'
+        )
+    )
+    with check (
+        exists (
+            select 1 from public.workspaces w
+            where w.id = documents.workspace_id
+              and w.user_id = auth.jwt() ->> 'sub'
+        )
+    );
 
 drop policy if exists flashcards_owner on public.flashcards;
 create policy flashcards_owner on public.flashcards

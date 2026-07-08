@@ -53,5 +53,7 @@ class ExtractedSource(BaseModel):
 
 class IngestResponse(BaseModel):
     workspace_id: str
+    document_id: str
+    mode: str = "learn"
     source_type: SourceType
     reviewer: IngestPayload

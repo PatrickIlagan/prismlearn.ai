@@ -31,6 +31,10 @@ _PPTX_CT = "application/vnd.openxmlformats-officedocument.presentationml.present
 class YouTubeIngestRequest(BaseModel):
     youtube_url: str
     study_focus: str = "comprehensive"
+    # Add to an existing workspace when set; otherwise a new workspace is created.
+    workspace_id: str | None = None
+    # Per-document study mode: "learn" (teach) or "review" (recap).
+    mode: str = "learn"
 
 
 async def _read_bounded(file: UploadFile) -> bytes:
@@ -59,22 +63,52 @@ def _dispatch_file(data: bytes, filename: str, content_type: str | None) -> Extr
     raise ExtractionError("Unsupported file type. Upload a .pdf or .pptx.")
 
 
-async def _ingest_and_store(source: ExtractedSource, study_focus: str, user_id: str) -> IngestResponse:
+def _normalize_mode(mode: str) -> str:
+    return mode if mode in ("learn", "review") else "learn"
+
+
+async def _ingest_and_store(
+    source: ExtractedSource,
+    study_focus: str,
+    user_id: str,
+    *,
+    workspace_id: str | None = None,
+    mode: str = "learn",
+) -> IngestResponse:
     try:
         reviewer = await run_ingestion(source.raw_text, study_focus)
     except InferenceError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
-    record = await get_repository().create_workspace(
-        user_id=user_id,
-        title=source.title,
-        source_type=source.source_type,
-        reviewer=reviewer,
-    )
+    repo = get_repository()
+    mode = _normalize_mode(mode)
+    if workspace_id is not None:
+        # Add another document to an existing workspace.
+        try:
+            document = await repo.add_document(
+                user_id=user_id,
+                workspace_id=workspace_id,
+                title=source.title,
+                source_type=source.source_type,
+                reviewer=reviewer,
+                mode=mode,
+            )
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="Workspace not found.") from exc
+    else:
+        _workspace, document = await repo.create_workspace_with_document(
+            user_id=user_id,
+            title=source.title,
+            source_type=source.source_type,
+            reviewer=reviewer,
+            mode=mode,
+        )
     return IngestResponse(
-        workspace_id=record.id,
-        source_type=record.source_type,
-        reviewer=record.reviewer,
+        workspace_id=document.workspace_id,
+        document_id=document.id,
+        mode=document.mode,
+        source_type=document.source_type,
+        reviewer=document.reviewer,
     )
 
 
@@ -82,6 +116,8 @@ async def _ingest_and_store(source: ExtractedSource, study_focus: str, user_id: 
 async def ingest_file(
     file: UploadFile = File(...),
     study_focus: str = Form("comprehensive"),
+    workspace_id: str | None = Form(None),
+    mode: str = Form("learn"),
     user_id: str = Depends(get_current_user_id),
 ) -> IngestResponse:
     data = await _read_bounded(file)
@@ -89,7 +125,9 @@ async def ingest_file(
         source = _dispatch_file(data, file.filename or "upload", file.content_type)
     except ExtractionError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return await _ingest_and_store(source, study_focus, user_id)
+    return await _ingest_and_store(
+        source, study_focus, user_id, workspace_id=workspace_id, mode=mode
+    )
 
 
 @router.post("/youtube", response_model=IngestResponse)
@@ -101,4 +139,6 @@ async def ingest_youtube(
         source = extractors.extract_youtube(body.youtube_url)
     except ExtractionError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return await _ingest_and_store(source, body.study_focus, user_id)
+    return await _ingest_and_store(
+        source, body.study_focus, user_id, workspace_id=body.workspace_id, mode=body.mode
+    )

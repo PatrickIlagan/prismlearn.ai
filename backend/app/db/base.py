@@ -11,25 +11,77 @@ from app.schemas.gamification import (
     ProfileUpsert,
 )
 from app.schemas.ingest import IngestPayload, SourceType
-from app.schemas.workspace import FlashcardCreate, FlashcardRecord, WorkspaceRecord, WorkspaceSummary
+from app.schemas.workspace import (
+    DocumentRecord,
+    FlashcardCreate,
+    FlashcardRecord,
+    StudyModeLiteral,
+    WorkspaceRecord,
+    WorkspaceSummary,
+)
 
 
 class WorkspaceRepository(ABC):
+    # ---------- Workspaces (containers) + documents ----------
+
     @abstractmethod
-    async def create_workspace(
+    async def create_workspace(self, *, user_id: str, title: str) -> WorkspaceRecord:
+        """Create an empty workspace container."""
+
+    @abstractmethod
+    async def add_document(
+        self,
+        *,
+        user_id: str,
+        workspace_id: str,
+        title: str,
+        source_type: SourceType,
+        reviewer: IngestPayload,
+        mode: StudyModeLiteral = "learn",
+    ) -> DocumentRecord: ...
+
+    async def create_workspace_with_document(
         self,
         *,
         user_id: str,
         title: str,
         source_type: SourceType,
         reviewer: IngestPayload,
-    ) -> WorkspaceRecord: ...
+        mode: StudyModeLiteral = "learn",
+    ) -> tuple[WorkspaceRecord, DocumentRecord]:
+        """Convenience for ingest: a new container seeded with its first document."""
+        workspace = await self.create_workspace(user_id=user_id, title=title)
+        document = await self.add_document(
+            user_id=user_id,
+            workspace_id=workspace.id,
+            title=title,
+            source_type=source_type,
+            reviewer=reviewer,
+            mode=mode,
+        )
+        return workspace, document
 
     @abstractmethod
     async def get_workspace(self, *, user_id: str, workspace_id: str) -> WorkspaceRecord | None: ...
 
+    async def get_document(
+        self, *, user_id: str, workspace_id: str, document_id: str | None = None
+    ) -> DocumentRecord | None:
+        """Resolve a document by id, or the workspace's primary document when omitted."""
+        workspace = await self.get_workspace(user_id=user_id, workspace_id=workspace_id)
+        if workspace is None:
+            return None
+        return workspace.find_document(document_id)
+
+    @abstractmethod
+    async def set_document_mode(
+        self, *, user_id: str, workspace_id: str, document_id: str, mode: StudyModeLiteral
+    ) -> DocumentRecord: ...
+
     @abstractmethod
     async def list_workspaces(self, *, user_id: str) -> list[WorkspaceSummary]: ...
+
+    # ---------- Flashcards ----------
 
     @abstractmethod
     async def add_flashcard(

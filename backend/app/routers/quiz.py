@@ -20,6 +20,8 @@ router = APIRouter(prefix="/workspaces", tags=["quiz"])
 
 
 class QuizGenerateRequest(QuizRequest):
+    # Which document to quiz on; defaults to the workspace's primary document.
+    document_id: str | None = None
     # Optional fallback; the persisted reviewer is preferred when available.
     reviewer: IngestPayload | None = None
 
@@ -30,8 +32,10 @@ async def generate_quiz(
     body: QuizGenerateRequest,
     user_id: str = Depends(get_current_user_id),
 ) -> Quiz:
-    record = await get_repository().get_workspace(user_id=user_id, workspace_id=workspace_id)
-    reviewer = record.reviewer if record is not None else body.reviewer
+    document = await get_repository().get_document(
+        user_id=user_id, workspace_id=workspace_id, document_id=body.document_id
+    )
+    reviewer = document.reviewer if document is not None else body.reviewer
     if reviewer is None:
         raise HTTPException(status_code=404, detail="Workspace reviewer not found.")
 

@@ -19,8 +19,10 @@ from app.schemas.gamification import (
 )
 from app.schemas.ingest import IngestPayload, SourceType
 from app.schemas.workspace import (
+    DocumentRecord,
     FlashcardCreate,
     FlashcardRecord,
+    StudyModeLiteral,
     WorkspaceRecord,
     WorkspaceSummary,
     to_summary,
@@ -39,30 +41,58 @@ class InMemoryRepository(WorkspaceRepository):
         self._workspaces: dict[str, WorkspaceRecord] = {}
         self._flashcards: dict[str, list[FlashcardRecord]] = {}
 
-    async def create_workspace(
-        self,
-        *,
-        user_id: str,
-        title: str,
-        source_type: SourceType,
-        reviewer: IngestPayload,
-    ) -> WorkspaceRecord:
+    async def create_workspace(self, *, user_id: str, title: str) -> WorkspaceRecord:
         record = WorkspaceRecord(
             id=uuid.uuid4().hex,
             user_id=user_id,
             title=title,
-            source_type=source_type,
-            reviewer=reviewer,
             created_at=_now(),
+            documents=[],
         )
         self._workspaces[record.id] = record
         return record
+
+    async def add_document(
+        self,
+        *,
+        user_id: str,
+        workspace_id: str,
+        title: str,
+        source_type: SourceType,
+        reviewer: IngestPayload,
+        mode: StudyModeLiteral = "learn",
+    ) -> DocumentRecord:
+        workspace = await self.get_workspace(user_id=user_id, workspace_id=workspace_id)
+        if workspace is None:
+            raise KeyError("workspace not found for user")
+        document = DocumentRecord(
+            id=uuid.uuid4().hex,
+            workspace_id=workspace_id,
+            title=title,
+            source_type=source_type,
+            reviewer=reviewer,
+            mode=mode,
+            created_at=_now(),
+        )
+        # Newest first, matching the Supabase ordering.
+        workspace.documents.insert(0, document)
+        return document
 
     async def get_workspace(self, *, user_id: str, workspace_id: str) -> WorkspaceRecord | None:
         record = self._workspaces.get(workspace_id)
         if record is None or record.user_id != user_id:
             return None
         return record
+
+    async def set_document_mode(
+        self, *, user_id: str, workspace_id: str, document_id: str, mode: StudyModeLiteral
+    ) -> DocumentRecord:
+        workspace = await self.get_workspace(user_id=user_id, workspace_id=workspace_id)
+        doc = workspace.find_document(document_id) if workspace else None
+        if doc is None:
+            raise KeyError("document not found for user")
+        doc.mode = mode
+        return doc
 
     async def list_workspaces(self, *, user_id: str) -> list[WorkspaceSummary]:
         rows = [w for w in self._workspaces.values() if w.user_id == user_id]
