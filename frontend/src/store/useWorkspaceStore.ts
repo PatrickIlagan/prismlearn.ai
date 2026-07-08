@@ -4,10 +4,12 @@ import type {
   BlockMode,
   CanvasChapter,
   ChatMessage,
+  DocumentSummary,
   Flashcard,
   GamePayload,
   HighlightTone,
   IngestPayload,
+  SessionMode,
   StudyMode,
   TutorResponse,
 } from "@/types/prism";
@@ -93,10 +95,17 @@ interface WorkspaceState {
   setIngest: (payload: IngestPayload) => void;
 
   // --- Session persistence ---
-  /** Which workspace's session is currently active (gates sessionStorage writes). */
-  activeWorkspaceId: string | null;
-  /** Rehydrate the chat + lesson progress for a workspace after a reload/navigation. */
-  resumeSession: (workspaceId: string) => void;
+  /** Persistence key for the active document's session (gates sessionStorage writes). */
+  sessionKey: string | null;
+  /** Rehydrate a document's chat + lesson progress after a reload / doc switch. */
+  resumeSession: (sessionKey: string) => void;
+
+  // --- Documents in the current workspace ---
+  documents: DocumentSummary[];
+  activeDocumentId: string | null;
+  setWorkspaceDocuments: (docs: DocumentSummary[]) => void;
+  /** Record which document is active and its saved study mode. */
+  setActiveDocument: (documentId: string, mode: SessionMode) => void;
 
   // --- Active Learning Canvas ---
   chapters: CanvasChapter[];
@@ -176,17 +185,23 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       messages: [],
       step: { currentStep: 0, totalSteps: 0, stepTitle: "" },
       strikeCount: 0,
-      // Pause persistence: resumeSession() re-establishes it for the right id,
+      // Pause persistence: resumeSession() re-establishes it for the right key,
       // so this fresh reset never clobbers a saved session.
-      activeWorkspaceId: null,
+      sessionKey: null,
     });
   },
 
-  activeWorkspaceId: null,
-  resumeSession: (workspaceId) => {
-    const saved = loadPersistedSession(workspaceId);
-    set(saved ? { activeWorkspaceId: workspaceId, ...saved } : { activeWorkspaceId: workspaceId });
+  sessionKey: null,
+  resumeSession: (sessionKey) => {
+    const saved = loadPersistedSession(sessionKey);
+    set(saved ? { sessionKey, ...saved } : { sessionKey });
   },
+
+  documents: [],
+  activeDocumentId: null,
+  setWorkspaceDocuments: (docs) => set({ documents: docs }),
+  setActiveDocument: (documentId, mode) =>
+    set({ activeDocumentId: documentId, sessionMode: mode }),
 
   chapters: [],
   unlockedAnchors: [],
@@ -383,5 +398,5 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
 // reload or the Practice Exam's window.location.reload() resumes where the
 // student left off instead of wiping the conversation.
 useWorkspaceStore.subscribe((state) => {
-  if (state.activeWorkspaceId) savePersistedSession(state.activeWorkspaceId, state);
+  if (state.sessionKey) savePersistedSession(state.sessionKey, state);
 });

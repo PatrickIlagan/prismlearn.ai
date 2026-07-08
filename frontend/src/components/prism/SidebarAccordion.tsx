@@ -13,6 +13,7 @@ import { useWorkspaceStore } from "@/store/useWorkspaceStore";
 import { exportFlashcardsPdf } from "@/lib/exportPdf";
 import type { StudyMode } from "@/types/prism";
 import { cn } from "@/lib/utils";
+import { DocumentSwitcher } from "./DocumentSwitcher";
 
 const STUDY_MODES: { value: StudyMode; label: string }[] = [
   { value: "technical", label: "Technical" },
@@ -24,7 +25,13 @@ const STUDY_MODES: { value: StudyMode; label: string }[] = [
  *  useSyncExternalStore's "getServerSnapshot infinite loop"). */
 const EMPTY_TOC: never[] = [];
 
-export function SidebarAccordion({ workspaceTitle }: { workspaceTitle: string }) {
+export function SidebarAccordion({
+  workspaceTitle,
+  workspaceId,
+}: {
+  workspaceTitle: string;
+  workspaceId: string;
+}) {
   const toc = useWorkspaceStore((s) => s.ingest?.table_of_contents ?? EMPTY_TOC);
   const flashcards = useWorkspaceStore((s) => s.flashcards);
   const hasCards = flashcards.length > 0;
@@ -48,6 +55,8 @@ export function SidebarAccordion({ workspaceTitle }: { workspaceTitle: string })
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 py-2">
+        <DocumentSwitcher workspaceId={workspaceId} />
+
         <Accordion type="multiple" defaultValue={["curriculum", "assessments"]}>
           <AccordionItem value="curriculum">
             <AccordionTrigger className="text-sm">

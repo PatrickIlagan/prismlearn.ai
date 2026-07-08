@@ -1,7 +1,9 @@
 import type {
+  DocumentSummary,
   IngestPayload,
   Quiz,
   QuizConfig,
+  SessionMode,
   StudyMode,
   TutorResponse,
   WorkspaceSummary,
@@ -96,8 +98,18 @@ function authHeaders(): Record<string, string> {
 // --- Types matching the backend IngestResponse -------------------------------
 export interface IngestResult {
   workspace_id: string;
+  document_id: string;
+  mode: SessionMode;
   source_type: "pdf" | "pptx" | "youtube";
   reviewer: IngestPayload;
+}
+
+/** Options for ingest: study focus, the per-document study mode, and an optional
+ *  existing workspace to add the document to (otherwise a new workspace is made). */
+export interface IngestOptions {
+  studyFocus?: StudyMode;
+  mode?: SessionMode;
+  workspaceId?: string;
 }
 
 export interface TutorContext {
@@ -107,23 +119,38 @@ export interface TutorContext {
   strikeCount: number;
   studyFocus: StudyMode;
   /** "learn" = first-time teaching; "review" = rapid recall of seen material */
-  sessionMode: "learn" | "review";
+  sessionMode: SessionMode;
+  /** which document in the workspace is being tutored (defaults to primary) */
+  documentId?: string;
   /** prior turns only — the current student message is sent separately */
   recentHistory: { role: "student" | "lumi"; text: string }[];
 }
 
 // --- Ingestion ---------------------------------------------------------------
+function mockIngestResult(source_type: IngestResult["source_type"], mode: SessionMode): IngestResult {
+  const id = `ws_${Date.now().toString(36)}`;
+  return {
+    workspace_id: id,
+    document_id: `doc_${Date.now().toString(36)}`,
+    mode,
+    source_type,
+    reviewer: MOCK_INGEST,
+  };
+}
+
 export async function ingestFile(
   file: File,
-  studyFocus: StudyMode = "comprehensive",
+  opts: IngestOptions = {},
 ): Promise<IngestResult> {
+  const { studyFocus = "comprehensive", mode = "learn", workspaceId } = opts;
   if (USE_MOCKS) {
     await delay(1200);
-    const result: IngestResult = {
-      workspace_id: `ws_${Date.now().toString(36)}`,
-      source_type: file.name.toLowerCase().endsWith(".pptx") ? "pptx" : "pdf",
-      reviewer: MOCK_INGEST,
-    };
+    const result = mockIngestResult(
+      file.name.toLowerCase().endsWith(".pptx") ? "pptx" : "pdf",
+      mode,
+    );
+    if (workspaceId) result.workspace_id = workspaceId;
+    cacheReviewer(result.document_id, result.reviewer);
     cacheReviewer(result.workspace_id, result.reviewer);
     registerLocalWorkspace({
       id: result.workspace_id,
@@ -137,6 +164,8 @@ export async function ingestFile(
   const form = new FormData();
   form.append("file", file);
   form.append("study_focus", studyFocus);
+  form.append("mode", mode);
+  if (workspaceId) form.append("workspace_id", workspaceId);
   const res = await fetch(`${API_URL}/ingest/file`, {
     method: "POST",
     headers: authHeaders(),
@@ -144,21 +173,21 @@ export async function ingestFile(
   });
   if (!res.ok) throw new Error(await extractError(res, "Ingestion failed"));
   const result: IngestResult = await res.json();
+  cacheReviewer(result.document_id, result.reviewer);
   cacheReviewer(result.workspace_id, result.reviewer);
   return result;
 }
 
 export async function ingestYoutube(
   youtubeUrl: string,
-  studyFocus: StudyMode = "comprehensive",
+  opts: IngestOptions = {},
 ): Promise<IngestResult> {
+  const { studyFocus = "comprehensive", mode = "learn", workspaceId } = opts;
   if (USE_MOCKS) {
     await delay(1200);
-    const result: IngestResult = {
-      workspace_id: `ws_${Date.now().toString(36)}`,
-      source_type: "youtube",
-      reviewer: MOCK_INGEST,
-    };
+    const result = mockIngestResult("youtube", mode);
+    if (workspaceId) result.workspace_id = workspaceId;
+    cacheReviewer(result.document_id, result.reviewer);
     cacheReviewer(result.workspace_id, result.reviewer);
     registerLocalWorkspace({
       id: result.workspace_id,
@@ -172,10 +201,16 @@ export async function ingestYoutube(
   const res = await fetch(`${API_URL}/ingest/youtube`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({ youtube_url: youtubeUrl, study_focus: studyFocus }),
+    body: JSON.stringify({
+      youtube_url: youtubeUrl,
+      study_focus: studyFocus,
+      mode,
+      workspace_id: workspaceId,
+    }),
   });
   if (!res.ok) throw new Error(await extractError(res, "Ingestion failed"));
   const result: IngestResult = await res.json();
+  cacheReviewer(result.document_id, result.reviewer);
   cacheReviewer(result.workspace_id, result.reviewer);
   return result;
 }
@@ -194,6 +229,7 @@ export async function listWorkspaces(): Promise<WorkspaceSummary[]> {
     title: string;
     source_type: "pdf" | "pptx" | "youtube";
     concept_count: number;
+    document_count?: number;
     created_at: string;
   }>;
   return rows.map((r) => ({
@@ -201,25 +237,86 @@ export async function listWorkspaces(): Promise<WorkspaceSummary[]> {
     title: r.title,
     sourceType: r.source_type,
     conceptCount: r.concept_count,
+    documentCount: r.document_count,
     createdAt: r.created_at,
   }));
 }
 
+// --- Documents ---------------------------------------------------------------
+export async function listDocuments(workspaceId: string): Promise<DocumentSummary[]> {
+  if (USE_MOCKS) {
+    await delay(150);
+    // Mock mode has no server doc list; synthesize a single primary document.
+    return [
+      {
+        id: `doc_${workspaceId}`,
+        title: "Document",
+        sourceType: "pdf",
+        mode: "learn",
+        conceptCount: MOCK_INGEST.table_of_contents.length,
+        createdAt: new Date().toISOString(),
+      },
+    ];
+  }
+  const res = await fetch(`${API_URL}/workspaces/${workspaceId}/documents`, {
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error(await extractError(res, "Failed to load documents"));
+  const rows = (await res.json()) as Array<{
+    id: string;
+    title: string;
+    source_type: "pdf" | "pptx" | "youtube";
+    mode: SessionMode;
+    concept_count: number;
+    created_at: string;
+  }>;
+  return rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    sourceType: r.source_type,
+    mode: r.mode,
+    conceptCount: r.concept_count,
+    createdAt: r.created_at,
+  }));
+}
+
+export async function setDocumentMode(
+  workspaceId: string,
+  documentId: string,
+  mode: SessionMode,
+): Promise<void> {
+  if (USE_MOCKS) {
+    await delay(120);
+    return;
+  }
+  const res = await fetch(`${API_URL}/workspaces/${workspaceId}/documents/${documentId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ mode }),
+  });
+  if (!res.ok) throw new Error(await extractError(res, "Failed to update mode"));
+}
+
 // --- Reviewer retrieval ------------------------------------------------------
-export async function fetchReviewer(workspaceId: string): Promise<IngestPayload> {
+export async function fetchReviewer(
+  workspaceId: string,
+  documentId?: string,
+): Promise<IngestPayload> {
   if (USE_MOCKS) {
     await delay(400);
-    return readCachedReviewer(workspaceId) ?? MOCK_INGEST;
+    return readCachedReviewer(documentId ?? workspaceId) ?? MOCK_INGEST;
   }
-  // Session cache first (survives refresh without a DB); server GET is the
-  // fallback once Supabase persistence exists.
-  const cached = readCachedReviewer(workspaceId);
+  // Session cache first (survives refresh without a re-fetch); server is fallback.
+  const cached = readCachedReviewer(documentId ?? workspaceId);
   if (cached) return cached;
-  const res = await fetch(`${API_URL}/workspaces/${workspaceId}/reviewer`, {
+  const qs = documentId ? `?document_id=${encodeURIComponent(documentId)}` : "";
+  const res = await fetch(`${API_URL}/workspaces/${workspaceId}/reviewer${qs}`, {
     headers: authHeaders(),
   });
   if (!res.ok) throw new Error(`Failed to load reviewer: ${res.status}`);
-  return res.json();
+  const reviewer: IngestPayload = await res.json();
+  if (documentId) cacheReviewer(documentId, reviewer);
+  return reviewer;
 }
 
 // --- Tutor turn --------------------------------------------------------------
@@ -248,6 +345,7 @@ export async function sendTutorMessage(
       strike_count: ctx.strikeCount,
       study_focus: ctx.studyFocus,
       session_mode: ctx.sessionMode,
+      document_id: ctx.documentId,
       recent_history: ctx.recentHistory,
       reviewer: ctx.reviewer,
     }),
@@ -261,6 +359,7 @@ export async function generateQuiz(
   workspaceId: string,
   config: QuizConfig,
   reviewer?: IngestPayload,
+  documentId?: string,
 ): Promise<Quiz> {
   if (USE_MOCKS) {
     await delay(900);
@@ -269,7 +368,7 @@ export async function generateQuiz(
   const res = await fetch(`${API_URL}/workspaces/${workspaceId}/quiz`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({ ...config, reviewer }),
+    body: JSON.stringify({ ...config, reviewer, document_id: documentId }),
   });
   if (!res.ok) throw new Error(await extractError(res, "Quiz generation failed"));
   return res.json();

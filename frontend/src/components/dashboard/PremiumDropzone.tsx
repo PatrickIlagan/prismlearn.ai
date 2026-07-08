@@ -4,9 +4,10 @@ import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useDropzone, type FileRejection } from "react-dropzone";
 import { AnimatePresence, motion } from "framer-motion";
-import { UploadCloud, Link2, Loader2, FileUp } from "lucide-react";
+import { UploadCloud, Link2, Loader2, FileUp, GraduationCap, RefreshCw } from "lucide-react";
 import { ingestFile, ingestYoutube, type IngestResult } from "@/lib/api";
 import { useWorkspaceStore } from "@/store/useWorkspaceStore";
+import type { SessionMode } from "@/types/prism";
 import { cn } from "@/lib/utils";
 
 const MAX_UPLOAD_MB = 25; // keep in sync with backend settings.max_upload_mb
@@ -18,6 +19,7 @@ export function PremiumDropzone() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [youtubeUrl, setYoutubeUrl] = useState("");
+  const [mode, setMode] = useState<SessionMode>("learn");
 
   const run = useCallback(
     async (action: () => Promise<IngestResult>) => {
@@ -46,9 +48,9 @@ export function PremiumDropzone() {
         );
         return;
       }
-      if (accepted[0]) run(() => ingestFile(accepted[0]));
+      if (accepted[0]) run(() => ingestFile(accepted[0], { mode }));
     },
-    [run],
+    [run, mode],
   );
 
   const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
@@ -63,8 +65,40 @@ export function PremiumDropzone() {
     disabled: busy,
   });
 
+  const MODES: { id: SessionMode; label: string; hint: string; icon: typeof GraduationCap }[] = [
+    { id: "learn", label: "Learn", hint: "Teach it to me step by step", icon: GraduationCap },
+    { id: "review", label: "Review", hint: "Recap — I've seen this before", icon: RefreshCw },
+  ];
+
   return (
     <div>
+      {/* Study-mode selector — applied to whatever you ingest next */}
+      <div className="mb-3 flex items-center gap-2">
+        {MODES.map(({ id, label, hint, icon: Icon }) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setMode(id)}
+            disabled={busy}
+            title={hint}
+            className={cn(
+              "flex flex-1 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition-all disabled:opacity-50",
+              mode === id
+                ? "border-primary/60 bg-gradient-to-b from-violet-500/15 to-fuchsia-500/10 text-primary ring-1 ring-primary/30"
+                : "border-white/60 bg-white/40 text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <Icon size={15} />
+            {label}
+          </button>
+        ))}
+      </div>
+      <p className="mb-3 text-center text-xs text-muted-foreground">
+        {mode === "learn"
+          ? "Lumi will teach this source from scratch."
+          : "Lumi will run a rapid recap, targeting weak spots."}
+      </p>
+
       <div
         {...getRootProps()}
         className={cn(
@@ -146,7 +180,7 @@ export function PremiumDropzone() {
         onSubmit={(e) => {
           e.preventDefault();
           const url = youtubeUrl.trim();
-          if (url && !busy) run(() => ingestYoutube(url));
+          if (url && !busy) run(() => ingestYoutube(url, { mode }));
         }}
         className="mt-3 flex items-center gap-2"
       >

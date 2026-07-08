@@ -5,7 +5,7 @@ import Link from "next/link";
 import * as ResizablePanels from "react-resizable-panels";
 import { BookOpen, Sparkles, Brain, Menu, Loader2, AlertTriangle } from "lucide-react";
 import { useWorkspaceStore } from "@/store/useWorkspaceStore";
-import { fetchReviewer } from "@/lib/api";
+import { fetchReviewer, listDocuments } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import type { MobileTab } from "@/types/prism";
 import { SidebarAccordion } from "./SidebarAccordion";
@@ -33,32 +33,43 @@ export function WorkspaceShell({
 }) {
   const setIngest = useWorkspaceStore((s) => s.setIngest);
   const resumeSession = useWorkspaceStore((s) => s.resumeSession);
+  const setWorkspaceDocuments = useWorkspaceStore((s) => s.setWorkspaceDocuments);
+  const setActiveDocument = useWorkspaceStore((s) => s.setActiveDocument);
   const [mobileTab, setMobileTab] = useState<MobileTab>("reviewer");
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
   useEffect(() => {
-    // If ingestion already populated the store (dashboard upload → navigate),
-    // keep it. Otherwise load it (session cache, or server once persisted).
-    if (useWorkspaceStore.getState().ingest) {
-      resumeSession(workspaceId); // restore chat + progress if this is a revisit
-      setStatus("ready");
-      return;
-    }
     let alive = true;
     setStatus("loading");
-    fetchReviewer(workspaceId)
-      .then((reviewer) => {
+    (async () => {
+      try {
+        const docs = await listDocuments(workspaceId);
         if (!alive) return;
-        setIngest(reviewer);
-        // Rehydrate the saved transcript/progress AFTER the fresh reset above.
-        resumeSession(workspaceId);
+        setWorkspaceDocuments(docs);
+        // Primary document = newest; a switcher can change the active one later.
+        const active = docs[0] ?? null;
+        const sessionKey = active?.id ?? workspaceId;
+
+        const state = useWorkspaceStore.getState();
+        // Reuse the reviewer already in the store only if it's the active doc
+        // (fresh upload → navigate). Otherwise fetch the active doc's reviewer.
+        if (!state.ingest || state.activeDocumentId !== active?.id) {
+          const reviewer = await fetchReviewer(workspaceId, active?.id);
+          if (!alive) return;
+          setIngest(reviewer);
+        }
+        if (active) setActiveDocument(active.id, active.mode);
+        // Rehydrate this document's saved transcript/progress after any reset.
+        resumeSession(sessionKey);
         setStatus("ready");
-      })
-      .catch(() => alive && setStatus("error"));
+      } catch {
+        if (alive) setStatus("error");
+      }
+    })();
     return () => {
       alive = false;
     };
-  }, [workspaceId, setIngest, resumeSession]);
+  }, [workspaceId, setIngest, resumeSession, setWorkspaceDocuments, setActiveDocument]);
 
   if (status === "loading") {
     return (
@@ -97,7 +108,7 @@ export function WorkspaceShell({
         <Group orientation="horizontal" className="h-full gap-2">
           <Panel defaultSize="20%" minSize="15%" maxSize="30%">
             <div className="glass h-full overflow-hidden rounded-2xl">
-              <SidebarAccordion workspaceTitle={workspaceTitle} />
+              <SidebarAccordion workspaceTitle={workspaceTitle} workspaceId={workspaceId} />
             </div>
           </Panel>
           <Separator className="w-1.5 cursor-col-resize rounded-full bg-transparent transition-colors hover:bg-primary/30" />
@@ -121,7 +132,7 @@ export function WorkspaceShell({
           {mobileTab === "reviewer" && <DocumentViewer />}
           {mobileTab === "chat" && <LumiChatUI workspaceId={workspaceId} />}
           {(mobileTab === "assessments" || mobileTab === "menu") && (
-            <SidebarAccordion workspaceTitle={workspaceTitle} />
+            <SidebarAccordion workspaceTitle={workspaceTitle} workspaceId={workspaceId} />
           )}
         </div>
         <nav className="glass grid grid-cols-4">

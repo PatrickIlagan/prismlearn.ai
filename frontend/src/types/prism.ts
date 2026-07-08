@@ -149,6 +149,20 @@ export interface WorkspaceSummary {
   title: string;
   sourceType: "pdf" | "pptx" | "youtube";
   conceptCount: number;
+  /** Number of documents in the workspace (>=1). */
+  documentCount?: number;
+  createdAt: string;
+}
+
+/** "learn" = first-time teaching; "review" = recap that still walks the doc. */
+export type SessionMode = "learn" | "review";
+
+export interface DocumentSummary {
+  id: string;
+  title: string;
+  sourceType: "pdf" | "pptx" | "youtube";
+  mode: SessionMode;
+  conceptCount: number;
   createdAt: string;
 }
 

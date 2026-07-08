@@ -50,6 +50,7 @@ export function LumiChatUI({ workspaceId }: { workspaceId: string }) {
       strikeCount,
       studyMode,
       sessionMode,
+      activeDocumentId,
       messages: prior,
     } = useWorkspaceStore.getState();
 
@@ -70,6 +71,7 @@ export function LumiChatUI({ workspaceId }: { workspaceId: string }) {
         strikeCount,
         studyFocus: studyMode,
         sessionMode,
+        documentId: activeDocumentId ?? undefined,
         recentHistory,
       });
       applyTutorResponse(res);
