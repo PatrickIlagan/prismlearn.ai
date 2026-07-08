@@ -14,9 +14,11 @@ from openai import AsyncOpenAI
 from pydantic import ValidationError
 
 from app.core.config import settings
+from app.prompts.flashcards import build_flashcard_messages
 from app.prompts.ingest import build_ingest_messages
 from app.prompts.quiz import build_quiz_messages
 from app.prompts.tutor import build_tutor_messages
+from app.schemas.flashcards import FlashcardDeck
 from app.schemas.ingest import IngestPayload
 from app.schemas.quiz import Quiz
 from app.schemas.tutor import TutorRequest, TutorResponse
@@ -165,3 +167,44 @@ async def run_quiz(
         return Quiz.model_validate(data)
     except ValidationError as exc:
         raise InferenceError(f"Model JSON did not match the Quiz schema: {exc}") from exc
+
+
+async def run_flashcard_generation(
+    markdown_content: str,
+    anchor_ids: list[str],
+    *,
+    scope: str,
+    count: int,
+    study_focus: str,
+) -> FlashcardDeck:
+    """Generate a flashcard deck via [MODE: FLASHCARDS], independent of tutor progress."""
+    client = get_client()
+    messages = build_flashcard_messages(
+        markdown_content,
+        anchor_ids,
+        scope=scope,
+        count=count,
+        study_focus=study_focus,
+    )
+
+    try:
+        completion = await client.chat.completions.create(
+            model=settings.fireworks_model,
+            messages=messages,
+            temperature=0.5,
+            max_tokens=2048,
+            response_format={"type": "json_object"},
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise InferenceError(f"Fireworks inference failed: {exc}") from exc
+
+    content = completion.choices[0].message.content or ""
+    try:
+        data = _extract_json(content)
+    except json.JSONDecodeError as exc:
+        raise InferenceError(f"Model did not return valid JSON: {exc}") from exc
+
+    try:
+        return FlashcardDeck.model_validate(data)
+    except ValidationError as exc:
+        raise InferenceError(f"Model JSON did not match the FlashcardDeck schema: {exc}") from exc

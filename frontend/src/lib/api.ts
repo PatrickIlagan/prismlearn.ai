@@ -82,17 +82,26 @@ function titleFromFilename(name: string): string {
 }
 
 // --- Auth header -------------------------------------------------------------
-// Sends the (mock) user id so backend user-scoping works. When real Clerk lands,
-// this becomes an `Authorization: Bearer <jwt>` header instead.
-function authHeaders(): Record<string, string> {
+// Attaches the signed-in student's Clerk session token as a bearer token, which
+// the backend verifies against Clerk's JWKS (app/core/auth.py). This module
+// isn't a React component, so it can't use the useAuth()/useSession() hooks —
+// `window.Clerk` is the documented escape hatch: ClerkProvider attaches the
+// underlying clerk-js instance to it once loaded, and `.session.getToken()`
+// is how Clerk's own hooks fetch a fresh token under the hood.
+async function authHeaders(): Promise<Record<string, string>> {
   if (typeof window === "undefined") return {};
   try {
-    const raw = localStorage.getItem("prism_mock_user");
-    if (raw) return { "X-User-Id": (JSON.parse(raw) as { id: string }).id };
+    // ClerkProvider attaches the underlying clerk-js instance to window.Clerk
+    // once loaded; cast through unknown since its ambient type isn't visible
+    // in every compilation unit and is a broad union we don't need here.
+    const clerk = (window as unknown as Record<string, unknown>).Clerk as
+      | { session?: { getToken(): Promise<string | null> } | null }
+      | undefined;
+    const token = await clerk?.session?.getToken();
+    return token ? { Authorization: `Bearer ${token}` } : {};
   } catch {
-    /* ignore */
+    return {};
   }
-  return {};
 }
 
 // --- Types matching the backend IngestResponse -------------------------------
@@ -168,7 +177,7 @@ export async function ingestFile(
   if (workspaceId) form.append("workspace_id", workspaceId);
   const res = await fetch(`${API_URL}/ingest/file`, {
     method: "POST",
-    headers: authHeaders(),
+    headers: await authHeaders(),
     body: form,
   });
   if (!res.ok) throw new Error(await extractError(res, "Ingestion failed"));
@@ -200,7 +209,7 @@ export async function ingestYoutube(
   }
   const res = await fetch(`${API_URL}/ingest/youtube`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify({
       youtube_url: youtubeUrl,
       study_focus: studyFocus,
@@ -222,7 +231,7 @@ export async function listWorkspaces(): Promise<WorkspaceSummary[]> {
     // Workspaces created this session appear first, then the demo samples.
     return [...readLocalWorkspaces(), ...MOCK_WORKSPACES];
   }
-  const res = await fetch(`${API_URL}/workspaces`, { headers: authHeaders() });
+  const res = await fetch(`${API_URL}/workspaces`, { headers: await authHeaders() });
   if (!res.ok) throw new Error(await extractError(res, "Failed to load workspaces"));
   const rows = (await res.json()) as Array<{
     id: string;
@@ -259,7 +268,7 @@ export async function listDocuments(workspaceId: string): Promise<DocumentSummar
     ];
   }
   const res = await fetch(`${API_URL}/workspaces/${workspaceId}/documents`, {
-    headers: authHeaders(),
+    headers: await authHeaders(),
   });
   if (!res.ok) throw new Error(await extractError(res, "Failed to load documents"));
   const rows = (await res.json()) as Array<{
@@ -291,7 +300,7 @@ export async function setDocumentMode(
   }
   const res = await fetch(`${API_URL}/workspaces/${workspaceId}/documents/${documentId}`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify({ mode }),
   });
   if (!res.ok) throw new Error(await extractError(res, "Failed to update mode"));
@@ -311,7 +320,7 @@ export async function fetchReviewer(
   if (cached) return cached;
   const qs = documentId ? `?document_id=${encodeURIComponent(documentId)}` : "";
   const res = await fetch(`${API_URL}/workspaces/${workspaceId}/reviewer${qs}`, {
-    headers: authHeaders(),
+    headers: await authHeaders(),
   });
   if (!res.ok) throw new Error(`Failed to load reviewer: ${res.status}`);
   const reviewer: IngestPayload = await res.json();
@@ -337,7 +346,7 @@ export async function sendTutorMessage(
   }
   const res = await fetch(`${API_URL}/workspaces/${workspaceId}/tutor`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify({
       student_message: studentMessage,
       current_step: ctx.currentStep,
@@ -367,11 +376,77 @@ export async function generateQuiz(
   }
   const res = await fetch(`${API_URL}/workspaces/${workspaceId}/quiz`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify({ ...config, reviewer, document_id: documentId }),
   });
   if (!res.ok) throw new Error(await extractError(res, "Quiz generation failed"));
   return res.json();
+}
+
+// --- Flashcards ----------------------------------------------------------------
+export interface FlashcardGenConfig {
+  scope?: string; // "all" or a concept anchor_id
+  count?: number;
+  study_focus?: StudyMode;
+}
+
+function fromRecord(r: { id: string; front: string; back: string; anchor_id?: string | null }) {
+  return { id: r.id, front: r.front, back: r.back, anchorId: r.anchor_id ?? undefined };
+}
+
+/** Cards already saved for a workspace (survives reload — unlike tutor-earned
+ *  widget flashcards, which are still local-only). */
+export async function listFlashcards(workspaceId: string): Promise<
+  { id: string; front: string; back: string; anchorId?: string }[]
+> {
+  if (USE_MOCKS) return [];
+  const res = await fetch(`${API_URL}/workspaces/${workspaceId}/flashcards`, {
+    headers: await authHeaders(),
+  });
+  if (!res.ok) throw new Error(await extractError(res, "Failed to load flashcards"));
+  const rows = (await res.json()) as Array<{
+    id: string;
+    front: string;
+    back: string;
+    anchor_id?: string | null;
+  }>;
+  return rows.map(fromRecord);
+}
+
+/** Generates (and persists) a full deck for a document on demand — independent
+ *  of how far the student has gotten through the tutor. */
+export async function generateFlashcards(
+  workspaceId: string,
+  config: FlashcardGenConfig = {},
+  documentId?: string,
+): Promise<{ id: string; front: string; back: string; anchorId?: string }[]> {
+  if (USE_MOCKS) {
+    await delay(900);
+    return MOCK_INGEST.table_of_contents.slice(0, config.count ?? 8).map((c, i) => ({
+      id: `mock_card_${i}`,
+      front: `What is ${c.title}?`,
+      back: `A key concept covered in "${c.title}."`,
+      anchorId: c.anchor_id,
+    }));
+  }
+  const res = await fetch(`${API_URL}/workspaces/${workspaceId}/flashcards/generate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+    body: JSON.stringify({
+      scope: config.scope ?? "all",
+      count: config.count ?? 10,
+      study_focus: config.study_focus ?? "comprehensive",
+      document_id: documentId,
+    }),
+  });
+  if (!res.ok) throw new Error(await extractError(res, "Flashcard generation failed"));
+  const rows = (await res.json()) as Array<{
+    id: string;
+    front: string;
+    back: string;
+    anchor_id?: string | null;
+  }>;
+  return rows.map(fromRecord);
 }
 
 // --- helpers -----------------------------------------------------------------

@@ -16,6 +16,7 @@ import type {
 import { parseCanvas } from "@/lib/canvas";
 import { playDing } from "@/lib/sounds";
 import { addXp as profileAddXp, completeQuest, recordActivity } from "@/lib/profile";
+import { simplifyText, type ComplexityLevel } from "@/lib/textComplexity";
 
 /**
  * The agentic UI-manipulation pipeline lives here.
@@ -58,6 +59,8 @@ type PersistedSession = Pick<
   | "completedBlocks"
   | "xp"
   | "completedChapters"
+  | "textComplexity"
+  | "blockComplexity"
 >;
 
 function loadPersistedSession(id: string): PersistedSession | null {
@@ -82,6 +85,8 @@ function savePersistedSession(id: string, s: WorkspaceState) {
       completedBlocks: s.completedBlocks,
       xp: s.xp,
       completedChapters: s.completedChapters,
+      textComplexity: s.textComplexity,
+      blockComplexity: s.blockComplexity,
     };
     sessionStorage.setItem(SESSION_PREFIX + id, JSON.stringify(slice));
   } catch {
@@ -123,6 +128,19 @@ interface WorkspaceState {
   mutateBlockToGame: (anchorId: string, gameType: BlockMode, payload?: GamePayload) => void;
   completeBlockGame: (blockId: string) => void;
 
+  // --- Feature 1: ELI5 reading-level slider ---
+  /** 0 Academic | 1 Standard | 2 ELI5 — the slider's current position. */
+  textComplexity: ComplexityLevel;
+  /** Which block is currently centered in the viewport (tracked by DocumentViewer's
+   *  IntersectionObserver) — the "currently visible" block the slider acts on. */
+  visibleBlockId: string | null;
+  /** Per-block rewrite cache: once a block has been simplified, it stays that way
+   *  even if you scroll away and back, keyed by the level it was rewritten at. */
+  blockComplexity: Record<string, { level: ComplexityLevel; text: string }>;
+  setVisibleBlockId: (blockId: string | null) => void;
+  /** Moves the slider and — mock ui_action — rewrites the currently visible block. */
+  setTextComplexity: (level: ComplexityLevel) => void;
+
   // --- Gamification (XP / levels) ---
   xp: number;
   completedChapters: string[];
@@ -150,9 +168,16 @@ interface WorkspaceState {
   step: StepState;
   strikeCount: number;
 
-  // --- Flashcards (widget spawning) ---
+  // --- Flashcards (widget spawning + on-demand generation) ---
   flashcards: Flashcard[];
   addFlashcard: (card: Omit<Flashcard, "id">) => void;
+  /** Replaces the deck (e.g. after loading persisted cards or generating a new batch). */
+  setFlashcards: (cards: Flashcard[]) => void;
+  /** Appends generated cards, skipping any whose id we already have. */
+  mergeFlashcards: (cards: Flashcard[]) => void;
+  /** Swipeable flashcard viewer (Feature: study the deck in-app). */
+  flashcardsOpen: boolean;
+  setFlashcardsOpen: (open: boolean) => void;
 
   // --- Settings ---
   studyMode: StudyMode;
@@ -192,6 +217,12 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       // Pause persistence: resumeSession() re-establishes it for the right key,
       // so this fresh reset never clobbers a saved session.
       sessionKey: null,
+      textComplexity: 0,
+      visibleBlockId: null,
+      blockComplexity: {},
+      // Flashcards are per-document; WorkspaceShell reloads the persisted deck
+      // for the newly active document right after this reset.
+      flashcards: [],
     });
   },
 
@@ -290,6 +321,23 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     if (newlyMasteredChapter) setTimeout(() => get().unlockNextChapter(), 900);
   },
 
+  textComplexity: 0,
+  visibleBlockId: null,
+  blockComplexity: {},
+  setVisibleBlockId: (blockId) => set({ visibleBlockId: blockId }),
+  setTextComplexity: (level) => {
+    set({ textComplexity: level });
+    const { visibleBlockId, chapters } = get();
+    if (!visibleBlockId) return;
+    const block = chapters.flatMap((c) => c.blocks).find((b) => b.id === visibleBlockId);
+    // Mermaid diagrams have no prose to rewrite.
+    if (!block || block.kind === "mermaid") return;
+    const text = simplifyText(block.plain, level);
+    set((s) => ({
+      blockComplexity: { ...s.blockComplexity, [visibleBlockId]: { level, text } },
+    }));
+  },
+
   scrollTarget: null,
   activeHighlight: null,
   highlightTone: "purple",
@@ -311,6 +359,15 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   flashcards: [],
   addFlashcard: (card) =>
     set((s) => ({ flashcards: [...s.flashcards, { ...card, id: uid("card") }] })),
+  setFlashcards: (cards) => set({ flashcards: cards }),
+  mergeFlashcards: (cards) =>
+    set((s) => {
+      const known = new Set(s.flashcards.map((c) => c.id));
+      const fresh = cards.filter((c) => !known.has(c.id));
+      return fresh.length ? { flashcards: [...s.flashcards, ...fresh] } : s;
+    }),
+  flashcardsOpen: false,
+  setFlashcardsOpen: (open) => set({ flashcardsOpen: open }),
 
   studyMode: "comprehensive",
   ttsEnabled: false,

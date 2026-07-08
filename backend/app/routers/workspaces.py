@@ -7,6 +7,7 @@ Workspace read + document + flashcard endpoints (all user-scoped).
   PATCH /workspaces/{id}/documents/{document_id}     -> change a document's study mode
   GET   /workspaces/{id}/flashcards                  -> saved flashcards
   POST  /workspaces/{id}/flashcards                  -> save a flashcard (widget spawning)
+  POST  /workspaces/{id}/flashcards/generate         -> generate + save a whole deck on demand
 
 Endpoints that operate on a single document accept an optional `document_id`;
 when omitted they resolve to the workspace's primary (newest) document, so the
@@ -20,6 +21,7 @@ from pydantic import BaseModel
 
 from app.core.auth import get_current_user_id
 from app.db import get_repository
+from app.schemas.flashcards import FlashcardGenRequest
 from app.schemas.ingest import IngestPayload
 from app.schemas.workspace import (
     DocumentSummary,
@@ -29,6 +31,7 @@ from app.schemas.workspace import (
     WorkspaceSummary,
     doc_to_summary,
 )
+from app.services.fireworks import InferenceError, run_flashcard_generation
 
 router = APIRouter(prefix="/workspaces", tags=["workspaces"])
 
@@ -101,3 +104,44 @@ async def add_flashcard(
         )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Workspace not found.") from exc
+
+
+@router.post(
+    "/{workspace_id}/flashcards/generate", response_model=list[FlashcardRecord], status_code=201
+)
+async def generate_flashcards(
+    workspace_id: str,
+    body: FlashcardGenRequest,
+    user_id: str = Depends(get_current_user_id),
+) -> list[FlashcardRecord]:
+    """Generate a full deck for a document on demand — independent of how far the
+    student has gotten through the tutor, unlike the incidental widget_trigger cards."""
+    repo = get_repository()
+    document = await repo.get_document(
+        user_id=user_id, workspace_id=workspace_id, document_id=body.document_id
+    )
+    if document is None:
+        raise HTTPException(status_code=404, detail="Document not found.")
+
+    anchor_ids = [entry.anchor_id for entry in document.reviewer.table_of_contents]
+    try:
+        deck = await run_flashcard_generation(
+            document.reviewer.markdown_content,
+            anchor_ids,
+            scope=body.scope,
+            count=body.count,
+            study_focus=body.study_focus,
+        )
+    except InferenceError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    saved: list[FlashcardRecord] = []
+    for card in deck.cards:
+        saved.append(
+            await repo.add_flashcard(
+                user_id=user_id,
+                workspace_id=workspace_id,
+                card=FlashcardCreate(front=card.front, back=card.back, anchor_id=card.anchor_id),
+            )
+        )
+    return saved

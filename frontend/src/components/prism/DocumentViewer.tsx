@@ -2,8 +2,10 @@
 
 import { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { Lock } from "lucide-react";
+import { Lock, GraduationCap, Baby } from "lucide-react";
 import { useWorkspaceStore } from "@/store/useWorkspaceStore";
+import { Slider } from "@/components/ui/slider";
+import { COMPLEXITY_LABELS, type ComplexityLevel } from "@/lib/textComplexity";
 import { MermaidDiagram } from "./MermaidDiagram";
 import { InteractiveBlock } from "./InteractiveBlock";
 import type { BlockGameState, CanvasChapter } from "@/types/prism";
@@ -25,6 +27,7 @@ export function DocumentViewer() {
   const activeHighlight = useWorkspaceStore((s) => s.activeHighlight);
   const highlightTone = useWorkspaceStore((s) => s.highlightTone);
   const clearScrollTarget = useWorkspaceStore((s) => s.clearScrollTarget);
+  const setVisibleBlockId = useWorkspaceStore((s) => s.setVisibleBlockId);
   const rootRef = useRef<HTMLDivElement>(null);
 
   // Agentic viewport control: scroll to the AI-requested anchor.
@@ -49,6 +52,37 @@ export function DocumentViewer() {
     }
   }, [activeHighlight, highlightTone, chapters]);
 
+  // Feature 1 (ELI5 slider): track whichever block is closest to the viewport
+  // center — that's the "currently visible" block the slider acts on.
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root || chapters.length === 0) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.filter((e) => e.isIntersecting);
+        if (visible.length === 0) return;
+        const centerY = root.getBoundingClientRect().top + root.clientHeight / 2;
+        let best: Element | null = null;
+        let bestDist = Infinity;
+        for (const e of visible) {
+          const elCenter = e.boundingClientRect.top + e.boundingClientRect.height / 2;
+          const dist = Math.abs(elCenter - centerY);
+          if (dist < bestDist) {
+            bestDist = dist;
+            best = e.target;
+          }
+        }
+        const id = best?.getAttribute("data-block-id");
+        if (id) setVisibleBlockId(id);
+      },
+      { root, threshold: [0, 0.25, 0.5, 0.75, 1] },
+    );
+    const blockEls = root.querySelectorAll<HTMLElement>("[data-block-id]");
+    blockEls.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, [chapters, setVisibleBlockId]);
+
   if (chapters.length === 0) {
     return (
       <div className="flex h-full items-center justify-center text-muted-foreground">
@@ -59,16 +93,56 @@ export function DocumentViewer() {
 
   return (
     <div ref={rootRef} className="h-full overflow-y-auto px-6 py-6 md:px-8">
-      <div className="mx-auto max-w-3xl space-y-6">
-        {chapters.map((chapter) => (
-          <ChapterSection
-            key={chapter.anchorId}
-            chapter={chapter}
-            locked={!unlockedAnchors.includes(chapter.anchorId)}
-            blockGames={blockGames}
-          />
-        ))}
+      <div className="mx-auto max-w-3xl">
+        <ComplexityToolbar />
+        <div className="space-y-6">
+          {chapters.map((chapter) => (
+            <ChapterSection
+              key={chapter.anchorId}
+              chapter={chapter}
+              locked={!unlockedAnchors.includes(chapter.anchorId)}
+              blockGames={blockGames}
+            />
+          ))}
+        </div>
       </div>
+    </div>
+  );
+}
+
+// ── Feature 1: ELI5 reading-level slider ────────────────────────────────────
+const COMPLEXITY_ICON = [GraduationCap, GraduationCap, Baby] as const;
+const COMPLEXITY_TINT = [
+  "text-foreground/70",
+  "text-primary",
+  "text-fuchsia-600",
+] as const;
+
+function ComplexityToolbar() {
+  const textComplexity = useWorkspaceStore((s) => s.textComplexity);
+  const setTextComplexity = useWorkspaceStore((s) => s.setTextComplexity);
+  const Icon = COMPLEXITY_ICON[textComplexity];
+
+  return (
+    <div className="glass sticky top-0 z-10 mb-5 flex items-center gap-3 rounded-xl px-4 py-2.5">
+      <span className="shrink-0 text-xs font-medium text-muted-foreground">Reading level</span>
+      <Slider
+        value={[textComplexity]}
+        min={0}
+        max={2}
+        step={1}
+        onValueChange={([v]) => setTextComplexity(v as ComplexityLevel)}
+        className="max-w-[160px]"
+      />
+      <span
+        className={cn(
+          "flex shrink-0 items-center gap-1.5 text-xs font-semibold transition-colors",
+          COMPLEXITY_TINT[textComplexity],
+        )}
+      >
+        <Icon size={14} />
+        {COMPLEXITY_LABELS[textComplexity]}
+      </span>
     </div>
   );
 }
@@ -110,11 +184,9 @@ function ChapterSection({
                   ? { target: game.payload.target, onSolved: () => completeBlockGame(block.id) }
                   : undefined;
               return (
-                <MermaidDiagram
-                  key={block.id}
-                  code={extractMermaid(block.markdown)}
-                  hotspot={hotspot}
-                />
+                <div key={block.id} data-block-id={block.id}>
+                  <MermaidDiagram code={extractMermaid(block.markdown)} hotspot={hotspot} />
+                </div>
               );
             }
             return (

@@ -5,13 +5,15 @@ import Link from "next/link";
 import * as ResizablePanels from "react-resizable-panels";
 import { BookOpen, Sparkles, Brain, Menu, Loader2, AlertTriangle } from "lucide-react";
 import { useWorkspaceStore } from "@/store/useWorkspaceStore";
-import { fetchReviewer, listDocuments } from "@/lib/api";
+import { fetchReviewer, listDocuments, listFlashcards } from "@/lib/api";
+import { filterFlashcardsForDocument } from "@/lib/flashcards";
 import { Button } from "@/components/ui/button";
 import type { MobileTab } from "@/types/prism";
 import { SidebarAccordion } from "./SidebarAccordion";
 import { DocumentViewer } from "./DocumentViewer";
 import { LumiChatUI } from "./LumiChatUI";
 import { InteractiveQuizModal } from "./InteractiveQuizModal";
+import { FlashcardSwiper } from "./FlashcardSwiper";
 import { LevelUpBurst } from "./LevelUpBurst";
 import { cn } from "@/lib/utils";
 
@@ -38,6 +40,7 @@ export function WorkspaceShell({
   const setWorkspaceDocuments = useWorkspaceStore((s) => s.setWorkspaceDocuments);
   const setActiveDocument = useWorkspaceStore((s) => s.setActiveDocument);
   const unlockAllChapters = useWorkspaceStore((s) => s.unlockAllChapters);
+  const setFlashcards = useWorkspaceStore((s) => s.setFlashcards);
   const [mobileTab, setMobileTab] = useState<MobileTab>("reviewer");
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
@@ -57,8 +60,9 @@ export function WorkspaceShell({
         const state = useWorkspaceStore.getState();
         // Reuse the reviewer already in the store only if it's the active doc
         // (fresh upload → navigate). Otherwise fetch the active doc's reviewer.
-        if (!state.ingest || state.activeDocumentId !== active?.id) {
-          const reviewer = await fetchReviewer(workspaceId, active?.id);
+        let reviewer = state.ingest;
+        if (!reviewer || state.activeDocumentId !== active?.id) {
+          reviewer = await fetchReviewer(workspaceId, active?.id);
           if (!alive) return;
           setIngest(reviewer);
         }
@@ -70,6 +74,14 @@ export function WorkspaceShell({
         // reference any chapter without "locking out" the student behind a
         // padlock they never earned past.
         if (active?.mode === "review") unlockAllChapters();
+
+        // Load any previously generated/earned flashcards for this document.
+        try {
+          const saved = await listFlashcards(workspaceId);
+          if (alive) setFlashcards(filterFlashcardsForDocument(saved, reviewer));
+        } catch {
+          /* non-fatal — deck just starts empty */
+        }
         setStatus("ready");
       } catch {
         if (alive) setStatus("error");
@@ -86,6 +98,7 @@ export function WorkspaceShell({
     setWorkspaceDocuments,
     setActiveDocument,
     unlockAllChapters,
+    setFlashcards,
   ]);
 
   if (status === "loading") {
@@ -117,6 +130,8 @@ export function WorkspaceShell({
     <div className="h-screen w-full">
       {/* Assessment overlay (opened from the sidebar) */}
       <InteractiveQuizModal />
+      {/* Swipeable flashcard deck viewer (opened from the sidebar) */}
+      <FlashcardSwiper />
       {/* Level-up celebration on chapter mastery */}
       <LevelUpBurst />
 

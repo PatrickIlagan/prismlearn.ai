@@ -8,9 +8,11 @@ import {
   ingestFile,
   ingestYoutube,
   listDocuments,
+  listFlashcards,
   setDocumentMode,
   type IngestResult,
 } from "@/lib/api";
+import { filterFlashcardsForDocument } from "@/lib/flashcards";
 import type { DocumentSummary, SessionMode } from "@/types/prism";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +29,7 @@ export function DocumentSwitcher({ workspaceId }: { workspaceId: string }) {
   const resumeSession = useWorkspaceStore((s) => s.resumeSession);
   const setWorkspaceDocuments = useWorkspaceStore((s) => s.setWorkspaceDocuments);
   const unlockAllChapters = useWorkspaceStore((s) => s.unlockAllChapters);
+  const setFlashcards = useWorkspaceStore((s) => s.setFlashcards);
 
   const [switching, setSwitching] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -46,6 +49,12 @@ export function DocumentSwitcher({ workspaceId }: { workspaceId: string }) {
       resumeSession(doc.id);
       // Review = recap of the WHOLE document — no fog-of-war gating.
       if (doc.mode === "review") unlockAllChapters();
+      try {
+        const saved = await listFlashcards(workspaceId);
+        setFlashcards(filterFlashcardsForDocument(saved, reviewer));
+      } catch {
+        /* non-fatal */
+      }
     } finally {
       setSwitching(null);
     }

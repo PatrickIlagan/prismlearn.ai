@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, BookOpen, Brain, Download, Settings2 } from "lucide-react";
+import { ArrowLeft, BookOpen, Brain, Download, Settings2, Loader2, Layers } from "lucide-react";
 import {
   Accordion,
   AccordionContent,
@@ -11,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useWorkspaceStore } from "@/store/useWorkspaceStore";
 import { exportFlashcardsPdf } from "@/lib/exportPdf";
+import { generateFlashcards } from "@/lib/api";
 import type { StudyMode } from "@/types/prism";
 import { cn } from "@/lib/utils";
 import { DocumentSwitcher } from "./DocumentSwitcher";
@@ -36,12 +38,35 @@ export function SidebarAccordion({
   const flashcards = useWorkspaceStore((s) => s.flashcards);
   const hasCards = flashcards.length > 0;
   const setQuizOpen = useWorkspaceStore((s) => s.setQuizOpen);
+  const setFlashcardsOpen = useWorkspaceStore((s) => s.setFlashcardsOpen);
+  const mergeFlashcards = useWorkspaceStore((s) => s.mergeFlashcards);
+  const activeDocumentId = useWorkspaceStore((s) => s.activeDocumentId);
   const hasDoc = toc.length > 0;
   const requestScrollTo = useWorkspaceStore((s) => s.requestScrollTo);
   const studyMode = useWorkspaceStore((s) => s.studyMode);
   const setStudyMode = useWorkspaceStore((s) => s.setStudyMode);
   const ttsEnabled = useWorkspaceStore((s) => s.ttsEnabled);
   const toggleTts = useWorkspaceStore((s) => s.toggleTts);
+  const [generating, setGenerating] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
+
+  async function handleGenerateFlashcards() {
+    setGenerating(true);
+    setGenError(null);
+    try {
+      const cards = await generateFlashcards(
+        workspaceId,
+        { scope: "all", count: 10, study_focus: studyMode },
+        activeDocumentId ?? undefined,
+      );
+      mergeFlashcards(cards.map((c) => ({ id: c.id, front: c.front, back: c.back, anchorId: c.anchorId })));
+      setFlashcardsOpen(true);
+    } catch (e) {
+      setGenError(e instanceof Error ? e.message : "Couldn't generate flashcards.");
+    } finally {
+      setGenerating(false);
+    }
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -91,7 +116,26 @@ export function SidebarAccordion({
             </AccordionTrigger>
             <AccordionContent>
               <ul className="space-y-0.5 text-sm text-muted-foreground">
-                <li className="px-2 py-1">Flashcard Deck ({flashcards.length})</li>
+                <li>
+                  <button
+                    onClick={() => setFlashcardsOpen(true)}
+                    disabled={!hasCards}
+                    className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50 disabled:hover:bg-transparent"
+                  >
+                    <Layers size={13} /> Flashcard Deck ({flashcards.length})
+                  </button>
+                </li>
+                <li>
+                  <button
+                    onClick={handleGenerateFlashcards}
+                    disabled={!hasDoc || generating}
+                    className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50 disabled:hover:bg-transparent"
+                  >
+                    {generating ? <Loader2 size={13} className="animate-spin" /> : "✨"} Generate
+                    Flashcards
+                  </button>
+                </li>
+                {genError && <li className="px-2 text-xs text-destructive">{genError}</li>}
                 <li>
                   <button
                     onClick={() => setQuizOpen(true)}

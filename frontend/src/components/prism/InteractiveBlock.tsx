@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { motion, Reorder, useAnimationControls } from "framer-motion";
+import { AnimatePresence, motion, Reorder, useAnimationControls } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { GripVertical } from "lucide-react";
+import { GripVertical, Sparkles } from "lucide-react";
 import { useWorkspaceStore } from "@/store/useWorkspaceStore";
 import { boldTerms, splitSentences } from "@/lib/canvas";
 import type { BlockMode, CanvasBlock, GamePayload } from "@/types/prism";
@@ -51,6 +51,7 @@ export function InteractiveBlock({
 
   return (
     <motion.div
+      data-block-id={block.id}
       animate={controls}
       className={cn("rounded-lg", mode !== "read" && "px-1 py-1")}
     >
@@ -65,11 +66,49 @@ export function InteractiveBlock({
 }
 
 // ── read ─────────────────────────────────────────────────────────────────────
+// Feature 1 (ELI5 slider): a block that was "the currently visible one" when the
+// slider moved carries a rewritten override — crossfade to it instead of the
+// original markdown, and back again if the slider returns to Academic.
 function ReadBlock({ block }: { block: CanvasBlock }) {
+  const override = useWorkspaceStore((s) => s.blockComplexity[block.id]);
+  const showOverride = override && override.level > 0;
+
   return (
-    <div className="prose prose-sm prose-slate max-w-none prose-p:leading-relaxed prose-strong:text-foreground">
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>{block.markdown}</ReactMarkdown>
-    </div>
+    <AnimatePresence mode="wait" initial={false}>
+      {showOverride ? (
+        <motion.div
+          key={`simplified-${override.level}`}
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -4 }}
+          transition={{ duration: 0.35, ease: "easeInOut" }}
+          className={cn(
+            "rounded-lg p-2.5 text-sm leading-relaxed",
+            override.level === 2
+              ? "border border-fuchsia-300/50 bg-fuchsia-50/50 text-foreground/90"
+              : "text-foreground/90",
+          )}
+        >
+          {override.level === 2 && (
+            <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-fuchsia-600">
+              <Sparkles size={12} /> ELI5
+            </p>
+          )}
+          {override.text}
+        </motion.div>
+      ) : (
+        <motion.div
+          key="original"
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -4 }}
+          transition={{ duration: 0.35, ease: "easeInOut" }}
+          className="prose prose-sm prose-slate max-w-none prose-p:leading-relaxed prose-strong:text-foreground"
+        >
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{block.markdown}</ReactMarkdown>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 
