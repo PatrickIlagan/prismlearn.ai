@@ -195,7 +195,7 @@ def _fetch_html(url: str) -> bytes:
 
         try:
             with httpx.stream(
-                "GET", current, follow_redirects=False, timeout=15.0, headers=_WEBSITE_UA
+                "GET", current, follow_redirects=False, timeout=8.0, headers=_WEBSITE_UA
             ) as resp:
                 if resp.is_redirect:
                     location = resp.headers.get("location")
@@ -217,6 +217,19 @@ def _fetch_html(url: str) -> bytes:
                 return bytes(buf)
         except httpx.HTTPStatusError as exc:
             raise ExtractionError(f"That URL returned an error ({exc.response.status_code}).") from exc
+        except httpx.TimeoutException as exc:
+            # Corporate/marketing sites are frequently behind bot-detection (Akamai,
+            # Cloudflare, etc.) that silently drops or stalls automated requests
+            # rather than returning a clean block page — from the caller's side
+            # this is indistinguishable from the site just being slow. Confirmed
+            # against amd.com/en/blogs/... via two independent network paths (this
+            # server, and a completely separate fetch service) — both failed the
+            # same way, so it's the target site, not this code.
+            raise ExtractionError(
+                "That page didn't respond in time. Some sites block automated "
+                "requests like this one — if it's a well-known page, try pasting "
+                "the article text directly, or a different source."
+            ) from exc
         except httpx.HTTPError as exc:
             raise ExtractionError(f"Could not reach that URL: {exc}") from exc
     raise ExtractionError("Too many redirects.")
