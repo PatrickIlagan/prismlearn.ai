@@ -2,6 +2,7 @@
 
 import { SignIn, SignUp } from "@clerk/nextjs";
 import { MascotLumi } from "@/components/prism/MascotLumi";
+import { FluidBlob } from "@/components/prism/FluidBlob";
 
 /**
  * Glassmorphic wrapper around Clerk's prebuilt <SignIn>/<SignUp>.
@@ -13,25 +14,33 @@ import { MascotLumi } from "@/components/prism/MascotLumi";
  * properties (hsl(var(--prism-violet)) etc.) so it stays in sync with the
  * Prism theme automatically.
  *
- * IMPORTANT: only theme via `variables` and LEAF-level `elements` (buttons,
- * inputs, links) — never hide or zero-out structural containers like `card`/
- * `header`/`rootBox`. Doing that previously (`header: "hidden"`,
- * `card: "...!p-0..."`) collapsed the container Clerk's bot-protection
- * widget renders into, so it silently never became "visible" and the whole
- * form hung on an infinite loading spinner. Confirmed by removing those two
- * overrides — the spinner was the symptom, not a network/config issue.
+ * History of this file's double-card bug, so the next pass doesn't repeat it:
+ * 1st attempt — hid `header`/zeroed `card` padding. Broke the bot-protection
+ *   widget (it needs to actually be visible to initialize) — infinite spinner.
+ * 2nd attempt — `card: "bg-transparent"` (no !important). Silently a no-op:
+ *   Clerk's own stylesheet sets the real opaque white background on a
+ *   *different* element and/or with higher specificity than a plain Tailwind
+ *   utility class, so it never actually lost the cascade fight.
+ * 3rd attempt — same idea but targeting `cardBox` instead of `card`, still no
+ *   `!important`. Also didn't stick (confirmed by screenshot: still solid
+ *   white), AND hiding `headerTitle`/`headerSubtitle` left an empty gap where
+ *   Clerk's header container still reserved space for its now-invisible text.
  *
- * Clerk's own card renders its own title/subtitle/box-shadow, which nested
- * inside our glass card reads as two stacked cards. The outer opaque white
- * box turned out to be `cardBox` (the positioned wrapper Clerk gives its own
- * white background + shadow), NOT `card` (an inner content wrapper that was
- * already unstyled) — the first attempt at this fix targeted the wrong one,
- * so it was silently a no-op and the double-card look never actually went
- * away. Both are targeted now. Neither is hidden or zeroed (only stripped of
- * background/border/shadow — no padding or display changes), so layout, and
- * whatever the bot-protection widget measures, is untouched.
- * `headerTitle`/`headerSubtitle` are leaf text nodes (not containers), so
- * hiding them is safe by the same rule that makes hiding `header` unsafe.
+ * Current approach — stop guessing which single element is "the" background
+ * and stop trying to out-cleverness Clerk's own header:
+ * - Every background/shadow/border override below uses Tailwind's `!` prefix
+ *   (`!important`) so it wins regardless of Clerk's own specificity/injection
+ *   order. Applied to BOTH `cardBox` and `card` — redundant if only one of
+ *   them is real, harmless if both are.
+ * - Clerk's own header text is no longer hidden — restyled instead (leaf-level
+ *   color/weight only, still safe by the same "don't touch containers" rule).
+ *   This removes the duplicate-heading problem at the root (we no longer have
+ *   our own competing "Welcome back" text) instead of fighting Clerk's layout
+ *   to hide half of it.
+ * - `header`/`main`/`rootBox` are still never hidden or zeroed — only
+ *   `cardBox`/`card` backgrounds and `headerTitle`/`headerSubtitle` text
+ *   styling are touched, so the bot-protection widget's visibility is
+ *   untouched.
  */
 const clerkAppearance = {
   variables: {
@@ -44,10 +53,11 @@ const clerkAppearance = {
     fontFamily: "var(--font-sans)",
   },
   elements: {
-    cardBox: "shadow-none border-0 bg-transparent",
-    card: "shadow-none border-0 bg-transparent",
-    headerTitle: "hidden",
-    headerSubtitle: "hidden",
+    rootBox: "w-full",
+    cardBox: "w-full !bg-transparent !shadow-none !border-0",
+    card: "w-full !bg-transparent !shadow-none !border-0 !p-0",
+    headerTitle: "text-lg font-bold tracking-tight text-foreground",
+    headerSubtitle: "text-sm text-muted-foreground",
     socialButtonsBlockButton:
       "border border-white/60 bg-white/50 backdrop-blur-sm hover:bg-white/80",
     formFieldInput:
@@ -63,19 +73,18 @@ export function AuthCard({ mode }: { mode: "sign-in" | "sign-up" }) {
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10">
-      <div className="prism-orb -left-20 top-0 h-80 w-80 bg-violet-400/50" />
-      <div className="prism-orb -right-16 bottom-0 h-80 w-80 bg-cyan-300/45" />
-      <div className="prism-orb left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 bg-fuchsia-300/25" />
+      <FluidBlob className="-left-20 top-0 h-80 w-80 bg-violet-400/50" duration={13} hueShift />
+      <FluidBlob className="-right-16 bottom-0 h-80 w-80 bg-cyan-300/45" duration={16} delay={2} hueShift />
+      <FluidBlob
+        className="left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 bg-fuchsia-300/25"
+        duration={19}
+        delay={4}
+        hueShift
+      />
 
       <div className="glass relative z-10 w-full max-w-sm rounded-3xl p-7">
-        <div className="mb-6 flex flex-col items-center text-center">
+        <div className="mb-5 flex justify-center">
           <MascotLumi size={46} />
-          <h1 className="mt-3 text-xl font-bold tracking-tight">
-            {isSignUp ? "Create your account" : "Welcome back"}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {isSignUp ? "Start turning sources into guided lessons." : "Sign in to your workspaces."}
-          </p>
         </div>
 
         {isSignUp ? (

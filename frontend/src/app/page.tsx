@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MascotLumi } from "@/components/prism/MascotLumi";
+import { FluidBlob } from "@/components/prism/FluidBlob";
 import { HeroPrompt } from "@/components/landing/HeroPrompt";
 import { RANKS } from "@/lib/rank";
 import { cn } from "@/lib/utils";
@@ -39,36 +40,6 @@ const rankItem = {
     transition: { type: "spring" as const, stiffness: 260, damping: 20 },
   },
 };
-
-/** A soft, organically-morphing blob — continuous position/scale/shape drift
- *  for an ambient "fluid glass" feel, not just static blurred circles. */
-function FluidBlob({
-  className,
-  duration = 16,
-  delay = 0,
-}: {
-  className: string;
-  duration?: number;
-  delay?: number;
-}) {
-  return (
-    <motion.div
-      className={cn("prism-orb -z-10", className)}
-      animate={{
-        x: [0, 36, -26, 14, 0],
-        y: [0, -28, 20, -12, 0],
-        scale: [1, 1.14, 0.92, 1.06, 1],
-        borderRadius: [
-          "42% 58% 65% 35% / 45% 40% 60% 55%",
-          "60% 40% 30% 70% / 55% 65% 35% 45%",
-          "35% 65% 55% 45% / 40% 55% 45% 60%",
-          "42% 58% 65% 35% / 45% 40% 60% 55%",
-        ],
-      }}
-      transition={{ duration, repeat: Infinity, ease: "easeInOut", delay }}
-    />
-  );
-}
 
 const AGENTIC_POINTS = [
   "Chapters blur behind a padlock until you've proven mastery",
@@ -108,9 +79,9 @@ export default function LandingPage() {
       <div className="prism-orb -left-24 -top-24 h-80 w-80 bg-violet-400/40" />
       <div className="prism-orb right-0 top-10 h-72 w-72 bg-fuchsia-300/40" />
       <div className="prism-orb bottom-0 left-1/3 h-72 w-72 bg-cyan-300/30" />
-      <FluidBlob className="left-[-6%] top-[120vh] h-96 w-96 bg-violet-400/30" duration={18} />
-      <FluidBlob className="right-[-8%] top-[165vh] h-80 w-80 bg-cyan-300/30" duration={22} delay={2} />
-      <FluidBlob className="left-[10%] top-[230vh] h-72 w-72 bg-fuchsia-300/25" duration={20} delay={1} />
+      <FluidBlob className="left-[-6%] top-[120vh] h-96 w-96 bg-violet-400/30" duration={18} hueShift />
+      <FluidBlob className="right-[-8%] top-[165vh] h-80 w-80 bg-cyan-300/30" duration={22} delay={2} hueShift />
+      <FluidBlob className="left-[10%] top-[230vh] h-72 w-72 bg-fuchsia-300/25" duration={20} delay={1} hueShift />
 
       <nav className="relative z-10 mx-auto mt-4 flex max-w-6xl items-center justify-between rounded-2xl px-5 py-3 glass sm:mx-auto sm:w-[92%]">
         <div className="flex items-center gap-2">
@@ -352,8 +323,11 @@ export default function LandingPage() {
       <section className="relative z-10 mx-auto max-w-3xl overflow-visible px-6 py-24 text-center">
         <motion.div
           className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-purple-500/20 blur-[100px]"
-          animate={{ scale: [1, 1.18, 1] }}
-          transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+          animate={{
+            scale: [1, 1.18, 1],
+            filter: ["hue-rotate(0deg)", "hue-rotate(20deg)", "hue-rotate(-14deg)", "hue-rotate(0deg)"],
+          }}
+          transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
         />
         <motion.div {...fadeUp}>
           <MascotLumi size={44} className="mx-auto" />
