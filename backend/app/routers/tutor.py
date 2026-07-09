@@ -17,7 +17,7 @@ from app.core.auth import get_current_user_id
 from app.db import get_repository
 from app.schemas.ingest import IngestPayload
 from app.schemas.tutor import TutorRequest, TutorResponse
-from app.services.fireworks import InferenceError, run_tutor
+from app.services.ai_client import InferenceError, run_tutor
 
 router = APIRouter(prefix="/workspaces", tags=["tutor"])
 

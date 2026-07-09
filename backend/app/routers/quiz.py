@@ -14,7 +14,7 @@ from app.core.auth import get_current_user_id
 from app.db import get_repository
 from app.schemas.ingest import IngestPayload
 from app.schemas.quiz import Quiz, QuizRequest
-from app.services.fireworks import InferenceError, run_quiz
+from app.services.ai_client import InferenceError, run_quiz
 
 router = APIRouter(prefix="/workspaces", tags=["quiz"])
 

@@ -21,7 +21,7 @@ from app.db import get_repository
 from app.schemas.ingest import ExtractedSource, IngestResponse
 from app.services import extractors
 from app.services.extractors import ExtractionError
-from app.services.fireworks import InferenceError, run_ingestion
+from app.services.ai_client import InferenceError, run_ingestion
 
 router = APIRouter(prefix="/ingest", tags=["ingestion"])
 

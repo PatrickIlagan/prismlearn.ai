@@ -38,7 +38,7 @@ from app.schemas.workspace import (
     doc_to_summary,
     to_summary,
 )
-from app.services.fireworks import InferenceError, run_flashcard_generation
+from app.services.ai_client import InferenceError, run_flashcard_generation
 
 router = APIRouter(prefix="/workspaces", tags=["workspaces"])
 
