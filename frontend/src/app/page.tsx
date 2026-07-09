@@ -5,15 +5,12 @@ import { motion } from "framer-motion";
 import {
   ArrowRight,
   Sparkles,
-  ScanText,
-  MessagesSquare,
+  Lock,
+  Check,
+  Zap,
   BrainCircuit,
-  UploadCloud,
-  Wand2,
-  GraduationCap,
-  Trophy,
-  Flame,
-  Target,
+  ShieldCheck,
+  BookOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MascotLumi } from "@/components/prism/MascotLumi";
@@ -21,31 +18,51 @@ import { HeroPrompt } from "@/components/landing/HeroPrompt";
 import { RANKS } from "@/lib/rank";
 import { cn } from "@/lib/utils";
 
-const FEATURES = [
-  { icon: ScanText, title: "Ingest anything", body: "PDFs, slide decks, YouTube videos, or any website link become a structured study guide." },
-  { icon: MessagesSquare, title: "Learn with Lumi", body: "An agentic tutor that scrolls, highlights, and quizzes you step by step." },
-  { icon: BrainCircuit, title: "Grounded in your sources", body: "Every answer is drawn only from what you uploaded — no hallucinations." },
-];
-
-const STEPS = [
-  { icon: UploadCloud, title: "Add a source", body: "Drop a PDF or PPTX, or paste a YouTube or website link." },
-  { icon: Wand2, title: "Lumi builds your reviewer", body: "A chaptered study guide, structured and ready to teach from." },
-  { icon: GraduationCap, title: "Learn it step by step", body: "Chapters unlock as you go; blocks turn into mini-games." },
-  { icon: Trophy, title: "Master it", body: "Quizzes, flashcards, and spaced review lock in what you learned." },
-];
-
-const ENGAGEMENT = [
-  { icon: Trophy, title: "Rank up", body: "Five tiers from Spark to Luminary — your badge changes as you level." },
-  { icon: Flame, title: "Keep a streak", body: "A real daily streak and rotating quests, not a fake number." },
-  { icon: Target, title: "Track mastery", body: "Per-concept mastery that only rises from real, graded progress." },
-];
-
 const fadeUp = {
   initial: { opacity: 0, y: 24 },
   whileInView: { opacity: 1, y: 0 },
   viewport: { once: true, margin: "-80px" },
   transition: { duration: 0.5, ease: "easeOut" as const },
 };
+
+const rankContainer = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.12 } },
+};
+
+const rankItem = {
+  hidden: { opacity: 0, x: -24, scale: 0.85 },
+  show: {
+    opacity: 1,
+    x: 0,
+    scale: 1,
+    transition: { type: "spring" as const, stiffness: 260, damping: 20 },
+  },
+};
+
+const BENTO = [
+  {
+    key: "latency",
+    icon: Zap,
+    title: "Sub-second latency",
+    body: "Tutor replies land in about a second, ingestion in a few — all served by Fireworks AI, running on AMD Instinct GPUs. No local generation, no other provider.",
+    span: "lg:col-span-2",
+  },
+  {
+    key: "rag",
+    icon: BrainCircuit,
+    title: "Grounded RAG",
+    body: "Every answer is drawn only from the document you gave Lumi — no hallucinated facts, no outside knowledge sneaking in.",
+    span: "",
+  },
+  {
+    key: "ssrf",
+    icon: ShieldCheck,
+    title: "SSRF-guarded web ingestion",
+    body: "Pasting a website link resolves and validates the host before fetching — private, loopback, and link-local addresses are rejected, re-checked on every redirect hop, not just the original URL.",
+    span: "lg:col-span-3",
+  },
+];
 
 export default function LandingPage() {
   return (
@@ -74,23 +91,61 @@ export default function LandingPage() {
 
       {/* ---------- 1. Hero ---------- */}
       <section className="relative z-10 mx-auto max-w-4xl px-6 pt-24 pb-20 text-center sm:pt-28">
-        <div className="mb-6 inline-flex items-center gap-1.5 rounded-full border border-white/60 bg-white/50 px-3 py-1 text-xs font-medium text-primary backdrop-blur-sm">
-          <Sparkles size={13} /> Agentic learning, grounded in your sources
-        </div>
-        <h1 className="text-balance text-5xl font-bold leading-[1.05] tracking-tight sm:text-6xl">
-          Turn any document into a{" "}
-          <span className="prism-text">guided lesson</span>
-        </h1>
-        <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground">
-          Upload a PDF, slide deck, YouTube video, or website link. Lumi builds a study guide and
-          teaches it to you step-by-step — scrolling, highlighting, and quizzing as you go.
-        </p>
+        {/* Floating mock chat bubble — decorative, bobs infinitely to make the
+            hero feel alive. Hidden on small screens (no room to float). */}
+        <motion.div
+          className="glass absolute right-[4%] top-16 hidden w-56 rounded-2xl p-3 text-left shadow-lg shadow-violet-500/10 lg:block"
+          initial={{ opacity: 0, y: 0 }}
+          animate={{ opacity: 1, y: [0, -14, 0] }}
+          transition={{
+            opacity: { duration: 0.6, delay: 0.4 },
+            y: { duration: 4.5, repeat: Infinity, ease: "easeInOut", delay: 1 },
+          }}
+        >
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-primary">
+            <MascotLumi size={16} /> Lumi
+          </div>
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            Nice — that&apos;s correct! Chapter 2 just unlocked. Ready to keep going?
+          </p>
+          <div className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600">
+            <Check size={10} /> +15 XP
+          </div>
+        </motion.div>
 
-        <div className="mt-9">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+        >
+          <div className="mb-6 inline-flex items-center gap-1.5 rounded-full border border-white/60 bg-white/50 px-3 py-1 text-xs font-medium text-primary backdrop-blur-sm">
+            <Sparkles size={13} /> Agentic learning, grounded in your sources
+          </div>
+          <h1 className="text-balance text-5xl font-bold leading-[1.05] tracking-tight sm:text-6xl">
+            Turn any document into a{" "}
+            <span className="prism-text">guided lesson</span>
+          </h1>
+          <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground">
+            Upload a PDF, slide deck, YouTube video, or website link. Lumi builds a study guide
+            and teaches it to you step-by-step — scrolling, highlighting, and quizzing as you go.
+          </p>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.15, ease: "easeOut" }}
+          className="mt-9"
+        >
           <HeroPrompt />
-        </div>
+        </motion.div>
 
-        <div className="mt-5 flex items-center justify-center gap-3">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.25, ease: "easeOut" }}
+          className="mt-5 flex items-center justify-center gap-3"
+        >
           <Link href="/sign-up">
             <Button size="lg" className="gap-2">
               Start learning <ArrowRight size={18} />
@@ -101,121 +156,175 @@ export default function LandingPage() {
               Sign in
             </Button>
           </Link>
-        </div>
+        </motion.div>
       </section>
 
-      {/* ---------- 2. Features ---------- */}
-      <motion.section {...fadeUp} className="relative z-10 mx-auto max-w-5xl px-6 py-16">
-        <div className="mx-auto mb-10 max-w-xl text-center">
+      {/* ---------- 2. The Agentic Canvas ---------- */}
+      <section className="relative z-10 mx-auto max-w-5xl px-6 py-16">
+        <motion.div {...fadeUp} className="mx-auto mb-10 max-w-xl text-center">
           <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
-            Everything you need to actually <span className="prism-text">learn it</span>
+            Stop reading. <span className="prism-text">Start interacting.</span>
           </h2>
           <p className="mt-2 text-muted-foreground">
-            Not another summarizer — a closed loop from source to mastery.
+            Our Agentic UI doesn&apos;t just chat. It physically manipulates your document.
+            Watch the fog of war lift as you prove your mastery.
           </p>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-3">
-          {FEATURES.map(({ icon: Icon, title, body }) => (
-            <div key={title} className="glass rounded-2xl p-5 text-left">
-              <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <Icon size={19} />
-              </div>
-              <h3 className="font-semibold">{title}</h3>
-              <p className="mt-1 text-sm text-muted-foreground">{body}</p>
-            </div>
-          ))}
-        </div>
-      </motion.section>
+        </motion.div>
 
-      {/* ---------- 3. How it works ---------- */}
-      <motion.section {...fadeUp} className="relative z-10 mx-auto max-w-5xl px-6 py-16">
-        <div className="mx-auto mb-10 max-w-xl text-center">
-          <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
-            From source to <span className="prism-text">mastery</span>, in four steps
-          </h2>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {STEPS.map(({ icon: Icon, title, body }, i) => (
-            <div key={title} className="glass relative rounded-2xl p-5 text-left">
-              <span className="absolute right-4 top-4 text-2xl font-bold text-primary/10">
-                {i + 1}
-              </span>
-              <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <Icon size={19} />
+        <motion.div
+          initial={{ opacity: 0.5, filter: "blur(8px)" }}
+          whileInView={{ opacity: 1, filter: "blur(0px)" }}
+          viewport={{ once: true, margin: "-100px" }}
+          transition={{ duration: 1, ease: "easeOut" }}
+          className="glass mx-auto grid max-w-3xl gap-6 rounded-3xl p-6 sm:grid-cols-[1fr_1.6fr] sm:p-8"
+        >
+          {/* fake chapter sidebar */}
+          <div className="space-y-2">
+            {[
+              { title: "1. Cell structure", locked: false },
+              { title: "2. Mitosis phases", locked: false },
+              { title: "3. Meiosis", locked: true },
+              { title: "4. Genetic drift", locked: true },
+            ].map((ch) => (
+              <div
+                key={ch.title}
+                className={cn(
+                  "flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium",
+                  ch.locked
+                    ? "text-muted-foreground/60"
+                    : "bg-primary/10 text-primary",
+                )}
+              >
+                {ch.locked ? <Lock size={12} /> : <Check size={12} />}
+                {ch.title}
               </div>
-              <h3 className="font-semibold">{title}</h3>
-              <p className="mt-1 text-sm text-muted-foreground">{body}</p>
+            ))}
+          </div>
+          {/* fake reading pane */}
+          <div className="space-y-3 text-left">
+            <div className="h-3 w-2/3 rounded-full bg-primary/25" />
+            <div className="h-2 w-full rounded-full bg-foreground/10" />
+            <div className="h-2 w-11/12 rounded-full bg-foreground/10" />
+            <div className="h-2 w-4/5 rounded-full bg-foreground/10" />
+            <div className="mt-4 h-2 w-full rounded-full bg-foreground/10 blur-[1px]" />
+            <div className="h-2 w-3/4 rounded-full bg-foreground/10 blur-[1px]" />
+            <div className="flex items-center gap-1.5 pt-1 text-[11px] text-muted-foreground/70">
+              <Lock size={11} /> Unlocks after Chapter 2
             </div>
-          ))}
-        </div>
-      </motion.section>
+          </div>
+        </motion.div>
+      </section>
 
-      {/* ---------- 4. Engagement / gamification ---------- */}
-      <motion.section {...fadeUp} className="relative z-10 mx-auto max-w-5xl px-6 py-16">
-        <div className="mx-auto mb-10 max-w-xl text-center">
+      {/* ---------- 3. The RPG Engine ---------- */}
+      <section className="relative z-10 mx-auto max-w-5xl px-6 py-16">
+        <motion.div {...fadeUp} className="mx-auto mb-10 max-w-xl text-center">
           <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
-            Learning that <span className="prism-text">keeps you coming back</span>
+            Level up your <span className="prism-text">mind</span>.
           </h2>
           <p className="mt-2 text-muted-foreground">
-            Real progress, not vanity numbers — mastery only rises when you actually earn it.
+            Daily streaks, targeted quests, and a 5-tier mastery system. Studying finally feels
+            like a game.
           </p>
-        </div>
+        </motion.div>
 
-        <div className="grid gap-4 sm:grid-cols-3">
-          {ENGAGEMENT.map(({ icon: Icon, title, body }) => (
-            <div key={title} className="glass rounded-2xl p-5 text-left">
-              <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <Icon size={19} />
-              </div>
-              <h3 className="font-semibold">{title}</h3>
-              <p className="mt-1 text-sm text-muted-foreground">{body}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Real rank tiers from the app, not a mockup */}
-        <div className="glass mt-4 flex flex-wrap items-center justify-center gap-3 rounded-2xl p-5">
-          {RANKS.map((rank, i) => {
+        <motion.div
+          variants={rankContainer}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, margin: "-80px" }}
+          className="grid gap-4 sm:grid-cols-5"
+        >
+          {RANKS.map((rank) => {
             const Icon = rank.icon;
             return (
-              <div key={rank.name} className="flex items-center gap-3">
+              <motion.div
+                key={rank.name}
+                variants={rankItem}
+                className="glass rounded-2xl p-5 text-center"
+              >
                 <div
                   className={cn(
-                    "flex items-center gap-1.5 rounded-full bg-gradient-to-r px-3 py-1.5 text-xs font-semibold ring-1 ring-white/50",
+                    "mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ring-1 ring-white/50",
                     rank.tile,
                   )}
                 >
-                  <Icon size={13} /> {rank.name}
+                  <Icon size={22} />
                 </div>
-                {i < RANKS.length - 1 && (
-                  <ArrowRight size={14} className="text-muted-foreground/40" />
-                )}
-              </div>
+                <p className="font-semibold">{rank.name}</p>
+                <p className="text-xs text-muted-foreground">Level {rank.minLevel}+</p>
+              </motion.div>
             );
           })}
+        </motion.div>
+      </section>
+
+      {/* ---------- 4. The Engine Room & Safety ---------- */}
+      <section className="relative z-10 mx-auto max-w-5xl px-6 py-16">
+        <motion.div {...fadeUp} className="mx-auto mb-10 max-w-xl text-center">
+          <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
+            Enterprise speed. <span className="prism-text">Zero compromises.</span>
+          </h2>
+          <p className="mt-2 text-muted-foreground">
+            Powered by Fireworks AI on AMD Instinct GPUs. Guarded by strict SSRF protection and
+            zero-retention architecture.
+          </p>
+        </motion.div>
+
+        <div className="grid gap-4 lg:grid-cols-3" style={{ perspective: 1200 }}>
+          {BENTO.map(({ key, icon: Icon, title, body, span }, i) => (
+            <motion.div
+              key={key}
+              initial={{ opacity: 0, y: 24 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-80px" }}
+              transition={{ duration: 0.5, delay: i * 0.08, ease: "easeOut" }}
+              whileHover={{ scale: 1.02, rotateX: 2, rotateY: 2 }}
+              style={{ transformStyle: "preserve-3d" }}
+              className={cn("glass rounded-2xl p-6 text-left", span)}
+            >
+              <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Icon size={19} />
+              </div>
+              <h3 className="font-semibold">{title}</h3>
+              <p className="mt-1.5 text-sm text-muted-foreground">{body}</p>
+            </motion.div>
+          ))}
         </div>
-      </motion.section>
+      </section>
 
       {/* ---------- 5. Final CTA ---------- */}
-      <motion.section {...fadeUp} className="relative z-10 mx-auto max-w-4xl px-6 py-16">
-        <div className="glass overflow-hidden rounded-3xl px-8 py-14 text-center">
+      <section className="relative z-10 mx-auto max-w-3xl overflow-visible px-6 py-24 text-center">
+        <motion.div
+          className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-purple-500/20 blur-[100px]"
+          animate={{ scale: [1, 1.18, 1] }}
+          transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+        />
+        <motion.div {...fadeUp}>
           <MascotLumi size={44} className="mx-auto" />
           <h2 className="mt-4 text-balance text-3xl font-bold tracking-tight sm:text-4xl">
-            Turn your next reading into a{" "}
-            <span className="prism-text">lesson</span>
+            Ready to step inside the <span className="prism-text">Prism</span>?
           </h2>
           <p className="mx-auto mt-3 max-w-md text-muted-foreground">
             Free to start. No credit card, just a source and a few minutes.
           </p>
-          <div className="mt-7 flex items-center justify-center gap-3">
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link href="/sign-up">
               <Button size="lg" className="gap-2">
-                Start learning <ArrowRight size={18} />
+                Get Started <ArrowRight size={18} />
               </Button>
             </Link>
+            <a
+              href="https://github.com/PatrickIlagan/prismlearn.ai/tree/feature/prism-ui-overhaul/documentation"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <Button size="lg" variant="outline" className="gap-2">
+                <BookOpen size={17} /> View Documentation
+              </Button>
+            </a>
           </div>
-        </div>
-      </motion.section>
+        </motion.div>
+      </section>
 
       {/* Every generation call runs through Fireworks AI on AMD compute — stated
           here, unauthenticated, so it's visible on the public landing page. */}
