@@ -25,7 +25,14 @@ across versions/models):
      foreground `guided_json`/`structured_outputs` over plain json_object
      mode. If json_object mode errors or returns non-JSON, switch to passing
      an explicit schema via `extra_body={"structured_outputs": {"json": schema}}`
-     (schema = the Pydantic model's `.model_json_schema()`).
+     (schema = the Pydantic model's `.model_json_schema()`). Elevated from
+     "maybe" to "probably" by a confirmed failure on the Fireworks side:
+     gpt-oss-120b under plain json_object mode was observed drifting into a
+     tool-call-shaped envelope on a long/complex input instead of the flat
+     schema, failing validation — switching fireworks.py to Fireworks' own
+     `{"type": "json_schema", "json_schema": {...}}` fixed it outright
+     against the same failing input. Same failure class, different vendor —
+     worth trying the schema-constrained path here first, not as a fallback.
   2. `enable_thinking: False` does not reliably suppress Gemma 4's hidden
      reasoning channel the way gpt-oss's reasoning_effort does (Google's own
      docs note larger variants can still emit an empty/ghost thinking block).

@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 
 from openai import AsyncOpenAI
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from app.core.config import settings
 from app.prompts.flashcards import build_flashcard_messages
@@ -43,6 +43,22 @@ def get_client() -> AsyncOpenAI:
     return _client
 
 
+def _schema_format(model_cls: type[BaseModel]) -> dict:
+    """Fireworks' JSON-schema-constrained output mode.
+
+    Plain `{"type": "json_object"}` only asks the model to produce *some*
+    valid JSON — on longer/more complex inputs gpt-oss-120b was observed
+    drifting into a tool-call-shaped envelope (e.g. `{"name":
+    "master_reviewer", ...}`) instead of our flat schema, failing Pydantic
+    validation. Passing the actual schema constrains decoding to match it.
+    Confirmed fixed against a real failing input before this was wired in.
+    """
+    return {
+        "type": "json_schema",
+        "json_schema": {"name": model_cls.__name__, "schema": model_cls.model_json_schema()},
+    }
+
+
 def _extract_json(content: str) -> dict:
     """Best-effort parse: handle clean JSON, or JSON wrapped in ``` fences."""
     text = content.strip()
@@ -70,7 +86,7 @@ async def run_ingestion(raw_text: str, study_focus: str = "comprehensive") -> In
             messages=messages,
             temperature=0.3,
             max_tokens=4096,
-            response_format={"type": "json_object"},
+            response_format=_schema_format(IngestPayload),
             extra_body={"reasoning_effort": "medium"},
         )
     except Exception as exc:  # noqa: BLE001
@@ -117,7 +133,7 @@ async def run_tutor(
             messages=messages,
             temperature=0.4,
             max_tokens=1536,
-            response_format={"type": "json_object"},
+            response_format=_schema_format(TutorResponse),
             extra_body={"reasoning_effort": "low"},
         )
     except Exception as exc:  # noqa: BLE001
@@ -163,7 +179,7 @@ async def run_quiz(
             messages=messages,
             temperature=0.5,
             max_tokens=2048,
-            response_format={"type": "json_object"},
+            response_format=_schema_format(Quiz),
             extra_body={"reasoning_effort": "low"},
         )
     except Exception as exc:  # noqa: BLE001
@@ -209,7 +225,7 @@ async def run_flashcard_generation(
             messages=messages,
             temperature=0.5,
             max_tokens=2048,
-            response_format={"type": "json_object"},
+            response_format=_schema_format(FlashcardDeck),
             extra_body={"reasoning_effort": "low"},
         )
     except Exception as exc:  # noqa: BLE001

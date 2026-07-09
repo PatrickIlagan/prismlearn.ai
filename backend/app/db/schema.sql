@@ -15,13 +15,13 @@ create table if not exists public.workspaces (
 create index if not exists workspaces_user_id_idx on public.workspaces (user_id);
 
 -- ── documents ───────────────────────────────────────────────────────────────
--- Each ingested source (pdf/pptx/youtube) with its Master Reviewer and study mode.
+-- Each ingested source (pdf/pptx/youtube/website) with its Master Reviewer and study mode.
 -- mode: 'learn' (first-time teaching) or 'review' (recap that still walks the doc).
 create table if not exists public.documents (
     id           text primary key,
     workspace_id text not null references public.workspaces (id) on delete cascade,
     title        text not null,
-    source_type  text not null check (source_type in ('pdf', 'pptx', 'youtube')),
+    source_type  text not null check (source_type in ('pdf', 'pptx', 'youtube', 'website')),
     reviewer     jsonb not null,
     mode         text not null default 'learn' check (mode in ('learn', 'review')),
     created_at   timestamptz not null default now()
