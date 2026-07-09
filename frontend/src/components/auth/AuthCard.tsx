@@ -20,6 +20,14 @@ import { MascotLumi } from "@/components/prism/MascotLumi";
  * widget renders into, so it silently never became "visible" and the whole
  * form hung on an infinite loading spinner. Confirmed by removing those two
  * overrides — the spinner was the symptom, not a network/config issue.
+ *
+ * Clerk's own `card` renders its own title/subtitle/box-shadow, which nested
+ * inside our glass card reads as two stacked cards. `card` itself is kept
+ * fully sized (only stripped of background/border/shadow — no padding or
+ * display changes, so its layout, and whatever the bot-protection widget
+ * measures, is untouched). `headerTitle`/`headerSubtitle` are leaf text
+ * nodes (not containers), so hiding them is safe by the same rule that
+ * makes hiding `header` itself unsafe.
  */
 const clerkAppearance = {
   variables: {
@@ -32,6 +40,9 @@ const clerkAppearance = {
     fontFamily: "var(--font-sans)",
   },
   elements: {
+    card: "shadow-none border-0 bg-transparent",
+    headerTitle: "hidden",
+    headerSubtitle: "hidden",
     socialButtonsBlockButton:
       "border border-white/60 bg-white/50 backdrop-blur-sm hover:bg-white/80",
     formFieldInput:

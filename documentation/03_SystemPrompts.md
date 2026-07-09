@@ -2,18 +2,18 @@
 ## Document 3: System Prompts & Data Payloads (PRD)
 
 ### 1. OVERVIEW: THE AGENTIC JSON PIPELINE
-PrismLearning.AI relies on Gemma 4's ability to output strict JSON. The Next.js frontend never renders the AI's raw output directly. Instead, it parses the JSON and uses the `ui_actions` object to manipulate the DOM (scrolling, highlighting, playing sound effects).
+PrismLearning.AI relies on `gpt-oss-120b`'s ability to output strict JSON. The Next.js frontend never renders the AI's raw output directly. Instead, it parses the JSON and uses the `ui_actions` object to manipulate the DOM (scrolling, highlighting, playing sound effects).
 
 ---
 
 ### 2. MODE 1: THE INGESTION PAYLOAD (`[MODE: INGEST]`)
-**Trigger:** User uploads a PPT/Video. FastAPI extracts text and sends it to Gemma 4.
+**Trigger:** User uploads a PPT/Video. FastAPI extracts text and sends it to `gpt-oss-120b`.
 **Objective:** Structure the messy text into chapters and generate anchor IDs so the frontend sidebar can link to them.
 
 **System Prompt Snippet:**
 > "You are the Prism Ingestion Engine. Convert the following raw transcript into a structured study guide. You must output JSON containing a `table_of_contents` array and a `markdown_content` string. For every main heading in the markdown, you must include a custom anchor tag (e.g., `<span id=\"concept_mitosis\">## Mitosis</span>`) so the UI can scroll to it later."
 
-**Expected JSON Output from Gemma 4:**
+**Expected JSON Output from `gpt-oss-120b`:**
 ```json
 {
   "table_of_contents": [

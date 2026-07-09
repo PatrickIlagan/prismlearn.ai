@@ -2,7 +2,7 @@
 Pydantic contracts for [MODE: INGEST].
 
 These mirror the frontend's `src/types/prism.ts` (TocEntry / IngestPayload) one-to-one.
-`IngestPayload` is also the schema we hand to Gemma 4 as the required JSON shape, so
+`IngestPayload` is also the schema we hand to the model as the required JSON shape, so
 the model's output, our validation, and the frontend renderer all agree.
 """
 

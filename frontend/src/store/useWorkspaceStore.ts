@@ -395,6 +395,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     // Models sometimes emit a literal "\n" (double-escaped) instead of a real
     // newline; normalize so the bubble (whitespace-pre-line) renders cleanly.
     const tutor_message = res.tutor_message.replace(/\\n/g, "\n");
+    const priorStep = get().step.currentStep;
 
     // 1. Append Lumi's chat bubble with a verdict for dopamine feedback.
     const verdict =
@@ -474,6 +475,22 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
     // 4. Dopamine ding on a correct answer.
     if (evaluation.is_correct === true) playDing();
+
+    // 5. XP for tutoring progress — a correct comprehension check pays more
+    // than a plain step advance, mirroring the mini-game/exam/review payouts
+    // so lesson progress shows up on the dashboard the same way they do.
+    if (evaluation.is_correct === true) {
+      get().awardXp(15);
+      profileAddXp(15);
+      recordActivity();
+      completeQuest("lesson");
+      if (anchor) boostConcept(anchor, 10);
+    } else if (state_update.current_step > priorStep) {
+      get().awardXp(5);
+      profileAddXp(5);
+      recordActivity();
+      completeQuest("lesson");
+    }
   },
 }));
 

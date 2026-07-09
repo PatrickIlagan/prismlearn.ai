@@ -2,11 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Sparkles, Trophy, Target, Check, Zap } from "lucide-react";
+import { Sparkles, Trophy, Target, Check, Zap, BookOpen, ClipboardCheck } from "lucide-react";
 import { getProfile, type DailyQuest, type ProfileSummary } from "@/lib/profile";
 import { cn } from "@/lib/utils";
 
-const ICON = { game: Sparkles, exam: Trophy, review: Target } as const;
+const ICON = {
+  game: Sparkles,
+  exam: Trophy,
+  review: Target,
+  lesson: BookOpen,
+  quiz: ClipboardCheck,
+} as const;
 
 export function DailyQuests() {
   // Hydrate on the client (localStorage) to avoid an SSR mismatch.
@@ -22,7 +28,7 @@ export function DailyQuests() {
         <div>
           <h2 className="text-sm font-semibold">Daily quests</h2>
           <p className="text-xs text-muted-foreground">
-            {done}/{quests.length || 3} complete · resets at midnight
+            {done}/{quests.length || 5} complete · resets at midnight
           </p>
         </div>
         <div className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-violet-500/15 to-fuchsia-500/15 px-2.5 py-1 text-xs font-semibold text-primary ring-1 ring-white/50">

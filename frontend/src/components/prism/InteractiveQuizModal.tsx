@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, X, Sparkles, RotateCcw, Download } from "lucide-react";
 import {
@@ -14,6 +14,8 @@ import { useWorkspaceStore } from "@/store/useWorkspaceStore";
 import { generateQuiz } from "@/lib/api";
 import { exportQuizPdf } from "@/lib/exportPdf";
 import { playDing } from "@/lib/sounds";
+import { boostConcept } from "@/lib/mastery";
+import { addXp as profileAddXp, completeQuest, recordActivity } from "@/lib/profile";
 import type { Quiz, QuizQuestion } from "@/types/prism";
 import { cn } from "@/lib/utils";
 
@@ -38,6 +40,7 @@ export function InteractiveQuizModal() {
   const ingest = useWorkspaceStore((s) => s.ingest);
   const studyMode = useWorkspaceStore((s) => s.studyMode);
   const requestScrollTo = useWorkspaceStore((s) => s.requestScrollTo);
+  const awardXp = useWorkspaceStore((s) => s.awardXp);
 
   const [phase, setPhase] = useState<Phase>("config");
   const [scope, setScope] = useState("all");
@@ -49,6 +52,7 @@ export function InteractiveQuizModal() {
   const [score, setScore] = useState(0);
   const [skipped, setSkipped] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const xpAwardedRef = useRef(false);
 
   function reset() {
     setPhase("config");
@@ -59,7 +63,22 @@ export function InteractiveQuizModal() {
     setScore(0);
     setSkipped(0);
     setError(null);
+    xpAwardedRef.current = false;
   }
+
+  // XP payout once per quiz, when results are shown — mirrors the Practice
+  // Exam Arena / Weakness Review payout pattern so this shows up on the
+  // dashboard the same way those do.
+  useEffect(() => {
+    if (phase === "done" && quiz && !xpAwardedRef.current) {
+      xpAwardedRef.current = true;
+      const payout = score * 10;
+      awardXp(payout);
+      profileAddXp(payout);
+      recordActivity();
+      if (payout > 0) completeQuest("quiz");
+    }
+  }, [phase, quiz, score, awardXp]);
 
   function close() {
     setOpen(false);
@@ -103,6 +122,7 @@ export function InteractiveQuizModal() {
       if (answer === "self:correct") {
         setScore((s) => s + 1);
         playDing();
+        if (current.anchor_id) boostConcept(current.anchor_id, 10);
       }
       return;
     }
@@ -114,6 +134,7 @@ export function InteractiveQuizModal() {
     if (isCorrect(current, answer)) {
       setScore((s) => s + 1);
       playDing();
+      if (current.anchor_id) boostConcept(current.anchor_id, 10);
     }
   }
 

@@ -72,6 +72,32 @@ export default function LandingPage() {
           ))}
         </div>
       </section>
+
+      {/* Every generation call runs through Fireworks AI on AMD compute — stated
+          here, unauthenticated, so it's visible on the public landing page. */}
+      <footer className="relative z-10 mx-auto max-w-4xl px-6 pb-10 text-center">
+        <p className="text-xs text-muted-foreground">
+          All AI generation runs on{" "}
+          <a
+            href="https://fireworks.ai"
+            target="_blank"
+            rel="noreferrer"
+            className="font-medium text-primary hover:underline"
+          >
+            Fireworks AI
+          </a>
+          , powered by{" "}
+          <a
+            href="https://fireworks.ai/partners/amd"
+            target="_blank"
+            rel="noreferrer"
+            className="font-medium text-primary hover:underline"
+          >
+            AMD Instinct GPUs
+          </a>
+          .
+        </p>
+      </footer>
     </main>
   );
 }

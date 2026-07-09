@@ -1,5 +1,5 @@
 """
-Fireworks AI (Gemma 4) client.
+Fireworks AI (gpt-oss-120b, served on AMD Instinct GPUs) client.
 
 Fireworks is OpenAI-API compatible, so we drive it with the `openai` SDK pointed at
 the Fireworks base URL. We request JSON output and validate it against our Pydantic
@@ -71,11 +71,16 @@ async def run_ingestion(raw_text: str, study_focus: str = "comprehensive") -> In
             temperature=0.3,
             max_tokens=4096,
             response_format={"type": "json_object"},
+            extra_body={"reasoning_effort": "medium"},
         )
     except Exception as exc:  # noqa: BLE001
         raise InferenceError(f"Fireworks inference failed: {exc}") from exc
 
+    if not completion.choices:
+        raise InferenceError("Fireworks returned no choices (likely filtered or truncated).")
     content = completion.choices[0].message.content or ""
+    if not content.strip():
+        raise InferenceError("Model returned an empty response (reasoning likely exhausted max_tokens).")
     try:
         data = _extract_json(content)
     except json.JSONDecodeError as exc:
@@ -111,13 +116,18 @@ async def run_tutor(
             model=settings.fireworks_model,
             messages=messages,
             temperature=0.4,
-            max_tokens=1024,
+            max_tokens=1536,
             response_format={"type": "json_object"},
+            extra_body={"reasoning_effort": "low"},
         )
     except Exception as exc:  # noqa: BLE001
         raise InferenceError(f"Fireworks inference failed: {exc}") from exc
 
+    if not completion.choices:
+        raise InferenceError("Fireworks returned no choices (likely filtered or truncated).")
     content = completion.choices[0].message.content or ""
+    if not content.strip():
+        raise InferenceError("Model returned an empty response (reasoning likely exhausted max_tokens).")
     try:
         data = _extract_json(content)
     except json.JSONDecodeError as exc:
@@ -154,11 +164,16 @@ async def run_quiz(
             temperature=0.5,
             max_tokens=2048,
             response_format={"type": "json_object"},
+            extra_body={"reasoning_effort": "low"},
         )
     except Exception as exc:  # noqa: BLE001
         raise InferenceError(f"Fireworks inference failed: {exc}") from exc
 
+    if not completion.choices:
+        raise InferenceError("Fireworks returned no choices (likely filtered or truncated).")
     content = completion.choices[0].message.content or ""
+    if not content.strip():
+        raise InferenceError("Model returned an empty response (reasoning likely exhausted max_tokens).")
     try:
         data = _extract_json(content)
     except json.JSONDecodeError as exc:
@@ -195,11 +210,16 @@ async def run_flashcard_generation(
             temperature=0.5,
             max_tokens=2048,
             response_format={"type": "json_object"},
+            extra_body={"reasoning_effort": "low"},
         )
     except Exception as exc:  # noqa: BLE001
         raise InferenceError(f"Fireworks inference failed: {exc}") from exc
 
+    if not completion.choices:
+        raise InferenceError("Fireworks returned no choices (likely filtered or truncated).")
     content = completion.choices[0].message.content or ""
+    if not content.strip():
+        raise InferenceError("Model returned an empty response (reasoning likely exhausted max_tokens).")
     try:
         data = _extract_json(content)
     except json.JSONDecodeError as exc:

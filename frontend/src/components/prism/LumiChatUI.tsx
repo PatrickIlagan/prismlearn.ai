@@ -23,8 +23,12 @@ export function LumiChatUI({ workspaceId }: { workspaceId: string }) {
 
   const [input, setInput] = useState("");
   const [speaking, setSpeaking] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastSpokenRef = useRef<string | null>(null);
+  // The text of the last turn that failed to get a reply — lets Retry resend
+  // without re-adding a duplicate student bubble to the chat.
+  const lastFailedRef = useRef<string | null>(null);
   // The transcript as of the most recent onresult — read directly by the
   // voice auto-send path instead of the `input` state closure, since a
   // same-tick onend right after the final onresult could otherwise fire
@@ -44,10 +48,10 @@ export function LumiChatUI({ workspaceId }: { workspaceId: string }) {
     speak(last.text, { onStart: () => setSpeaking(true), onEnd: () => setSpeaking(false) });
   }, [messages, ttsEnabled]);
 
-  async function sendMessage(text: string) {
-    if (!text || isThinking) return;
-
-    // Snapshot the context BEFORE mutating the store: the reviewer, progress,
+  // Fires the actual tutor request; used both for a fresh message and for
+  // retrying a failed one (retry must NOT re-push the student bubble).
+  async function requestTutorTurn(text: string) {
+    // Snapshot the context right before the call: the reviewer, progress,
     // strike count, study mode, and prior turns (excluding this new message).
     const {
       ingest,
@@ -66,9 +70,7 @@ export function LumiChatUI({ workspaceId }: { workspaceId: string }) {
       .slice(-8)
       .map((m) => ({ role: m.role, text: m.text }));
 
-    setInput("");
-    transcriptRef.current = "";
-    pushStudentMessage(text);
+    setSendError(null);
     setTutorThinking(true);
     try {
       const res = await sendTutorMessage(workspaceId, text, {
@@ -83,13 +85,30 @@ export function LumiChatUI({ workspaceId }: { workspaceId: string }) {
         recentHistory,
       });
       applyTutorResponse(res);
-    } catch {
+      lastFailedRef.current = null;
+    } catch (e) {
       setTutorThinking(false);
+      lastFailedRef.current = text;
+      setSendError(
+        e instanceof Error ? e.message : "Lumi didn't respond — check your connection and try again.",
+      );
     }
+  }
+
+  async function sendMessage(text: string) {
+    if (!text || isThinking) return;
+    setInput("");
+    transcriptRef.current = "";
+    pushStudentMessage(text);
+    await requestTutorTurn(text);
   }
 
   function handleSend() {
     sendMessage(input.trim());
+  }
+
+  function retrySend() {
+    if (lastFailedRef.current && !isThinking) requestTutorTurn(lastFailedRef.current);
   }
 
   // Feature 2 — Voice-to-Voice: transcribe speech into the input live, and
@@ -196,6 +215,17 @@ export function LumiChatUI({ workspaceId }: { workspaceId: string }) {
 
       {/* Composer */}
       <div className="border-t border-white/40 p-3">
+        {sendError && (
+          <div className="mb-2 flex items-center justify-between gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-xs text-destructive">
+            <span>{sendError}</span>
+            <button
+              onClick={retrySend}
+              className="shrink-0 font-medium underline-offset-2 hover:underline"
+            >
+              Retry
+            </button>
+          </div>
+        )}
         <div className="flex items-end gap-2">
           <textarea
             value={input}

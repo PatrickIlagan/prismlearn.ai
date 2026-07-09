@@ -2,7 +2,7 @@
 Pydantic contracts for [MODE: TUTOR].
 
 Mirrors the frontend's `src/types/prism.ts` (TutorResponse and friends) exactly, so
-Gemma's JSON, our validation, and the Zustand `applyTutorResponse` reducer all agree.
+the model's JSON, our validation, and the Zustand `applyTutorResponse` reducer all agree.
 """
 
 from __future__ import annotations

@@ -11,7 +11,7 @@ const KEY = "prism_profile";
 const XP_PER_LEVEL = 100;
 
 export interface DailyQuest {
-  id: "game" | "exam" | "review";
+  id: "game" | "exam" | "review" | "lesson" | "quiz";
   title: string;
   desc: string;
   xp: number;
@@ -20,6 +20,8 @@ export interface DailyQuest {
 
 export const QUEST_DEFS: Omit<DailyQuest, "done">[] = [
   { id: "game", title: "Warm up", desc: "Complete a mini-game with Lumi", xp: 30 },
+  { id: "lesson", title: "Stay on track", desc: "Complete a step with Lumi", xp: 25 },
+  { id: "quiz", title: "Test yourself", desc: "Finish a quiz", xp: 35 },
   { id: "exam", title: "Prove it", desc: "Finish a Practice Exam", xp: 50 },
   { id: "review", title: "Patch the gaps", desc: "Review a weak concept", xp: 40 },
 ];

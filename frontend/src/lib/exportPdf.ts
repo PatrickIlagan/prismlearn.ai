@@ -172,7 +172,7 @@ function drawQuestion(doc: jsPDF, q: QuizQuestion, n: number, y: number, title: 
   const promptLines = doc.splitTextToSize(q.prompt, CONTENT_W - numberW);
   y = ensureSpace(doc, y, promptLines.length * 5 + 4, title, "Quiz");
   doc.text(`${n}.`, MARGIN, y);
-  doc.text(promptLines, MARGIN + numberW, y);
+  promptLines.forEach((line: string, i: number) => doc.text(line, MARGIN + numberW, y + i * 5));
   y += promptLines.length * 5 + 1;
 
   // Type tag.
@@ -190,7 +190,7 @@ function drawQuestion(doc: jsPDF, q: QuizQuestion, n: number, y: number, title: 
     q.options.forEach((opt, i) => {
       const optLines = doc.splitTextToSize(`${OPTION_LETTERS[i]})  ${opt}`, CONTENT_W - numberW - 4);
       y = ensureSpace(doc, y, optLines.length * 5, title, "Quiz");
-      doc.text(optLines, MARGIN + numberW + 4, y);
+      optLines.forEach((line: string, j: number) => doc.text(line, MARGIN + numberW + 4, y + j * 5));
       y += optLines.length * 5;
     });
   } else if (q.type === "true_false") {
@@ -238,7 +238,7 @@ export function exportQuizPdf(workspaceTitle: string, quiz: Quiz): void {
     const head = `${i + 1}. ${q.answer}`;
     const headLines = doc.splitTextToSize(head, CONTENT_W);
     ay = ensureSpace(doc, ay, headLines.length * 5 + 4, quiz.title || workspaceTitle, "Answer Key");
-    doc.text(headLines, MARGIN, ay);
+    headLines.forEach((line: string, j: number) => doc.text(line, MARGIN, ay + j * 5));
     ay += headLines.length * 5;
 
     if (q.explanation) {
@@ -247,7 +247,7 @@ export function exportQuizPdf(workspaceTitle: string, quiz: Quiz): void {
       doc.setTextColor(110);
       const expl = doc.splitTextToSize(q.explanation, CONTENT_W - 4);
       ay = ensureSpace(doc, ay, expl.length * 4.5 + 3, quiz.title || workspaceTitle, "Answer Key");
-      doc.text(expl, MARGIN + 4, ay);
+      expl.forEach((line: string, j: number) => doc.text(line, MARGIN + 4, ay + j * 4.5));
       ay += expl.length * 4.5;
     }
     ay += 4;

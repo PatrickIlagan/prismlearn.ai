@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: prismlearn-backend
+    runtime: python
+    rootDir: backend
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: FIREWORKS_BASE_URL
+        value: https://api.fireworks.ai/inference/v1
+      - key: FIREWORKS_MODEL
+        value: accounts/fireworks/models/gpt-oss-120b
+      - key: MAX_DOCUMENT_PAGES
+        value: "20"
+      - key: MAX_YOUTUBE_MINUTES
+        value: "30"
+      - key: FIREWORKS_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: CLERK_JWKS_URL
+        sync: false
+      - key: FRONTEND_ORIGIN
+        sync: false

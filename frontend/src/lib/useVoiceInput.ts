@@ -76,6 +76,10 @@ export function useVoiceInput({ onTranscript, onStop, silenceMs = 1200 }: UseVoi
 
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Pending auto-restart (premature-cutoff recovery, or start()-throw retry) —
+  // tracked so unmount can cancel it; otherwise a restart scheduled just before
+  // unmount fires anyway and leaves the mic hot with no way to stop it.
+  const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Text finalized across any PRIOR (auto-restarted) sessions this "listening"
   // run — the current session's own results are appended on top of this.
   const committedTextRef = useRef("");
@@ -116,6 +120,7 @@ export function useVoiceInput({ onTranscript, onStop, silenceMs = 1200 }: UseVoi
   // what "stops after 2 words and never resumes" looks like from outside).
   const startSessionWithRetry = useCallback(
     (attempt = 0) => {
+      if (intentionalStopRef.current) return; // component unmounted or user stopped mid-backoff
       const Ctor = getRecognitionCtor();
       if (!Ctor) return;
 
@@ -150,7 +155,7 @@ export function useVoiceInput({ onTranscript, onStop, silenceMs = 1200 }: UseVoi
         // silence) — carry the transcript forward into a brand-new session so
         // listening continues seamlessly with no words lost and no UI flicker.
         committedTextRef.current = lastCombinedRef.current;
-        setTimeout(() => startSessionWithRetry(0), 150);
+        restartTimerRef.current = setTimeout(() => startSessionWithRetry(0), 150);
       };
 
       try {
@@ -160,7 +165,7 @@ export function useVoiceInput({ onTranscript, onStop, silenceMs = 1200 }: UseVoi
         // Mic likely still releasing from the previous session — back off and
         // retry a few times before giving up (rather than dying silently).
         if (attempt < 4) {
-          setTimeout(() => startSessionWithRetry(attempt + 1), 200);
+          restartTimerRef.current = setTimeout(() => startSessionWithRetry(attempt + 1), 200);
         } else if (!intentionalStopRef.current) {
           clearSilenceTimer();
           setListening(false);
@@ -186,6 +191,10 @@ export function useVoiceInput({ onTranscript, onStop, silenceMs = 1200 }: UseVoi
   const stop = useCallback(() => {
     intentionalStopRef.current = true;
     clearSilenceTimer();
+    if (restartTimerRef.current) {
+      clearTimeout(restartTimerRef.current);
+      restartTimerRef.current = null;
+    }
     recognitionRef.current?.stop();
   }, [clearSilenceTimer]);
 
@@ -199,6 +208,7 @@ export function useVoiceInput({ onTranscript, onStop, silenceMs = 1200 }: UseVoi
     () => () => {
       intentionalStopRef.current = true;
       clearSilenceTimer();
+      if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
       recognitionRef.current?.stop();
     },
     [clearSilenceTimer],
