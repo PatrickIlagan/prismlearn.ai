@@ -40,6 +40,42 @@ const rankItem = {
   },
 };
 
+/** A soft, organically-morphing blob — continuous position/scale/shape drift
+ *  for an ambient "fluid glass" feel, not just static blurred circles. */
+function FluidBlob({
+  className,
+  duration = 16,
+  delay = 0,
+}: {
+  className: string;
+  duration?: number;
+  delay?: number;
+}) {
+  return (
+    <motion.div
+      className={cn("prism-orb -z-10", className)}
+      animate={{
+        x: [0, 36, -26, 14, 0],
+        y: [0, -28, 20, -12, 0],
+        scale: [1, 1.14, 0.92, 1.06, 1],
+        borderRadius: [
+          "42% 58% 65% 35% / 45% 40% 60% 55%",
+          "60% 40% 30% 70% / 55% 65% 35% 45%",
+          "35% 65% 55% 45% / 40% 55% 45% 60%",
+          "42% 58% 65% 35% / 45% 40% 60% 55%",
+        ],
+      }}
+      transition={{ duration, repeat: Infinity, ease: "easeInOut", delay }}
+    />
+  );
+}
+
+const AGENTIC_POINTS = [
+  "Chapters blur behind a padlock until you've proven mastery",
+  "Answering right glows the concept mint and scrolls Lumi's focus there",
+  "Blocks mutate into mini-games — cloze, spot-the-lie, drag-to-reorder",
+];
+
 const BENTO = [
   {
     key: "latency",
@@ -60,17 +96,21 @@ const BENTO = [
     icon: ShieldCheck,
     title: "SSRF-guarded web ingestion",
     body: "Pasting a website link resolves and validates the host before fetching — private, loopback, and link-local addresses are rejected, re-checked on every redirect hop, not just the original URL.",
-    span: "lg:col-span-3",
+    span: "",
   },
 ];
 
 export default function LandingPage() {
   return (
     <main className="relative min-h-screen overflow-hidden">
-      {/* floating spectral orbs */}
+      {/* floating spectral orbs — static in the hero, continuously morphing/
+          drifting further down the page for a "fluid glass" feel while scrolling */}
       <div className="prism-orb -left-24 -top-24 h-80 w-80 bg-violet-400/40" />
       <div className="prism-orb right-0 top-10 h-72 w-72 bg-fuchsia-300/40" />
       <div className="prism-orb bottom-0 left-1/3 h-72 w-72 bg-cyan-300/30" />
+      <FluidBlob className="left-[-6%] top-[120vh] h-96 w-96 bg-violet-400/30" duration={18} />
+      <FluidBlob className="right-[-8%] top-[165vh] h-80 w-80 bg-cyan-300/30" duration={22} delay={2} />
+      <FluidBlob className="left-[10%] top-[230vh] h-72 w-72 bg-fuchsia-300/25" duration={20} delay={1} />
 
       <nav className="relative z-10 mx-auto mt-4 flex max-w-6xl items-center justify-between rounded-2xl px-5 py-3 glass sm:mx-auto sm:w-[92%]">
         <div className="flex items-center gap-2">
@@ -159,69 +199,81 @@ export default function LandingPage() {
         </motion.div>
       </section>
 
-      {/* ---------- 2. The Agentic Canvas ---------- */}
-      <section className="relative z-10 mx-auto max-w-5xl px-6 py-16">
-        <motion.div {...fadeUp} className="mx-auto mb-10 max-w-xl text-center">
-          <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
-            Stop reading. <span className="prism-text">Start interacting.</span>
-          </h2>
-          <p className="mt-2 text-muted-foreground">
-            Our Agentic UI doesn&apos;t just chat. It physically manipulates your document.
-            Watch the fog of war lift as you prove your mastery.
-          </p>
-        </motion.div>
+      {/* ---------- 2. The Agentic Canvas (split: text left, mockup right) ---------- */}
+      <section className="relative z-10 mx-auto max-w-6xl px-6 py-20">
+        <div className="grid items-center gap-12 lg:grid-cols-[1fr_1.2fr]">
+          <motion.div {...fadeUp}>
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+              Stop reading. <span className="prism-text">Start interacting.</span>
+            </h2>
+            <p className="mt-4 text-muted-foreground">
+              Our Agentic UI doesn&apos;t just chat. It physically manipulates your document.
+              Watch the fog of war lift as you prove your mastery.
+            </p>
+            <ul className="mt-7 space-y-3.5">
+              {AGENTIC_POINTS.map((point) => (
+                <li key={point} className="flex items-start gap-2.5 text-sm">
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <Check size={12} />
+                  </span>
+                  <span className="text-foreground/80">{point}</span>
+                </li>
+              ))}
+            </ul>
+          </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0.5, filter: "blur(8px)" }}
-          whileInView={{ opacity: 1, filter: "blur(0px)" }}
-          viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 1, ease: "easeOut" }}
-          className="glass mx-auto grid max-w-3xl gap-6 rounded-3xl p-6 sm:grid-cols-[1fr_1.6fr] sm:p-8"
-        >
-          {/* fake chapter sidebar */}
-          <div className="space-y-2">
-            {[
-              { title: "1. Cell structure", locked: false },
-              { title: "2. Mitosis phases", locked: false },
-              { title: "3. Meiosis", locked: true },
-              { title: "4. Genetic drift", locked: true },
-            ].map((ch) => (
-              <div
-                key={ch.title}
-                className={cn(
-                  "flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium",
-                  ch.locked
-                    ? "text-muted-foreground/60"
-                    : "bg-primary/10 text-primary",
-                )}
-              >
-                {ch.locked ? <Lock size={12} /> : <Check size={12} />}
-                {ch.title}
-              </div>
-            ))}
-          </div>
-          {/* fake reading pane */}
-          <div className="space-y-3 text-left">
-            <div className="h-3 w-2/3 rounded-full bg-primary/25" />
-            <div className="h-2 w-full rounded-full bg-foreground/10" />
-            <div className="h-2 w-11/12 rounded-full bg-foreground/10" />
-            <div className="h-2 w-4/5 rounded-full bg-foreground/10" />
-            <div className="mt-4 h-2 w-full rounded-full bg-foreground/10 blur-[1px]" />
-            <div className="h-2 w-3/4 rounded-full bg-foreground/10 blur-[1px]" />
-            <div className="flex items-center gap-1.5 pt-1 text-[11px] text-muted-foreground/70">
-              <Lock size={11} /> Unlocks after Chapter 2
+          <motion.div
+            initial={{ opacity: 0.5, filter: "blur(8px)" }}
+            whileInView={{ opacity: 1, filter: "blur(0px)" }}
+            viewport={{ once: true, margin: "-100px" }}
+            transition={{ duration: 1, ease: "easeOut" }}
+            className="glass grid gap-5 rounded-3xl p-6 sm:grid-cols-[1fr_1.6fr] sm:p-7"
+          >
+            {/* fake chapter sidebar */}
+            <div className="space-y-2">
+              {[
+                { title: "1. Cell structure", locked: false },
+                { title: "2. Mitosis phases", locked: false },
+                { title: "3. Meiosis", locked: true },
+                { title: "4. Genetic drift", locked: true },
+              ].map((ch) => (
+                <div
+                  key={ch.title}
+                  className={cn(
+                    "flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium",
+                    ch.locked
+                      ? "text-muted-foreground/60"
+                      : "bg-primary/10 text-primary",
+                  )}
+                >
+                  {ch.locked ? <Lock size={12} /> : <Check size={12} />}
+                  {ch.title}
+                </div>
+              ))}
             </div>
-          </div>
-        </motion.div>
+            {/* fake reading pane */}
+            <div className="space-y-3 text-left">
+              <div className="h-3 w-2/3 rounded-full bg-primary/25" />
+              <div className="h-2 w-full rounded-full bg-foreground/10" />
+              <div className="h-2 w-11/12 rounded-full bg-foreground/10" />
+              <div className="h-2 w-4/5 rounded-full bg-foreground/10" />
+              <div className="mt-4 h-2 w-full rounded-full bg-foreground/10 blur-[1px]" />
+              <div className="h-2 w-3/4 rounded-full bg-foreground/10 blur-[1px]" />
+              <div className="flex items-center gap-1.5 pt-1 text-[11px] text-muted-foreground/70">
+                <Lock size={11} /> Unlocks after Chapter 2
+              </div>
+            </div>
+          </motion.div>
+        </div>
       </section>
 
-      {/* ---------- 3. The RPG Engine ---------- */}
-      <section className="relative z-10 mx-auto max-w-5xl px-6 py-16">
-        <motion.div {...fadeUp} className="mx-auto mb-10 max-w-xl text-center">
-          <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
+      {/* ---------- 3. The RPG Engine (rising staircase, not a flat grid) ---------- */}
+      <section className="relative z-10 mx-auto max-w-5xl px-6 py-20">
+        <motion.div {...fadeUp} className="mx-auto mb-16 max-w-xl text-center">
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
             Level up your <span className="prism-text">mind</span>.
           </h2>
-          <p className="mt-2 text-muted-foreground">
+          <p className="mt-3 text-muted-foreground">
             Daily streaks, targeted quests, and a 5-tier mastery system. Studying finally feels
             like a game.
           </p>
@@ -232,15 +284,16 @@ export default function LandingPage() {
           initial="hidden"
           whileInView="show"
           viewport={{ once: true, margin: "-80px" }}
-          className="grid gap-4 sm:grid-cols-5"
+          className="flex flex-wrap items-end justify-center gap-4"
         >
-          {RANKS.map((rank) => {
+          {RANKS.map((rank, i) => {
             const Icon = rank.icon;
             return (
               <motion.div
                 key={rank.name}
                 variants={rankItem}
-                className="glass rounded-2xl p-5 text-center"
+                style={{ marginBottom: i * 16 }}
+                className="glass w-32 rounded-2xl p-5 text-center sm:w-36"
               >
                 <div
                   className={cn(
@@ -258,19 +311,22 @@ export default function LandingPage() {
         </motion.div>
       </section>
 
-      {/* ---------- 4. The Engine Room & Safety ---------- */}
-      <section className="relative z-10 mx-auto max-w-5xl px-6 py-16">
-        <motion.div {...fadeUp} className="mx-auto mb-10 max-w-xl text-center">
-          <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
-            Enterprise speed. <span className="prism-text">Zero compromises.</span>
-          </h2>
-          <p className="mt-2 text-muted-foreground">
-            Powered by Fireworks AI on AMD Instinct GPUs. Guarded by strict SSRF protection and
-            zero-retention architecture.
-          </p>
-        </motion.div>
+      {/* ---------- 4. The Engine Room & Safety (heading is a bento cell, not a header row) ---------- */}
+      <section className="relative z-10 mx-auto max-w-5xl px-6 py-20">
+        <div className="grid gap-4 lg:grid-cols-3 lg:grid-rows-2" style={{ perspective: 1200 }}>
+          <motion.div
+            {...fadeUp}
+            className="glass flex flex-col justify-center rounded-2xl p-7 lg:row-span-2"
+          >
+            <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
+              Enterprise speed. <span className="prism-text">Zero compromises.</span>
+            </h2>
+            <p className="mt-3 text-sm text-muted-foreground">
+              Powered by Fireworks AI on AMD Instinct GPUs. Guarded by strict SSRF protection and
+              zero-retention architecture.
+            </p>
+          </motion.div>
 
-        <div className="grid gap-4 lg:grid-cols-3" style={{ perspective: 1200 }}>
           {BENTO.map(({ key, icon: Icon, title, body, span }, i) => (
             <motion.div
               key={key}
