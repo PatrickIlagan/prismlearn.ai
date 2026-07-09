@@ -172,6 +172,81 @@ class SupabaseRepository(WorkspaceRepository):
         rows = await anyio.to_thread.run_sync(_update)
         return self._document_from_row(rows[0])
 
+    async def rename_workspace(
+        self, *, user_id: str, workspace_id: str, title: str
+    ) -> WorkspaceRecord:
+        owner = await self.get_workspace(user_id=user_id, workspace_id=workspace_id)
+        if owner is None:
+            raise KeyError("workspace not found for user")
+
+        def _update() -> None:
+            self._client.table(_WORKSPACES).update({"title": title}).eq(
+                "id", workspace_id
+            ).eq("user_id", user_id).execute()
+
+        await anyio.to_thread.run_sync(_update)
+        owner.title = title
+        return owner
+
+    async def update_document(
+        self,
+        *,
+        user_id: str,
+        workspace_id: str,
+        document_id: str,
+        title: str | None = None,
+        reviewer: IngestPayload | None = None,
+    ) -> DocumentRecord:
+        owner = await self.get_workspace(user_id=user_id, workspace_id=workspace_id)
+        if owner is None or owner.find_document(document_id) is None:
+            raise KeyError("document not found for user")
+
+        patch: dict = {}
+        if title is not None:
+            patch["title"] = title
+        if reviewer is not None:
+            patch["reviewer"] = reviewer.model_dump()
+
+        def _update() -> list[dict]:
+            resp = (
+                self._client.table(_DOCUMENTS)
+                .update(patch)
+                .eq("id", document_id)
+                .eq("workspace_id", workspace_id)
+                .execute()
+            )
+            return resp.data
+
+        rows = await anyio.to_thread.run_sync(_update)
+        return self._document_from_row(rows[0])
+
+    async def delete_workspace(self, *, user_id: str, workspace_id: str) -> None:
+        owner = await self.get_workspace(user_id=user_id, workspace_id=workspace_id)
+        if owner is None:
+            raise KeyError("workspace not found for user")
+
+        def _delete() -> None:
+            # documents/flashcards/concept_mastery cascade via FK ON DELETE CASCADE.
+            self._client.table(_WORKSPACES).delete().eq("id", workspace_id).eq(
+                "user_id", user_id
+            ).execute()
+
+        await anyio.to_thread.run_sync(_delete)
+
+    async def delete_document(
+        self, *, user_id: str, workspace_id: str, document_id: str
+    ) -> None:
+        owner = await self.get_workspace(user_id=user_id, workspace_id=workspace_id)
+        if owner is None or owner.find_document(document_id) is None:
+            raise KeyError("document not found for user")
+
+        def _delete() -> None:
+            self._client.table(_DOCUMENTS).delete().eq("id", document_id).eq(
+                "workspace_id", workspace_id
+            ).execute()
+
+        await anyio.to_thread.run_sync(_delete)
+
     async def list_workspaces(self, *, user_id: str) -> list[WorkspaceSummary]:
         def _select() -> list[dict]:
             resp = (

@@ -5,7 +5,14 @@ import { WorkspaceCard } from "./WorkspaceCard";
 import type { WorkspaceSummary } from "@/types/prism";
 
 /** Presentational grid. Pass `null` for the loading state. */
-export function WorkspaceGrid({ workspaces }: { workspaces: WorkspaceSummary[] | null }) {
+export function WorkspaceGrid({
+  workspaces,
+  onWorkspacesChange,
+}: {
+  workspaces: WorkspaceSummary[] | null;
+  /** Called after a delete/rename so the parent's list stays in sync. */
+  onWorkspacesChange?: (next: WorkspaceSummary[]) => void;
+}) {
   if (workspaces === null) {
     return (
       <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground">
@@ -27,7 +34,14 @@ export function WorkspaceGrid({ workspaces }: { workspaces: WorkspaceSummary[] |
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {workspaces.map((ws) => (
-        <WorkspaceCard key={ws.id} ws={ws} />
+        <WorkspaceCard
+          key={ws.id}
+          ws={ws}
+          onDeleted={(id) => onWorkspacesChange?.(workspaces.filter((w) => w.id !== id))}
+          onRenamed={(id, title) =>
+            onWorkspacesChange?.(workspaces.map((w) => (w.id === id ? { ...w, title } : w)))
+          }
+        />
       ))}
     </div>
   );

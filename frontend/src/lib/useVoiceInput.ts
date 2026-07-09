@@ -108,47 +108,68 @@ export function useVoiceInput({ onTranscript, onStop, silenceMs = 1200 }: UseVoi
     }, silenceMs);
   }, [clearSilenceTimer, silenceMs]);
 
-  const startSession = useCallback(() => {
-    const Ctor = getRecognitionCtor();
-    if (!Ctor) return;
+  // Chrome throws InvalidStateError (and can otherwise just silently fail to
+  // capture audio) if a new session's .start() is called immediately after
+  // the previous one's onend — its audio pipeline needs a beat to release the
+  // mic. A short delay + retry-on-throw makes restarts actually work instead
+  // of dying silently after the first premature cutoff (which is exactly
+  // what "stops after 2 words and never resumes" looks like from outside).
+  const startSessionWithRetry = useCallback(
+    (attempt = 0) => {
+      const Ctor = getRecognitionCtor();
+      if (!Ctor) return;
 
-    const recognition = new Ctor();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = "en-US";
+      const recognition = new Ctor();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = "en-US";
 
-    recognition.onresult = (event) => {
-      let sessionText = "";
-      for (let i = 0; i < event.results.length; i++) sessionText += event.results[i][0].transcript;
-      const combined = `${committedTextRef.current} ${sessionText}`.trim();
-      lastCombinedRef.current = combined;
-      onTranscriptRef.current(combined);
-      armSilenceTimer();
-    };
-    recognition.onerror = (event) => {
-      if (event.error === "not-allowed" || event.error === "service-not-allowed") {
-        setPermissionDenied(true);
+      recognition.onresult = (event) => {
+        let sessionText = "";
+        for (let i = 0; i < event.results.length; i++) sessionText += event.results[i][0].transcript;
+        const combined = `${committedTextRef.current} ${sessionText}`.trim();
+        lastCombinedRef.current = combined;
+        onTranscriptRef.current(combined);
+        armSilenceTimer();
+      };
+      recognition.onerror = (event) => {
+        if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+          setPermissionDenied(true);
+        }
+        // no-speech / aborted etc. still fire onend right after — let that path
+        // decide whether to restart or finish, so we don't double-handle here.
+      };
+      recognition.onend = () => {
+        if (intentionalStopRef.current) {
+          clearSilenceTimer();
+          setListening(false);
+          onStopRef.current();
+          return;
+        }
+        // The engine stopped on its own (premature VAD cutoff, not real
+        // silence) — carry the transcript forward into a brand-new session so
+        // listening continues seamlessly with no words lost and no UI flicker.
+        committedTextRef.current = lastCombinedRef.current;
+        setTimeout(() => startSessionWithRetry(0), 150);
+      };
+
+      try {
+        recognition.start();
+        recognitionRef.current = recognition;
+      } catch {
+        // Mic likely still releasing from the previous session — back off and
+        // retry a few times before giving up (rather than dying silently).
+        if (attempt < 4) {
+          setTimeout(() => startSessionWithRetry(attempt + 1), 200);
+        } else if (!intentionalStopRef.current) {
+          clearSilenceTimer();
+          setListening(false);
+          onStopRef.current();
+        }
       }
-      // no-speech / aborted etc. still fire onend right after — let that path
-      // decide whether to restart or finish, so we don't double-handle here.
-    };
-    recognition.onend = () => {
-      if (intentionalStopRef.current) {
-        clearSilenceTimer();
-        setListening(false);
-        onStopRef.current();
-        return;
-      }
-      // The engine stopped on its own (premature VAD cutoff, not real
-      // silence) — carry the transcript forward into a brand-new session so
-      // listening continues seamlessly with no words lost and no UI flicker.
-      committedTextRef.current = lastCombinedRef.current;
-      startSession();
-    };
-
-    recognitionRef.current = recognition;
-    recognition.start();
-  }, [armSilenceTimer, clearSilenceTimer]);
+    },
+    [armSilenceTimer, clearSilenceTimer],
+  );
 
   const start = useCallback(() => {
     const Ctor = getRecognitionCtor();
@@ -158,9 +179,9 @@ export function useVoiceInput({ onTranscript, onStop, silenceMs = 1200 }: UseVoi
     lastCombinedRef.current = "";
     intentionalStopRef.current = false;
     setListening(true);
-    startSession();
+    startSessionWithRetry(0);
     armSilenceTimer();
-  }, [armSilenceTimer, startSession]);
+  }, [armSilenceTimer, startSessionWithRetry]);
 
   const stop = useCallback(() => {
     intentionalStopRef.current = true;

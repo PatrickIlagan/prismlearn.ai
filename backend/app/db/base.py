@@ -79,6 +79,33 @@ class WorkspaceRepository(ABC):
     ) -> DocumentRecord: ...
 
     @abstractmethod
+    async def rename_workspace(
+        self, *, user_id: str, workspace_id: str, title: str
+    ) -> WorkspaceRecord: ...
+
+    @abstractmethod
+    async def update_document(
+        self,
+        *,
+        user_id: str,
+        workspace_id: str,
+        document_id: str,
+        title: str | None = None,
+        reviewer: IngestPayload | None = None,
+    ) -> DocumentRecord:
+        """Rename a document and/or edit its Master Reviewer content (what the
+        tutor teaches from)."""
+
+    @abstractmethod
+    async def delete_workspace(self, *, user_id: str, workspace_id: str) -> None:
+        """Deletes the workspace and (via FK cascade) its documents/flashcards/mastery."""
+
+    @abstractmethod
+    async def delete_document(
+        self, *, user_id: str, workspace_id: str, document_id: str
+    ) -> None: ...
+
+    @abstractmethod
     async def list_workspaces(self, *, user_id: str) -> list[WorkspaceSummary]: ...
 
     # ---------- Flashcards ----------

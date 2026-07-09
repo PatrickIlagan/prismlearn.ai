@@ -94,6 +94,51 @@ class InMemoryRepository(WorkspaceRepository):
         doc.mode = mode
         return doc
 
+    async def rename_workspace(
+        self, *, user_id: str, workspace_id: str, title: str
+    ) -> WorkspaceRecord:
+        workspace = await self.get_workspace(user_id=user_id, workspace_id=workspace_id)
+        if workspace is None:
+            raise KeyError("workspace not found for user")
+        workspace.title = title
+        return workspace
+
+    async def update_document(
+        self,
+        *,
+        user_id: str,
+        workspace_id: str,
+        document_id: str,
+        title: str | None = None,
+        reviewer: IngestPayload | None = None,
+    ) -> DocumentRecord:
+        workspace = await self.get_workspace(user_id=user_id, workspace_id=workspace_id)
+        doc = workspace.find_document(document_id) if workspace else None
+        if doc is None:
+            raise KeyError("document not found for user")
+        if title is not None:
+            doc.title = title
+        if reviewer is not None:
+            doc.reviewer = reviewer
+        return doc
+
+    async def delete_workspace(self, *, user_id: str, workspace_id: str) -> None:
+        workspace = await self.get_workspace(user_id=user_id, workspace_id=workspace_id)
+        if workspace is None:
+            raise KeyError("workspace not found for user")
+        del self._workspaces[workspace_id]
+        self._flashcards.pop(workspace_id, None)
+        for key in [k for k in self._mastery if k[0] == user_id and k[1] == workspace_id]:
+            del self._mastery[key]
+
+    async def delete_document(
+        self, *, user_id: str, workspace_id: str, document_id: str
+    ) -> None:
+        workspace = await self.get_workspace(user_id=user_id, workspace_id=workspace_id)
+        if workspace is None or workspace.find_document(document_id) is None:
+            raise KeyError("document not found for user")
+        workspace.documents = [d for d in workspace.documents if d.id != document_id]
+
     async def list_workspaces(self, *, user_id: str) -> list[WorkspaceSummary]:
         rows = [w for w in self._workspaces.values() if w.user_id == user_id]
         rows.sort(key=lambda w: w.created_at, reverse=True)

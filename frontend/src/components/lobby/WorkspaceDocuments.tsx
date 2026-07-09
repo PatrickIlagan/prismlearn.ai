@@ -12,8 +12,11 @@ import {
   Link2,
   Upload,
   X,
+  Trash2,
+  Pencil,
 } from "lucide-react";
 import {
+  deleteDocument,
   ingestFile,
   ingestYoutube,
   listDocuments,
@@ -22,6 +25,7 @@ import {
 } from "@/lib/api";
 import type { DocumentSummary, SessionMode } from "@/types/prism";
 import { cn } from "@/lib/utils";
+import { EditDocumentContentModal } from "@/components/prism/EditDocumentContentModal";
 
 const SOURCE_ICON: Record<DocumentSummary["sourceType"], typeof FileText> = {
   pdf: FileText,
@@ -42,6 +46,9 @@ export function WorkspaceDocuments({
   onSelect,
   onModeChange,
   onDocumentsChanged,
+  onDeleted,
+  onRenamed,
+  onContentEdited,
 }: {
   workspaceId: string;
   documents: DocumentSummary[];
@@ -49,6 +56,9 @@ export function WorkspaceDocuments({
   onSelect: (docId: string) => void;
   onModeChange: (docId: string, mode: SessionMode) => void;
   onDocumentsChanged: (docs: DocumentSummary[], newDocId: string) => void;
+  onDeleted?: (docId: string) => void;
+  onRenamed?: (docId: string, title: string) => void;
+  onContentEdited?: (docId: string) => void;
 }) {
   const [switching, setSwitching] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
@@ -56,7 +66,25 @@ export function WorkspaceDocuments({
   const [addMode, setAddMode] = useState<SessionMode>("learn");
   const [url, setUrl] = useState("");
   const [addError, setAddError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingDoc, setEditingDoc] = useState<DocumentSummary | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  async function handleDelete(doc: DocumentSummary, e: React.MouseEvent) {
+    e.stopPropagation();
+    if (documents.length <= 1) {
+      window.alert("A workspace needs at least one document — add another before deleting this one.");
+      return;
+    }
+    if (!window.confirm(`Delete "${doc.title}"? This can't be undone.`)) return;
+    setDeletingId(doc.id);
+    try {
+      await deleteDocument(workspaceId, doc.id);
+      onDeleted?.(doc.id);
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   async function handleSelect(doc: DocumentSummary) {
     if (doc.id === activeDocumentId || switching) return;
@@ -208,7 +236,7 @@ export function WorkspaceDocuments({
               onClick={() => handleSelect(doc)}
               onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && handleSelect(doc)}
               className={cn(
-                "flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-left transition-all",
+                "group flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-left transition-all",
                 active
                   ? "border-primary/60 bg-gradient-to-br from-violet-500/10 to-fuchsia-500/5 ring-1 ring-primary/30"
                   : "border-white/50 bg-white/40 hover:border-primary/30 hover:bg-white/60",
@@ -244,6 +272,28 @@ export function WorkspaceDocuments({
               >
                 <ModeIcon size={11} /> {doc.mode === "learn" ? "Learn" : "Review"}
               </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditingDoc(doc);
+                }}
+                title="Edit what Lumi teaches from"
+                className="shrink-0 rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-white/60 hover:text-foreground group-hover:opacity-100"
+              >
+                <Pencil size={13} />
+              </button>
+              <button
+                onClick={(e) => handleDelete(doc, e)}
+                disabled={deletingId === doc.id}
+                title="Delete document"
+                className="shrink-0 rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 disabled:opacity-100"
+              >
+                {deletingId === doc.id ? (
+                  <Loader2 size={13} className="animate-spin" />
+                ) : (
+                  <Trash2 size={13} />
+                )}
+              </button>
             </div>
           );
         })}
@@ -253,6 +303,19 @@ export function WorkspaceDocuments({
           </p>
         )}
       </div>
+
+      {editingDoc && (
+        <EditDocumentContentModal
+          workspaceId={workspaceId}
+          doc={editingDoc}
+          onClose={() => setEditingDoc(null)}
+          onSaved={(updated) => {
+            onRenamed?.(updated.id, updated.title);
+            onContentEdited?.(updated.id);
+            setEditingDoc(null);
+          }}
+        />
+      )}
     </div>
   );
 }

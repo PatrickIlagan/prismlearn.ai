@@ -1,13 +1,17 @@
 """
 Workspace read + document + flashcard endpoints (all user-scoped).
 
-  GET   /workspaces                                  -> dashboard grid
-  GET   /workspaces/{id}/documents                   -> documents in the workspace
-  GET   /workspaces/{id}/reviewer[?document_id=...]  -> a document's Master Reviewer
-  PATCH /workspaces/{id}/documents/{document_id}     -> change a document's study mode
-  GET   /workspaces/{id}/flashcards                  -> saved flashcards
-  POST  /workspaces/{id}/flashcards                  -> save a flashcard (widget spawning)
-  POST  /workspaces/{id}/flashcards/generate         -> generate + save a whole deck on demand
+  GET    /workspaces                                    -> dashboard grid
+  PATCH  /workspaces/{id}                                -> rename a workspace
+  DELETE /workspaces/{id}                                -> delete a workspace (cascades)
+  GET    /workspaces/{id}/documents                      -> documents in the workspace
+  GET    /workspaces/{id}/reviewer[?document_id=...]     -> a document's Master Reviewer
+  PATCH  /workspaces/{id}/documents/{document_id}        -> change a document's study mode
+  PATCH  /workspaces/{id}/documents/{document_id}/content -> rename / edit what the tutor reads
+  DELETE /workspaces/{id}/documents/{document_id}        -> delete a document
+  GET    /workspaces/{id}/flashcards                     -> saved flashcards
+  POST   /workspaces/{id}/flashcards                     -> save a flashcard (widget spawning)
+  POST   /workspaces/{id}/flashcards/generate            -> generate + save a whole deck on demand
 
 Endpoints that operate on a single document accept an optional `document_id`;
 when omitted they resolve to the workspace's primary (newest) document, so the
@@ -16,13 +20,15 @@ existing single-document frontend keeps working unchanged.
 
 from __future__ import annotations
 
+import re
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from app.core.auth import get_current_user_id
 from app.db import get_repository
 from app.schemas.flashcards import FlashcardGenRequest
-from app.schemas.ingest import IngestPayload
+from app.schemas.ingest import IngestPayload, TocEntry
 from app.schemas.workspace import (
     DocumentSummary,
     FlashcardCreate,
@@ -30,6 +36,7 @@ from app.schemas.workspace import (
     StudyModeLiteral,
     WorkspaceSummary,
     doc_to_summary,
+    to_summary,
 )
 from app.services.fireworks import InferenceError, run_flashcard_generation
 
@@ -40,9 +47,64 @@ class DocumentModeUpdate(BaseModel):
     mode: StudyModeLiteral
 
 
+class WorkspaceRenameRequest(BaseModel):
+    title: str
+
+
+class DocumentContentUpdate(BaseModel):
+    title: str | None = None
+    markdown_content: str | None = None
+
+
+# Mirrors the frontend's canvas.ts HEADING_RE — the inverted anchor format
+# "# <span id=\"concept_x\">Title</span>" is what both the reader and the
+# tutor use to find chapters, so when a student hand-edits the markdown we
+# re-derive the table of contents from whatever headings are still present
+# rather than trust a now-stale one.
+_HEADING_RE = re.compile(r'^(#{1,6})\s*<span id="([^"]+)">(.*?)</span>\s*$', re.MULTILINE)
+_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def _derive_toc(markdown_content: str) -> list[TocEntry]:
+    entries: list[TocEntry] = []
+    for m in _HEADING_RE.finditer(markdown_content):
+        anchor_id = m.group(2)
+        title = _TAG_RE.sub("", m.group(3)).strip()
+        entries.append(TocEntry(title=title or anchor_id, anchor_id=anchor_id))
+    return entries
+
+
 @router.get("", response_model=list[WorkspaceSummary])
 async def list_workspaces(user_id: str = Depends(get_current_user_id)) -> list[WorkspaceSummary]:
     return await get_repository().list_workspaces(user_id=user_id)
+
+
+@router.patch("/{workspace_id}", response_model=WorkspaceSummary)
+async def rename_workspace(
+    workspace_id: str,
+    body: WorkspaceRenameRequest,
+    user_id: str = Depends(get_current_user_id),
+) -> WorkspaceSummary:
+    title = body.title.strip()
+    if not title:
+        raise HTTPException(status_code=422, detail="Title cannot be empty.")
+    try:
+        record = await get_repository().rename_workspace(
+            user_id=user_id, workspace_id=workspace_id, title=title
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Workspace not found.") from exc
+    return to_summary(record)
+
+
+@router.delete("/{workspace_id}", status_code=204, response_model=None)
+async def delete_workspace(
+    workspace_id: str, user_id: str = Depends(get_current_user_id)
+) -> None:
+    try:
+        await get_repository().delete_workspace(user_id=user_id, workspace_id=workspace_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Workspace not found.") from exc
 
 
 @router.get("/{workspace_id}/documents", response_model=list[DocumentSummary])
@@ -83,6 +145,64 @@ async def update_document_mode(
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Document not found.") from exc
     return doc_to_summary(document)
+
+
+@router.patch("/{workspace_id}/documents/{document_id}/content", response_model=DocumentSummary)
+async def update_document_content(
+    workspace_id: str,
+    document_id: str,
+    body: DocumentContentUpdate,
+    user_id: str = Depends(get_current_user_id),
+) -> DocumentSummary:
+    """Rename a document and/or directly edit the markdown the tutor reads from
+    and the student sees in the reader pane. The table of contents is
+    re-derived from whatever anchored headings remain in the edited text."""
+    repo = get_repository()
+    title = body.title.strip() if body.title is not None else None
+    if title is not None and not title:
+        raise HTTPException(status_code=422, detail="Title cannot be empty.")
+
+    reviewer: IngestPayload | None = None
+    if body.markdown_content is not None:
+        content = body.markdown_content.strip()
+        if not content:
+            raise HTTPException(status_code=422, detail="Content cannot be empty.")
+        toc = _derive_toc(content)
+        if not toc:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    'No chapter headings found — keep at least one heading in the '
+                    '\'# <span id="concept_x">Title</span>\' format.'
+                ),
+            )
+        reviewer = IngestPayload(table_of_contents=toc, markdown_content=content)
+
+    try:
+        document = await repo.update_document(
+            user_id=user_id,
+            workspace_id=workspace_id,
+            document_id=document_id,
+            title=title,
+            reviewer=reviewer,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Document not found.") from exc
+    return doc_to_summary(document)
+
+
+@router.delete("/{workspace_id}/documents/{document_id}", status_code=204, response_model=None)
+async def delete_document(
+    workspace_id: str,
+    document_id: str,
+    user_id: str = Depends(get_current_user_id),
+) -> None:
+    try:
+        await get_repository().delete_document(
+            user_id=user_id, workspace_id=workspace_id, document_id=document_id
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Document not found.") from exc
 
 
 @router.get("/{workspace_id}/flashcards", response_model=list[FlashcardRecord])

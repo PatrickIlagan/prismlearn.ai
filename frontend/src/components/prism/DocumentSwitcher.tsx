@@ -1,9 +1,21 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { FileText, Plus, Loader2, GraduationCap, RefreshCw, Link2, Upload, X } from "lucide-react";
+import {
+  FileText,
+  Plus,
+  Loader2,
+  GraduationCap,
+  RefreshCw,
+  Link2,
+  Upload,
+  X,
+  Trash2,
+  Pencil,
+} from "lucide-react";
 import { useWorkspaceStore } from "@/store/useWorkspaceStore";
 import {
+  deleteDocument,
   fetchReviewer,
   ingestFile,
   ingestYoutube,
@@ -15,6 +27,7 @@ import {
 import { filterFlashcardsForDocument } from "@/lib/flashcards";
 import type { DocumentSummary, SessionMode } from "@/types/prism";
 import { cn } from "@/lib/utils";
+import { EditDocumentContentModal } from "./EditDocumentContentModal";
 
 /**
  * Lists the documents in a workspace and lets the student switch between them,
@@ -37,7 +50,28 @@ export function DocumentSwitcher({ workspaceId }: { workspaceId: string }) {
   const [addMode, setAddMode] = useState<SessionMode>("learn");
   const [url, setUrl] = useState("");
   const [addError, setAddError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingDoc, setEditingDoc] = useState<DocumentSummary | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  async function handleDelete(doc: DocumentSummary) {
+    if (documents.length <= 1) {
+      window.alert("A workspace needs at least one document — add another before deleting this one.");
+      return;
+    }
+    if (!window.confirm(`Delete "${doc.title}"? This can't be undone.`)) return;
+    setDeletingId(doc.id);
+    try {
+      await deleteDocument(workspaceId, doc.id);
+      const remaining = documents.filter((d) => d.id !== doc.id);
+      setWorkspaceDocuments(remaining);
+      if (doc.id === activeDocumentId && remaining[0]) {
+        await switchTo(remaining[0]);
+      }
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   async function switchTo(doc: DocumentSummary) {
     if (doc.id === activeDocumentId || switching) return;
@@ -230,6 +264,25 @@ export function DocumentSwitcher({ workspaceId }: { workspaceId: string }) {
               >
                 <ModeIcon size={11} /> {doc.mode === "learn" ? "Learn" : "Review"}
               </button>
+              <button
+                onClick={() => setEditingDoc(doc)}
+                title="Edit what Lumi teaches from"
+                className="shrink-0 rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-white/60 hover:text-foreground group-hover:opacity-100"
+              >
+                <Pencil size={12} />
+              </button>
+              <button
+                onClick={() => handleDelete(doc)}
+                disabled={deletingId === doc.id}
+                title="Delete document"
+                className="shrink-0 rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 disabled:opacity-100"
+              >
+                {deletingId === doc.id ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <Trash2 size={12} />
+                )}
+              </button>
             </li>
           );
         })}
@@ -237,6 +290,23 @@ export function DocumentSwitcher({ workspaceId }: { workspaceId: string }) {
           <li className="px-2 py-1 text-xs text-muted-foreground">No documents yet.</li>
         )}
       </ul>
+
+      {editingDoc && (
+        <EditDocumentContentModal
+          workspaceId={workspaceId}
+          doc={editingDoc}
+          onClose={() => setEditingDoc(null)}
+          onSaved={(updated) => {
+            setWorkspaceDocuments(documents.map((d) => (d.id === updated.id ? updated : d)));
+            // If we just edited the active document's content, reload it so
+            // the tutor and reader immediately reflect the edit.
+            if (updated.id === activeDocumentId) {
+              fetchReviewer(workspaceId, updated.id).then(setIngest);
+            }
+            setEditingDoc(null);
+          }}
+        />
+      )}
     </div>
   );
 }

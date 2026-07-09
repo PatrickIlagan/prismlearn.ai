@@ -22,7 +22,7 @@ export default function WorkspacesPage() {
           Every study environment you&apos;ve created.
         </p>
       </header>
-      <WorkspaceGrid workspaces={workspaces} />
+      <WorkspaceGrid workspaces={workspaces} onWorkspacesChange={setWorkspaces} />
     </div>
   );
 }

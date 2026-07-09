@@ -333,16 +333,20 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   blockComplexity: {},
   setVisibleBlockId: (blockId) => set({ visibleBlockId: blockId }),
   setTextComplexity: (level) => {
-    set({ textComplexity: level });
-    const { visibleBlockId, chapters } = get();
-    if (!visibleBlockId) return;
-    const block = chapters.flatMap((c) => c.blocks).find((b) => b.id === visibleBlockId);
-    // Mermaid diagrams have no prose to rewrite.
-    if (!block || block.kind === "mermaid") return;
-    const text = simplifyText(block.plain, level);
-    set((s) => ({
-      blockComplexity: { ...s.blockComplexity, [visibleBlockId]: { level, text } },
-    }));
+    // Applies to the WHOLE lesson, not just the paragraph in view — dragging
+    // the slider should change how the whole document reads, immediately,
+    // including chapters not unlocked/scrolled-to yet (so they're already
+    // correct the moment they do become visible). Cheap: simplifyText is a
+    // synchronous local rewrite, no AI round trip, even for a long document.
+    const { chapters } = get();
+    const updates: Record<string, { level: typeof level; text: string }> = {};
+    for (const chapter of chapters) {
+      for (const block of chapter.blocks) {
+        if (block.kind === "mermaid") continue; // no prose to rewrite
+        updates[block.id] = { level, text: simplifyText(block.plain, level) };
+      }
+    }
+    set((s) => ({ textComplexity: level, blockComplexity: { ...s.blockComplexity, ...updates } }));
   },
 
   scrollTarget: null,

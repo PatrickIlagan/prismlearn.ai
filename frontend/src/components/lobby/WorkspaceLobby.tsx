@@ -12,8 +12,11 @@ import {
   Flame,
   Target,
   BookOpen,
+  Pencil,
+  Check,
+  Loader2,
 } from "lucide-react";
-import { fetchReviewer, listDocuments, listWorkspaces } from "@/lib/api";
+import { fetchReviewer, listDocuments, listWorkspaces, renameWorkspace } from "@/lib/api";
 import { useWorkspaceStore } from "@/store/useWorkspaceStore";
 import { chapterMastery, needsReview, overallMastery } from "@/lib/mastery";
 import type { DocumentSummary, IngestPayload, WorkspaceSummary } from "@/types/prism";
@@ -46,6 +49,9 @@ export function WorkspaceLobby({ workspaceId }: { workspaceId: string }) {
   const [showDiagnostic, setShowDiagnostic] = useState(false);
   // Bumped after a diagnostic so mastery (read from localStorage boosts) recomputes.
   const [masteryKey, setMasteryKey] = useState(0);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState("");
+  const [savingTitle, setSavingTitle] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -103,10 +109,51 @@ export function WorkspaceLobby({ workspaceId }: { workspaceId: string }) {
 
   // A document was just added — refresh the list and switch to it directly
   // (the new doc isn't in `documents` yet, so selectDocument's lookup would miss).
+  async function saveTitle() {
+    const next = titleDraft.trim();
+    if (!next || savingTitle) {
+      setEditingTitle(false);
+      return;
+    }
+    setSavingTitle(true);
+    try {
+      await renameWorkspace(workspaceId, next);
+      setSummary((s) => (s ? { ...s, title: next } : s));
+      setEditingTitle(false);
+    } finally {
+      setSavingTitle(false);
+    }
+  }
+
   function handleDocumentsChanged(docs: DocumentSummary[], newDocId: string) {
     setDocuments(docs);
     const newDoc = docs.find((d) => d.id === newDocId);
     if (newDoc) switchToDocument(newDoc);
+  }
+
+  function handleDocumentDeleted(docId: string) {
+    const remaining = documents.filter((d) => d.id !== docId);
+    setDocuments(remaining);
+    if (activeDoc?.id === docId && remaining[0]) switchToDocument(remaining[0]);
+  }
+
+  function handleDocumentRenamed(docId: string, title: string) {
+    setDocuments((docs) => docs.map((d) => (d.id === docId ? { ...d, title } : d)));
+    if (activeDoc?.id === docId) setActiveDoc((d) => (d ? { ...d, title } : d));
+  }
+
+  // Content edits change the reviewer text itself — reload it if the edited
+  // document is the one currently driving this lobby's stats/radar.
+  async function handleContentEdited(docId: string) {
+    if (docId !== activeDoc?.id) return;
+    try {
+      const rev = await fetchReviewer(workspaceId, docId);
+      setReviewer(rev);
+      setIngest(rev);
+      setMasteryKey((k) => k + 1);
+    } catch {
+      /* keep the previous reviewer on failure */
+    }
   }
 
   // Append ?doc= so the tutor/exam/review open the selected document.
@@ -159,7 +206,39 @@ export function WorkspaceLobby({ workspaceId }: { workspaceId: string }) {
         {/* Stats header */}
         <div className="glass flex flex-col items-start justify-between gap-5 rounded-3xl p-6 sm:flex-row sm:items-center">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+            {editingTitle ? (
+              <div className="flex items-center gap-1.5">
+                <input
+                  autoFocus
+                  value={titleDraft}
+                  onChange={(e) => setTitleDraft(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && saveTitle()}
+                  className="rounded-md border bg-white/60 px-2 py-1 text-2xl font-bold tracking-tight outline-none focus:ring-2 focus:ring-primary/40"
+                />
+                <button
+                  onClick={saveTitle}
+                  disabled={savingTitle}
+                  className="rounded-md p-1.5 text-primary hover:bg-primary/10"
+                  title="Save name"
+                >
+                  {savingTitle ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+                </button>
+              </div>
+            ) : (
+              <h1 className="group flex items-center gap-2 text-2xl font-bold tracking-tight">
+                {title}
+                <button
+                  onClick={() => {
+                    setTitleDraft(title);
+                    setEditingTitle(true);
+                  }}
+                  className="rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-white/60 hover:text-foreground group-hover:opacity-100"
+                  title="Rename workspace"
+                >
+                  <Pencil size={14} />
+                </button>
+              </h1>
+            )}
             <p className="mt-1 text-sm text-muted-foreground">
               {toc.length} chapters · pick up where you left off.
             </p>
@@ -194,6 +273,9 @@ export function WorkspaceLobby({ workspaceId }: { workspaceId: string }) {
             onSelect={selectDocument}
             onModeChange={handleModeChange}
             onDocumentsChanged={handleDocumentsChanged}
+            onDeleted={handleDocumentDeleted}
+            onRenamed={handleDocumentRenamed}
+            onContentEdited={handleContentEdited}
           />
         </div>
 

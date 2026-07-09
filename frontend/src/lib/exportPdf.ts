@@ -17,7 +17,7 @@ const MARGIN = 12;
 const HEADER_H = 12;
 const COLS = 2;
 const ROWS = 4;
-const GUTTER = 6;
+const GUTTER = 9;
 const PAD = 5;
 
 const CARD_W = (PAGE_W - 2 * MARGIN - (COLS - 1) * GUTTER) / COLS;
@@ -62,6 +62,24 @@ function slug(title: string): string {
   return title.replace(/[^a-z0-9]+/gi, "_").replace(/^_|_$/g, "") || "workspace";
 }
 
+/**
+ * Wraps `text` to `maxWidth` and returns AT MOST `maxLines` lines, appending
+ * an ellipsis to the last line if content had to be cut. Rendered by the
+ * caller with EXPLICIT per-line y-coordinates (never jsPDF's array-based
+ * `.text(lines[], x, y)`, which auto-stacks lines using its own internal
+ * line-height factor) — that keeps line spacing fully deterministic and
+ * under our control, so wrapped text can never visually crowd or overlap
+ * regardless of any font-metric differences between environments.
+ */
+function fitLines(doc: jsPDF, text: string, maxWidth: number, maxLines: number): string[] {
+  const wrapped: string[] = doc.splitTextToSize(text, maxWidth);
+  if (wrapped.length <= maxLines) return wrapped;
+  const shown = wrapped.slice(0, maxLines);
+  const last = shown[maxLines - 1].replace(/[.,;:!?]*$/, "");
+  shown[maxLines - 1] = `${last}…`;
+  return shown;
+}
+
 function drawCard(doc: jsPDF, card: Flashcard, x: number, y: number) {
   // Dashed cut border.
   dashed(doc, true);
@@ -82,8 +100,10 @@ function drawCard(doc: jsPDF, card: Flashcard, x: number, y: number) {
   doc.setTextColor(30);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
-  const front = doc.splitTextToSize(card.front, innerW);
-  doc.text(front.slice(0, 3), x + PAD, y + PAD + 3.5);
+  const frontLineH = 4.2;
+  fitLines(doc, card.front, innerW, 3).forEach((line, i) => {
+    doc.text(line, x + PAD, y + PAD + 3.5 + i * frontLineH);
+  });
 
   // Divider (fold/cut line).
   dashed(doc, true);
@@ -95,8 +115,10 @@ function drawCard(doc: jsPDF, card: Flashcard, x: number, y: number) {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.setTextColor(70);
-  const back = doc.splitTextToSize(card.back, innerW);
-  doc.text(back.slice(0, 4), x + PAD, midY + 5);
+  const backLineH = 3.6;
+  fitLines(doc, card.back, innerW, 4).forEach((line, i) => {
+    doc.text(line, x + PAD, midY + 5 + i * backLineH);
+  });
 }
 
 export function exportFlashcardsPdf(workspaceTitle: string, flashcards: Flashcard[]): void {

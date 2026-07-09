@@ -308,6 +308,102 @@ export async function setDocumentMode(
   if (!res.ok) throw new Error(await extractError(res, "Failed to update mode"));
 }
 
+/** Renames a document and/or directly edits the markdown the tutor teaches
+ *  from and the student reads. Invalidates the local reviewer cache so the
+ *  edit shows up immediately instead of the stale cached copy. */
+export async function updateDocumentContent(
+  workspaceId: string,
+  documentId: string,
+  patch: { title?: string; markdownContent?: string },
+): Promise<DocumentSummary> {
+  if (USE_MOCKS) {
+    await delay(150);
+    return {
+      id: documentId,
+      title: patch.title ?? "Document",
+      sourceType: "pdf",
+      mode: "learn",
+      conceptCount: MOCK_INGEST.table_of_contents.length,
+      createdAt: new Date().toISOString(),
+    };
+  }
+  const res = await fetch(
+    `${API_URL}/workspaces/${workspaceId}/documents/${documentId}/content`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+      body: JSON.stringify({ title: patch.title, markdown_content: patch.markdownContent }),
+    },
+  );
+  if (!res.ok) throw new Error(await extractError(res, "Failed to save changes"));
+  const row = (await res.json()) as {
+    id: string;
+    title: string;
+    source_type: "pdf" | "pptx" | "youtube";
+    mode: SessionMode;
+    concept_count: number;
+    created_at: string;
+  };
+  // The cached reviewer (keyed by document id) is now stale — clear it so the
+  // next fetchReviewer() call goes to the server and picks up the edit.
+  if (typeof window !== "undefined") {
+    try {
+      sessionStorage.removeItem(cacheKey(documentId));
+    } catch {
+      /* non-fatal */
+    }
+  }
+  return {
+    id: row.id,
+    title: row.title,
+    sourceType: row.source_type,
+    mode: row.mode,
+    conceptCount: row.concept_count,
+    createdAt: row.created_at,
+  };
+}
+
+export async function deleteDocument(workspaceId: string, documentId: string): Promise<void> {
+  if (USE_MOCKS) {
+    await delay(150);
+    return;
+  }
+  const res = await fetch(`${API_URL}/workspaces/${workspaceId}/documents/${documentId}`, {
+    method: "DELETE",
+    headers: await authHeaders(),
+  });
+  if (!res.ok && res.status !== 204) {
+    throw new Error(await extractError(res, "Failed to delete document"));
+  }
+}
+
+export async function renameWorkspace(workspaceId: string, title: string): Promise<void> {
+  if (USE_MOCKS) {
+    await delay(150);
+    return;
+  }
+  const res = await fetch(`${API_URL}/workspaces/${workspaceId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+    body: JSON.stringify({ title }),
+  });
+  if (!res.ok) throw new Error(await extractError(res, "Failed to rename workspace"));
+}
+
+export async function deleteWorkspace(workspaceId: string): Promise<void> {
+  if (USE_MOCKS) {
+    await delay(150);
+    return;
+  }
+  const res = await fetch(`${API_URL}/workspaces/${workspaceId}`, {
+    method: "DELETE",
+    headers: await authHeaders(),
+  });
+  if (!res.ok && res.status !== 204) {
+    throw new Error(await extractError(res, "Failed to delete workspace"));
+  }
+}
+
 // --- Reviewer retrieval ------------------------------------------------------
 export async function fetchReviewer(
   workspaceId: string,

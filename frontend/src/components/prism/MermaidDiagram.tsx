@@ -37,6 +37,13 @@ export function MermaidDiagram({ code, hotspot }: { code: string; hotspot?: Hots
         mermaidInitialized = true;
       }
       try {
+        // mermaid.render() often does NOT throw on invalid syntax — it silently
+        // resolves with an SVG containing Mermaid's OWN "bomb icon / Syntax
+        // error in text" graphic baked in, which our catch block below would
+        // never see. mermaid.parse() DOES reject on invalid syntax, so we
+        // validate with it first and only render once parsing has succeeded —
+        // that's what lets our clean fallback (below) replace the bomb icon.
+        await mermaid.parse(code.trim());
         const { svg } = await mermaid.render(`mermaid-${idSeed++}`, code.trim());
         if (cancelled || !containerRef.current) return;
         containerRef.current.innerHTML = svg;
@@ -54,10 +61,12 @@ export function MermaidDiagram({ code, hotspot }: { code: string; hotspot?: Hots
   }, [code, hotspot]);
 
   if (error) {
+    // A diagram is a supplementary visual, not core content — a small quiet
+    // notice reads much better than dumping the raw (invalid) Mermaid source.
     return (
-      <pre className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
-        {code}
-      </pre>
+      <p className="rounded-lg border border-dashed border-muted-foreground/25 bg-muted/30 px-3 py-2.5 text-center text-xs text-muted-foreground">
+        Diagram unavailable for this section.
+      </p>
     );
   }
 
