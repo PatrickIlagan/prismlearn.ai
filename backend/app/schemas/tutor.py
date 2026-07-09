@@ -91,5 +91,11 @@ class TutorRequest(BaseModel):
     # "learn" = first-time teaching (full scaffolding); "review" = rapid recall of
     # already-seen material, targeting weak spots. Changes Lumi's teaching stance.
     session_mode: Literal["learn", "review"] = "learn"
+    # The reading-level slider (0 Academic, 1 Standard, 2 ELI5) — changes how Lumi
+    # phrases its own chat responses, not just the static document text.
+    text_complexity: Literal[0, 1, 2] = 1
+    # The reading-level slider (0 Academic, 1 Standard, 2 ELI5) — changes how Lumi
+    # phrases its own chat responses, not just the static document text.
+    text_complexity: Literal[0, 1, 2] = 1
     # Trimmed history — PRD Doc 1 §3 prioritizes source material over long histories.
     recent_history: List[ChatTurn] = Field(default_factory=list)

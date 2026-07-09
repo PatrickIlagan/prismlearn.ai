@@ -16,6 +16,7 @@ import type {
 import { parseCanvas } from "@/lib/canvas";
 import { playDing } from "@/lib/sounds";
 import { addXp as profileAddXp, completeQuest, recordActivity } from "@/lib/profile";
+import { boostConcept } from "@/lib/mastery";
 import { simplifyText, type ComplexityLevel } from "@/lib/textComplexity";
 
 /**
@@ -312,6 +313,12 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     });
     playDing();
 
+    // Real tutor progress must show up as real mastery (lib/mastery.ts, read by
+    // the lobby's stats/needs-review/radar) — completing a chapter's first game
+    // IS how this app defines "mastered", so boost it to (near) full; extra
+    // games in an already-mastered chapter top it up the rest of the way.
+    if (anchor) boostConcept(anchor, newlyMasteredChapter ? 85 : 15);
+
     // Persist to the lifetime player profile (dashboard streak/quests).
     profileAddXp(20);
     recordActivity();
@@ -408,15 +415,23 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     const anchor = ui_action.target_anchor_id;
     switch (ui_action.command) {
       case "scroll_and_highlight":
-        if (anchor)
+        if (anchor) {
+          // Defensive: whatever chapter Lumi is actively pointing the student
+          // at must be readable, even if it's ahead of the fog-of-war
+          // frontier — otherwise the student gets scrolled into a locked,
+          // blurred wall with no way to read what Lumi is talking about.
+          get().unlockChapter(anchor);
           get().requestScrollTo(anchor, evaluation.is_correct === true ? "mint" : "purple");
+        }
         break;
       case "highlight":
-        if (anchor)
+        if (anchor) {
+          get().unlockChapter(anchor);
           set({
             activeHighlight: anchor,
             highlightTone: evaluation.is_correct === true ? "mint" : "purple",
           });
+        }
         break;
       case "unlock_chapter":
         if (anchor) {

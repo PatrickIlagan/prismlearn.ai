@@ -103,6 +103,7 @@ async def run_tutor(
         strike_count=req.strike_count,
         recent_history=req.recent_history,
         session_mode=req.session_mode,
+        text_complexity=req.text_complexity,
     )
 
     try:

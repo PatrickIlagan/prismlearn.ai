@@ -3,17 +3,21 @@ import type { TocEntry } from "@/types/prism";
 /**
  * Per-concept mastery.
  *
- * Deterministic mock derived from the anchor id until the `concept_mastery`
- * table (06_DatabaseArchitecture.md) is wired. Every gamification surface — the
- * lobby stats, the "Needs Review" list, the chapter radar, and the tutor
- * stepper — reads from here, so swapping in real data is a one-file change.
+ * Starts at 0% for every concept and only rises from REAL interaction —
+ * completing a mini-game in the tutor (store.completeBlockGame boosts the
+ * chapter's anchor), the diagnostic assessment, or a weakness-review answer.
+ * (A previous version derived a fake 18-97% "starting" mastery from a hash of
+ * the anchor id, which made every fresh, untouched document immediately show
+ * high mastery and 3-strike "needs review" flags before the student had done
+ * anything — a real bug, not a feature.) Persisted to localStorage until the
+ * backend's concept_mastery table is wired up on the frontend.
  */
 
 export interface ConceptMastery {
   anchorId: string;
   title: string;
-  strength: number; // 0–100
-  strikes: number; // failed attempts (0 = never failed)
+  strength: number; // 0–100, 0 = never attempted
+  strikes: number; // failed attempts (0 = never failed OR never attempted)
 }
 
 const BOOST_KEY = "prism_mastery_boost";
@@ -27,7 +31,7 @@ function readBoosts(): Record<string, number> {
   }
 }
 
-/** Persist mastery gained by reviewing a concept (until real data lands). */
+/** Persist mastery gained by actually engaging with a concept. */
 export function boostConcept(anchorId: string, amount: number): void {
   if (typeof window === "undefined") return;
   try {
@@ -39,17 +43,13 @@ export function boostConcept(anchorId: string, amount: number): void {
   }
 }
 
+/** True mastery: 0 until the student has actually engaged with this concept. */
 export function conceptStrength(anchorId: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < anchorId.length; i++) {
-    h ^= anchorId.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  const base = 18 + (Math.abs(h) % 80); // 18–97
-  return Math.min(100, base + (readBoosts()[anchorId] ?? 0));
+  return Math.min(100, readBoosts()[anchorId] ?? 0);
 }
 
 function strikesFor(strength: number): number {
+  if (strength === 0) return 0; // never attempted is not a "miss"
   if (strength < 32) return 3;
   if (strength < 45) return 2;
   if (strength < 58) return 1;
@@ -68,8 +68,10 @@ export function overallMastery(toc: TocEntry[]): number {
   return Math.round(chapterMastery(toc).reduce((s, c) => s + c.strength, 0) / toc.length);
 }
 
+/** Only concepts the student has actually attempted AND is still weak on —
+ *  never-touched concepts (strength 0) are not "needing review", they're just new. */
 export function needsReview(toc: TocEntry[]): ConceptMastery[] {
   return chapterMastery(toc)
-    .filter((c) => c.strikes > 0)
+    .filter((c) => c.strength > 0 && c.strikes > 0)
     .sort((a, b) => a.strength - b.strength);
 }

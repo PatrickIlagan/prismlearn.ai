@@ -56,6 +56,7 @@ export function LumiChatUI({ workspaceId }: { workspaceId: string }) {
       studyMode,
       sessionMode,
       activeDocumentId,
+      textComplexity,
       messages: prior,
     } = useWorkspaceStore.getState();
 
@@ -78,6 +79,7 @@ export function LumiChatUI({ workspaceId }: { workspaceId: string }) {
         studyFocus: studyMode,
         sessionMode,
         documentId: activeDocumentId ?? undefined,
+        textComplexity,
         recentHistory,
       });
       applyTutorResponse(res);

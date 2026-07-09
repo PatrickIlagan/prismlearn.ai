@@ -11,36 +11,34 @@ import { MascotLumi } from "@/components/prism/MascotLumi";
  * requirement enabled in the Clerk dashboard just work without us having to
  * reimplement each flow. The `appearance` prop reads the app's own CSS custom
  * properties (hsl(var(--prism-violet)) etc.) so it stays in sync with the
- * Prism theme automatically, and makes Clerk's card transparent so it sits
- * inside our own `.glass` panel instead of showing its own white card.
+ * Prism theme automatically.
+ *
+ * IMPORTANT: only theme via `variables` and LEAF-level `elements` (buttons,
+ * inputs, links) — never hide or zero-out structural containers like `card`/
+ * `header`/`rootBox`. Doing that previously (`header: "hidden"`,
+ * `card: "...!p-0..."`) collapsed the container Clerk's bot-protection
+ * widget renders into, so it silently never became "visible" and the whole
+ * form hung on an infinite loading spinner. Confirmed by removing those two
+ * overrides — the spinner was the symptom, not a network/config issue.
  */
 const clerkAppearance = {
   variables: {
     colorPrimary: "hsl(var(--prism-violet))",
     colorText: "hsl(var(--foreground))",
     colorTextSecondary: "hsl(var(--muted-foreground))",
-    colorBackground: "transparent",
     colorInputBackground: "hsl(0 0% 100% / 0.45)",
     colorInputText: "hsl(var(--foreground))",
     borderRadius: "0.75rem",
     fontFamily: "var(--font-sans)",
   },
   elements: {
-    rootBox: "w-full",
-    card: "!bg-transparent !shadow-none !border-0 !p-0 w-full",
-    header: "hidden", // we render our own MascotLumi + heading above
-    footer: "!bg-transparent",
-    footerActionText: "text-muted-foreground",
     socialButtonsBlockButton:
-      "!border !border-white/60 !bg-white/50 backdrop-blur-sm hover:!bg-white/80",
-    dividerLine: "!bg-border",
-    dividerText: "text-muted-foreground",
+      "border border-white/60 bg-white/50 backdrop-blur-sm hover:bg-white/80",
     formFieldInput:
-      "!border !border-white/60 !bg-white/45 backdrop-blur-sm focus:!ring-2 focus:!ring-primary/40",
+      "border border-white/60 bg-white/45 backdrop-blur-sm focus:ring-2 focus:ring-primary/40",
     formButtonPrimary:
-      "!bg-gradient-to-b !from-violet-500 !to-violet-600 hover:!shadow-lg hover:!shadow-violet-500/30 !transition-all",
-    footerActionLink: "!text-primary hover:!underline",
-    identityPreviewEditButton: "!text-primary",
+      "bg-gradient-to-b from-violet-500 to-violet-600 hover:shadow-lg hover:shadow-violet-500/30 transition-all",
+    footerActionLink: "text-primary hover:underline",
   },
 } as const;
 

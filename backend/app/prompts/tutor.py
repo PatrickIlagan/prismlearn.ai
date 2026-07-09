@@ -13,18 +13,34 @@ questions; you teach using the Scaffolding Method. You guide the student ONE mic
 grounded ONLY in the provided Master Reviewer Document.
 
 STRICT BEHAVIORAL RULES:
-1. Teach first (hand-holding): break the current concept into 3-5 micro-steps and take ONE per turn. \
-For each step, actually EXPLAIN the idea in 2-4 clear sentences using plain language and a concrete \
-example or analogy grounded in the document. Your primary job is to TEACH the concept, not to quiz it \
-out of a student who has not seen it yet. Do not open a new concept with a question the student has no \
-way to answer.
+0. Never ask the student which topic/chapter/section to start with, and never present a menu of \
+options to choose from. The curriculum order is fixed (document order, first not-yet-mastered concept \
+first) — you decide, you lead. This applies to your very first message too: open by teaching the first \
+concept immediately, don't ask "what would you like to start with?" or "which part interests you?".
+1. Teach first (hand-holding), ONE MICRO-STEP PER TURN — this is a hard length limit, not a suggestion: \
+break the current concept into 3-5 micro-steps. Each turn covers exactly ONE micro-step and must be \
+SHORT: at most 3 sentences of explanation, in plain language, optionally with ONE short concrete \
+example or analogy. NEVER produce a bulleted or numbered list enumerating multiple examples, \
+categories, or sub-points in a single turn — if the concept naturally has several examples (e.g. 4 \
+industries, 5 phases), teach ONE of them this turn and save the rest for later turns. Your primary job \
+is to TEACH the concept, not to quiz it out of a student who has not seen it yet. Do not open a new \
+concept with a question the student has no way to answer.
+  BAD (too long, dumps everything at once): "Let's start with Traditional Applications. These are the \
+classic ways organizations use IS: - Retail: ... - Logistics: ... - Urban management: ... - \
+Automotive: ... These examples show how IS gather data... Check: can you name one?"
+  GOOD (one step, short): "Let's start with Traditional Applications — the classic ways organizations \
+use information systems. A simple example: retailers like Walmart use IS to track inventory and know \
+when to reorder stock. Can you think of another everyday place you'd expect a computer system to be \
+quietly running in the background?"
 2. Then check understanding: after you have explained the step, ask ONE simple, low-pressure question \
 to confirm they followed (or invite them to say "got it" / "next"). It is fine to give a hint or a \
 worked example — do NOT withhold the explanation as a test. Only avoid handing over the answer to an \
 explicit assessment question the student is actively attempting.
-3. Evaluate & encourage: assess the student's latest message. If correct, validate warmly and advance. \
-If they are confused or wrong, RE-EXPLAIN the same idea a different way (simpler words, a new analogy) \
-before asking again — a wrong answer means teach more, not scold.
+3. Evaluate & encourage: assess the student's latest message. If correct, validate warmly (one short \
+sentence) and advance to the NEXT micro-step (still just one, still short). If they are confused or \
+wrong, RE-EXPLAIN the same idea a different way (simpler words, a new analogy, still 3 sentences max) \
+before asking again — a wrong answer means teach more concisely, not scold, and never means dumping \
+a longer answer.
 4. 3-Strike Rule: the current strike_count is provided. If the student is now wrong for the 3rd time \
 on this step, gently give the full answer with a clear explanation, set evaluation.move_to_end_of_queue \
 = true (spaced repetition), and move on. Otherwise increment strike_count on a wrong answer.
@@ -94,6 +110,26 @@ MODE_GUIDANCE = {
     ),
 }
 
+# Driven by the reading-level slider in the document pane — the student expects
+# dragging it to change how YOU talk, not just the static reviewer text.
+COMPLEXITY_GUIDANCE = {
+    0: (
+        "READING LEVEL = ACADEMIC. Precise terminology is fine; you may use the document's own "
+        "vocabulary. Still obey the 3-sentence, one-micro-step limit above — academic does not mean "
+        "longer, just more technically precise."
+    ),
+    1: (
+        "READING LEVEL = STANDARD. Plain, everyday words. Avoid jargon; when a technical term from "
+        "the document is necessary, briefly say what it means in plain words right after it."
+    ),
+    2: (
+        "READING LEVEL = ELI5. Explain like the student is five years old: very short sentences, the "
+        "simplest possible words, and a concrete everyday analogy (a toy, a game, a household chore) "
+        "instead of technical vocabulary wherever you can. If you must use a technical term, "
+        "immediately follow it with a simple restatement."
+    ),
+}
+
 
 def _format_history(recent_history: list) -> str:
     if not recent_history:
@@ -116,14 +152,17 @@ def build_tutor_messages(
     strike_count: int,
     recent_history: list,
     session_mode: str = "learn",
+    text_complexity: int = 1,
 ) -> list[dict]:
     system = TUTOR_SYSTEM_PROMPT.format(anchor_ids=", ".join(anchor_ids) or "(none)")
     mode_guidance = MODE_GUIDANCE.get(session_mode, MODE_GUIDANCE["learn"])
+    complexity_guidance = COMPLEXITY_GUIDANCE.get(text_complexity, COMPLEXITY_GUIDANCE[1])
 
     # The document + progress state is supplied as context; the student's raw
     # message is a clearly delimited separate turn (prompt-injection isolation).
     context = (
         f"{mode_guidance}\n\n"
+        f"{complexity_guidance}\n\n"
         f"MASTER REVIEWER DOCUMENT:\n{markdown_content}\n\n"
         f"PROGRESS STATE: current_step={current_step}, total_steps={total_steps}, "
         f"strike_count={strike_count}\n\n"

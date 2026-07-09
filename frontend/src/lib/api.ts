@@ -131,6 +131,8 @@ export interface TutorContext {
   sessionMode: SessionMode;
   /** which document in the workspace is being tutored (defaults to primary) */
   documentId?: string;
+  /** reading-level slider (0 Academic, 1 Standard, 2 ELI5) — changes how Lumi talks */
+  textComplexity?: 0 | 1 | 2;
   /** prior turns only — the current student message is sent separately */
   recentHistory: { role: "student" | "lumi"; text: string }[];
 }
@@ -355,6 +357,7 @@ export async function sendTutorMessage(
       study_focus: ctx.studyFocus,
       session_mode: ctx.sessionMode,
       document_id: ctx.documentId,
+      text_complexity: ctx.textComplexity,
       recent_history: ctx.recentHistory,
       reviewer: ctx.reviewer,
     }),
