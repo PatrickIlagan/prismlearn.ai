@@ -18,7 +18,7 @@ import {
   deleteDocument,
   fetchReviewer,
   ingestFile,
-  ingestYoutube,
+  ingestUrl,
   listDocuments,
   listFlashcards,
   setDocumentMode,
@@ -144,7 +144,7 @@ export function DocumentSwitcher({ workspaceId }: { workspaceId: string }) {
     setAdding(true);
     setAddError(null);
     try {
-      const result = await ingestYoutube(link, { workspaceId, mode: addMode });
+      const result = await ingestUrl(link, { workspaceId, mode: addMode });
       await afterAdd(result);
     } catch (err) {
       setAddError(err instanceof Error ? err.message : "Couldn't add that link.");
@@ -217,7 +217,7 @@ export function DocumentSwitcher({ workspaceId }: { workspaceId: string }) {
               onChange={(e) => setUrl(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && onAddUrl()}
               disabled={adding}
-              placeholder="Paste a YouTube URL"
+              placeholder="Paste a YouTube or website link"
               className="min-w-0 flex-1 bg-transparent py-1.5 text-xs outline-none placeholder:text-muted-foreground/70"
             />
             <button

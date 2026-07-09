@@ -8,6 +8,7 @@ import {
   FileText,
   Presentation,
   Video,
+  Globe,
   Home,
   BarChart3,
   Settings,
@@ -16,7 +17,7 @@ import {
 import { listWorkspaces } from "@/lib/api";
 import type { WorkspaceSummary } from "@/types/prism";
 
-const SOURCE_ICON = { pdf: FileText, pptx: Presentation, youtube: Video } as const;
+const SOURCE_ICON = { pdf: FileText, pptx: Presentation, youtube: Video, website: Globe } as const;
 
 export function CommandPalette({
   open,

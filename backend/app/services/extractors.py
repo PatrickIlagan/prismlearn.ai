@@ -1,5 +1,5 @@
 """
-Text extraction for the three supported source formats.
+Text extraction for the four supported source formats.
 
 Each extractor enforces the PRD hard limits (Doc 1 §1) and returns a normalized
 ExtractedSource. Extraction is deliberately dumb — it only pulls text; structuring
@@ -9,10 +9,14 @@ into chapters is the LLM's job in [MODE: INGEST].
 from __future__ import annotations
 
 import io
+import ipaddress
 import re
+import socket
 from urllib.parse import parse_qs, urlparse
 
+import httpx
 import pdfplumber
+import trafilatura
 from pptx import Presentation
 
 from app.core.config import settings
@@ -140,6 +144,104 @@ def extract_youtube(url: str) -> ExtractedSource:
         title=f"YouTube video {video_id}",
         raw_text=text,
         unit_count=max(1, round(minutes)),
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Website
+# --------------------------------------------------------------------------- #
+_WEBSITE_MAX_BYTES = 3 * 1024 * 1024  # 3 MB of raw HTML is plenty for an article
+_WEBSITE_UA = {"User-Agent": "Mozilla/5.0 (compatible; PrismLearnBot/1.0)"}
+
+
+def is_youtube_url(url: str) -> bool:
+    """Public check the /ingest/url router uses to pick an extractor."""
+    return _parse_youtube_id(url) is not None
+
+
+def _is_safe_host(hostname: str) -> bool:
+    """Basic SSRF guard: resolve the hostname and reject private/loopback/
+    link-local/reserved addresses (this also catches cloud metadata endpoints
+    like 169.254.169.254, which is link-local) before fetching a
+    user-supplied URL server-side. Best-effort, not exhaustive DNS-rebinding
+    protection — good enough for a hackathon-scale deployment.
+    """
+    if not hostname:
+        return False
+    try:
+        infos = socket.getaddrinfo(hostname, None)
+    except socket.gaierror:
+        return False
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0])
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
+            return False
+    return True
+
+
+def _fetch_html(url: str) -> bytes:
+    """Bounded fetch with a manual, re-validated redirect chain — each hop's
+    host is checked (not just the original URL), so a public URL that
+    redirects to an internal address is still caught. Returns raw bytes
+    (not decoded) — trafilatura does its own encoding detection from bytes,
+    and does it more reliably than a naive UTF-8 decode here would."""
+    current = url.strip()
+    for _ in range(5):
+        parsed = urlparse(current)
+        if parsed.scheme not in ("http", "https") or not parsed.hostname:
+            raise ExtractionError("That doesn't look like a valid website URL.")
+        if not _is_safe_host(parsed.hostname):
+            raise ExtractionError("That URL points at a private/internal address, which isn't allowed.")
+
+        try:
+            with httpx.stream(
+                "GET", current, follow_redirects=False, timeout=15.0, headers=_WEBSITE_UA
+            ) as resp:
+                if resp.is_redirect:
+                    location = resp.headers.get("location")
+                    if not location:
+                        raise ExtractionError("That URL redirected without a destination.")
+                    current = str(httpx.URL(current).join(location))
+                    continue
+                resp.raise_for_status()
+                content_type = resp.headers.get("content-type", "")
+                if content_type and "html" not in content_type:
+                    raise ExtractionError(
+                        f"That URL doesn't look like a webpage (content-type: {content_type})."
+                    )
+                buf = bytearray()
+                for chunk in resp.iter_bytes():
+                    buf.extend(chunk)
+                    if len(buf) > _WEBSITE_MAX_BYTES:
+                        raise ExtractionError("That page is too large to ingest.")
+                return bytes(buf)
+        except httpx.HTTPStatusError as exc:
+            raise ExtractionError(f"That URL returned an error ({exc.response.status_code}).") from exc
+        except httpx.HTTPError as exc:
+            raise ExtractionError(f"Could not reach that URL: {exc}") from exc
+    raise ExtractionError("Too many redirects.")
+
+
+def extract_website(url: str) -> ExtractedSource:
+    html = _fetch_html(url)
+
+    text = trafilatura.extract(html, favor_recall=True)
+    if not text or not text.strip():
+        raise ExtractionError("Could not find readable article text on that page.")
+
+    if len(text) > settings.max_website_chars:
+        raise ExtractionError(
+            f"That page has ~{len(text)} characters of text; the limit is {settings.max_website_chars}."
+        )
+
+    metadata = trafilatura.extract_metadata(html)
+    title = ((metadata.title if metadata else None) or urlparse(url).hostname or "Untitled").strip()
+
+    return ExtractedSource(
+        source_type=SourceType.website,
+        title=title,
+        raw_text=text,
+        unit_count=max(1, round(len(text) / 1000)),
     )
 
 

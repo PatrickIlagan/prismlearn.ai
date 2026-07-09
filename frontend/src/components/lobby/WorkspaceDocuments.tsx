@@ -5,6 +5,7 @@ import {
   FileText,
   Video,
   Presentation,
+  Globe,
   Plus,
   Loader2,
   GraduationCap,
@@ -18,7 +19,7 @@ import {
 import {
   deleteDocument,
   ingestFile,
-  ingestYoutube,
+  ingestUrl,
   listDocuments,
   setDocumentMode,
   type IngestResult,
@@ -31,6 +32,7 @@ const SOURCE_ICON: Record<DocumentSummary["sourceType"], typeof FileText> = {
   pdf: FileText,
   pptx: Presentation,
   youtube: Video,
+  website: Globe,
 };
 
 /**
@@ -136,7 +138,7 @@ export function WorkspaceDocuments({
     setAdding(true);
     setAddError(null);
     try {
-      const result = await ingestYoutube(link, { workspaceId, mode: addMode });
+      const result = await ingestUrl(link, { workspaceId, mode: addMode });
       await afterAdd(result);
     } catch (err) {
       setAddError(err instanceof Error ? err.message : "Couldn't add that link.");
@@ -208,7 +210,7 @@ export function WorkspaceDocuments({
               onChange={(e) => setUrl(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && onAddUrl()}
               disabled={adding}
-              placeholder="Paste a YouTube URL"
+              placeholder="Paste a YouTube or website link"
               className="min-w-0 flex-1 bg-transparent py-1.5 text-xs outline-none placeholder:text-muted-foreground/70"
             />
             <button

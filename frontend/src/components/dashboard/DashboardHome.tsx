@@ -8,6 +8,7 @@ import { StatsBento } from "./StatsBento";
 import { PremiumDropzone } from "./PremiumDropzone";
 import { WorkspaceGrid } from "./WorkspaceGrid";
 import { DailyQuests } from "./DailyQuests";
+import { ProfileCard } from "./ProfileCard";
 
 export function DashboardHome() {
   const { user } = useUser();
@@ -36,6 +37,7 @@ export function DashboardHome() {
         </p>
       </header>
 
+      <ProfileCard />
       <StatsBento workspaces={workspaces} />
 
       <section className="mt-6 grid gap-6 lg:grid-cols-[1.4fr_1fr]">

@@ -147,7 +147,7 @@ export interface Flashcard {
 export interface WorkspaceSummary {
   id: string;
   title: string;
-  sourceType: "pdf" | "pptx" | "youtube";
+  sourceType: "pdf" | "pptx" | "youtube" | "website";
   conceptCount: number;
   /** Number of documents in the workspace (>=1). */
   documentCount?: number;
@@ -160,7 +160,7 @@ export type SessionMode = "learn" | "review";
 export interface DocumentSummary {
   id: string;
   title: string;
-  sourceType: "pdf" | "pptx" | "youtube";
+  sourceType: "pdf" | "pptx" | "youtube" | "website";
   mode: SessionMode;
   conceptCount: number;
   createdAt: string;

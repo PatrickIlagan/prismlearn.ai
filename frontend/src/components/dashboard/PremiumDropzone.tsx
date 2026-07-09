@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useDropzone, type FileRejection } from "react-dropzone";
 import { AnimatePresence, motion } from "framer-motion";
 import { UploadCloud, Link2, Loader2, FileUp, GraduationCap, RefreshCw } from "lucide-react";
-import { ingestFile, ingestYoutube, type IngestResult } from "@/lib/api";
+import { ingestFile, ingestUrl, type IngestResult } from "@/lib/api";
 import { useWorkspaceStore } from "@/store/useWorkspaceStore";
 import type { SessionMode } from "@/types/prism";
 import { cn } from "@/lib/utils";
@@ -18,7 +18,7 @@ export function PremiumDropzone() {
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [youtubeUrl, setYoutubeUrl] = useState("");
+  const [linkUrl, setLinkUrl] = useState("");
   const [mode, setMode] = useState<SessionMode>("learn");
 
   const run = useCallback(
@@ -158,7 +158,7 @@ export function PremiumDropzone() {
         <p className="relative z-10 mt-1 text-sm text-muted-foreground">
           {busy
             ? "Extracting text and building your Master Reviewer."
-            : `PDF or PPTX · YouTube below · max ${MAX_UPLOAD_MB} MB / 20 pages / 30 min`}
+            : `PDF or PPTX · link below · max ${MAX_UPLOAD_MB} MB / 20 pages / 30 min`}
         </p>
 
         {!busy && (
@@ -175,28 +175,28 @@ export function PremiumDropzone() {
         )}
       </div>
 
-      {/* YouTube URL */}
+      {/* Link — YouTube or any website article */}
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          const url = youtubeUrl.trim();
-          if (url && !busy) run(() => ingestYoutube(url, { mode }));
+          const url = linkUrl.trim();
+          if (url && !busy) run(() => ingestUrl(url, { mode }));
         }}
         className="mt-3 flex items-center gap-2"
       >
         <div className="glass flex flex-1 items-center gap-2 rounded-xl px-3">
           <Link2 size={16} className="text-muted-foreground" />
           <input
-            value={youtubeUrl}
-            onChange={(e) => setYoutubeUrl(e.target.value)}
-            placeholder="…or paste a YouTube URL"
+            value={linkUrl}
+            onChange={(e) => setLinkUrl(e.target.value)}
+            placeholder="…or paste a YouTube or website link"
             disabled={busy}
             className="flex-1 bg-transparent py-2.5 text-sm outline-none placeholder:text-muted-foreground/70"
           />
         </div>
         <button
           type="submit"
-          disabled={busy || !youtubeUrl.trim()}
+          disabled={busy || !linkUrl.trim()}
           className="rounded-xl bg-gradient-to-b from-violet-500 to-violet-600 px-4 py-2.5 text-sm font-medium text-white shadow-lg shadow-violet-500/25 transition-all hover:shadow-violet-500/40 disabled:opacity-40 disabled:shadow-none"
         >
           Ingest

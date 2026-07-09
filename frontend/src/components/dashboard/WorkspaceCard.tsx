@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { FileText, Presentation, Video, Play, Pencil, Trash2, Check, X, Loader2 } from "lucide-react";
+import { FileText, Presentation, Video, Globe, Play, Pencil, Trash2, Check, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ProgressRing } from "./ProgressRing";
 import { workspaceProgress } from "@/lib/progress";
@@ -14,6 +14,7 @@ const SOURCE = {
   pdf: { icon: FileText, label: "PDF", tile: "from-rose-400/20 to-red-500/20 text-rose-500" },
   pptx: { icon: Presentation, label: "Slides", tile: "from-amber-400/20 to-orange-500/20 text-amber-600" },
   youtube: { icon: Video, label: "Video", tile: "from-sky-400/20 to-blue-500/20 text-sky-600" },
+  website: { icon: Globe, label: "Article", tile: "from-emerald-400/20 to-teal-500/20 text-emerald-600" },
 } as const;
 
 export function WorkspaceCard({

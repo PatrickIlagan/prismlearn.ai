@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Sparkles, Trophy, Target, Check, Zap, BookOpen, ClipboardCheck } from "lucide-react";
+import { Sparkles, Trophy, Target, Check, BookOpen, ClipboardCheck } from "lucide-react";
 import { getProfile, type DailyQuest, type ProfileSummary } from "@/lib/profile";
+import { rankForLevel } from "@/lib/rank";
 import { cn } from "@/lib/utils";
 
 const ICON = {
@@ -21,6 +22,8 @@ export function DailyQuests() {
 
   const quests = profile?.quests ?? [];
   const done = profile?.questsDone ?? 0;
+  const rank = rankForLevel(profile?.level ?? 1);
+  const RankIcon = rank.icon;
 
   return (
     <div className="glass rounded-2xl p-5">
@@ -31,8 +34,13 @@ export function DailyQuests() {
             {done}/{quests.length || 5} complete · resets at midnight
           </p>
         </div>
-        <div className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-violet-500/15 to-fuchsia-500/15 px-2.5 py-1 text-xs font-semibold text-primary ring-1 ring-white/50">
-          <Zap size={13} className="fill-violet-500 text-violet-500" />
+        <div
+          className={cn(
+            "flex items-center gap-1.5 rounded-full bg-gradient-to-r px-2.5 py-1 text-xs font-semibold ring-1 ring-white/50",
+            rank.tile,
+          )}
+        >
+          <RankIcon size={13} />
           Lv {profile?.level ?? 1} · {profile?.xp ?? 0} XP
         </div>
       </div>

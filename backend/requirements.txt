@@ -13,6 +13,7 @@ openai~=1.50
 python-pptx~=1.0                # .pptx slide text extraction
 pdfplumber~=0.11                # .pdf text extraction
 youtube-transcript-api~=1.0     # YouTube transcripts without video download
+trafilatura~=1.12                # main-content extraction from arbitrary web pages
 
 # --- Database & storage ---
 supabase~=2.8                   # Supabase PostgreSQL + S3 bucket client

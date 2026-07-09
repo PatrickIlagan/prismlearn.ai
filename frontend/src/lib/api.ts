@@ -109,7 +109,7 @@ export interface IngestResult {
   workspace_id: string;
   document_id: string;
   mode: SessionMode;
-  source_type: "pdf" | "pptx" | "youtube";
+  source_type: "pdf" | "pptx" | "youtube" | "website";
   reviewer: IngestPayload;
 }
 
@@ -226,6 +226,55 @@ export async function ingestYoutube(
   return result;
 }
 
+const YOUTUBE_HOST = /(^|\.)(youtube\.com|youtu\.be|music\.youtube\.com)$/i;
+
+/** Generic "paste a link" ingestion — the backend routes YouTube URLs through
+ *  the transcript extractor and everything else through the website article
+ *  extractor (trafilatura), so this one function covers both. */
+export async function ingestUrl(
+  url: string,
+  opts: IngestOptions = {},
+): Promise<IngestResult> {
+  const { studyFocus = "comprehensive", mode = "learn", workspaceId } = opts;
+  if (USE_MOCKS) {
+    await delay(1200);
+    let host = "";
+    try {
+      host = new URL(url).hostname;
+    } catch {
+      /* fall through to website mock below */
+    }
+    const isYoutube = YOUTUBE_HOST.test(host);
+    const result = mockIngestResult(isYoutube ? "youtube" : "website", mode);
+    if (workspaceId) result.workspace_id = workspaceId;
+    cacheReviewer(result.document_id, result.reviewer);
+    cacheReviewer(result.workspace_id, result.reviewer);
+    registerLocalWorkspace({
+      id: result.workspace_id,
+      title: isYoutube ? "YouTube Video" : host || "Web Article",
+      sourceType: result.source_type,
+      conceptCount: result.reviewer.table_of_contents.length,
+      createdAt: new Date().toISOString(),
+    });
+    return result;
+  }
+  const res = await fetch(`${API_URL}/ingest/url`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+    body: JSON.stringify({
+      url,
+      study_focus: studyFocus,
+      mode,
+      workspace_id: workspaceId,
+    }),
+  });
+  if (!res.ok) throw new Error(await extractError(res, "Ingestion failed"));
+  const result: IngestResult = await res.json();
+  cacheReviewer(result.document_id, result.reviewer);
+  cacheReviewer(result.workspace_id, result.reviewer);
+  return result;
+}
+
 // --- Workspace listing (dashboard grid) --------------------------------------
 export async function listWorkspaces(): Promise<WorkspaceSummary[]> {
   if (USE_MOCKS) {
@@ -238,7 +287,7 @@ export async function listWorkspaces(): Promise<WorkspaceSummary[]> {
   const rows = (await res.json()) as Array<{
     id: string;
     title: string;
-    source_type: "pdf" | "pptx" | "youtube";
+    source_type: "pdf" | "pptx" | "youtube" | "website";
     concept_count: number;
     document_count?: number;
     created_at: string;
@@ -276,7 +325,7 @@ export async function listDocuments(workspaceId: string): Promise<DocumentSummar
   const rows = (await res.json()) as Array<{
     id: string;
     title: string;
-    source_type: "pdf" | "pptx" | "youtube";
+    source_type: "pdf" | "pptx" | "youtube" | "website";
     mode: SessionMode;
     concept_count: number;
     created_at: string;
@@ -339,7 +388,7 @@ export async function updateDocumentContent(
   const row = (await res.json()) as {
     id: string;
     title: string;
-    source_type: "pdf" | "pptx" | "youtube";
+    source_type: "pdf" | "pptx" | "youtube" | "website";
     mode: SessionMode;
     concept_count: number;
     created_at: string;

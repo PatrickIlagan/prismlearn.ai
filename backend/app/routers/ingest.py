@@ -37,6 +37,13 @@ class YouTubeIngestRequest(BaseModel):
     mode: str = "learn"
 
 
+class UrlIngestRequest(BaseModel):
+    url: str
+    study_focus: str = "comprehensive"
+    workspace_id: str | None = None
+    mode: str = "learn"
+
+
 async def _read_bounded(file: UploadFile) -> bytes:
     """Read an upload while capping memory: reject once it exceeds the byte limit.
 
@@ -137,6 +144,27 @@ async def ingest_youtube(
 ) -> IngestResponse:
     try:
         source = extractors.extract_youtube(body.youtube_url)
+    except ExtractionError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return await _ingest_and_store(
+        source, body.study_focus, user_id, workspace_id=body.workspace_id, mode=body.mode
+    )
+
+
+@router.post("/url", response_model=IngestResponse)
+async def ingest_url(
+    body: UrlIngestRequest,
+    user_id: str = Depends(get_current_user_id),
+) -> IngestResponse:
+    """Generic link ingestion — routes YouTube URLs through the transcript
+    extractor and everything else through the website article extractor, so
+    the frontend can offer a single "paste a link" input."""
+    try:
+        source = (
+            extractors.extract_youtube(body.url)
+            if extractors.is_youtube_url(body.url)
+            else extractors.extract_website(body.url)
+        )
     except ExtractionError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return await _ingest_and_store(

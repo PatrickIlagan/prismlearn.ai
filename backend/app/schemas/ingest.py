@@ -18,6 +18,7 @@ class SourceType(str, Enum):
     pdf = "pdf"
     pptx = "pptx"
     youtube = "youtube"
+    website = "website"
 
 
 class TocEntry(BaseModel):
@@ -48,7 +49,9 @@ class ExtractedSource(BaseModel):
     source_type: SourceType
     title: str
     raw_text: str
-    unit_count: int = Field(..., description="Slides (pptx), pages (pdf), or transcript minutes (youtube)")
+    unit_count: int = Field(
+        ..., description="Slides (pptx), pages (pdf), transcript minutes (youtube), or ~1000-char blocks (website)"
+    )
 
 
 class IngestResponse(BaseModel):

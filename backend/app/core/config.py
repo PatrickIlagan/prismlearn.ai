@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     max_document_pages: int = 20
     max_youtube_minutes: int = 30
     max_upload_mb: int = 25
+    max_website_chars: int = 40000
 
 
 @lru_cache
