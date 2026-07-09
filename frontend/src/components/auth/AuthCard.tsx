@@ -21,13 +21,17 @@ import { MascotLumi } from "@/components/prism/MascotLumi";
  * form hung on an infinite loading spinner. Confirmed by removing those two
  * overrides — the spinner was the symptom, not a network/config issue.
  *
- * Clerk's own `card` renders its own title/subtitle/box-shadow, which nested
- * inside our glass card reads as two stacked cards. `card` itself is kept
- * fully sized (only stripped of background/border/shadow — no padding or
- * display changes, so its layout, and whatever the bot-protection widget
- * measures, is untouched). `headerTitle`/`headerSubtitle` are leaf text
- * nodes (not containers), so hiding them is safe by the same rule that
- * makes hiding `header` itself unsafe.
+ * Clerk's own card renders its own title/subtitle/box-shadow, which nested
+ * inside our glass card reads as two stacked cards. The outer opaque white
+ * box turned out to be `cardBox` (the positioned wrapper Clerk gives its own
+ * white background + shadow), NOT `card` (an inner content wrapper that was
+ * already unstyled) — the first attempt at this fix targeted the wrong one,
+ * so it was silently a no-op and the double-card look never actually went
+ * away. Both are targeted now. Neither is hidden or zeroed (only stripped of
+ * background/border/shadow — no padding or display changes), so layout, and
+ * whatever the bot-protection widget measures, is untouched.
+ * `headerTitle`/`headerSubtitle` are leaf text nodes (not containers), so
+ * hiding them is safe by the same rule that makes hiding `header` unsafe.
  */
 const clerkAppearance = {
   variables: {
@@ -40,6 +44,7 @@ const clerkAppearance = {
     fontFamily: "var(--font-sans)",
   },
   elements: {
+    cardBox: "shadow-none border-0 bg-transparent",
     card: "shadow-none border-0 bg-transparent",
     headerTitle: "hidden",
     headerSubtitle: "hidden",
@@ -58,8 +63,9 @@ export function AuthCard({ mode }: { mode: "sign-in" | "sign-up" }) {
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10">
-      <div className="prism-orb -left-20 top-0 h-72 w-72 bg-violet-400/40" />
-      <div className="prism-orb -right-16 bottom-0 h-72 w-72 bg-cyan-300/35" />
+      <div className="prism-orb -left-20 top-0 h-80 w-80 bg-violet-400/50" />
+      <div className="prism-orb -right-16 bottom-0 h-80 w-80 bg-cyan-300/45" />
+      <div className="prism-orb left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 bg-fuchsia-300/25" />
 
       <div className="glass relative z-10 w-full max-w-sm rounded-3xl p-7">
         <div className="mb-6 flex flex-col items-center text-center">
