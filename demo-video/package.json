@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "start": "remotion studio src/index.ts",
-    "render": "remotion render src/index.ts PrismDemo out/PrismLearn-Demo.mp4",
+    "render": "remotion render src/index.ts PrismDemo out/PrismLearn-Demo-v3.mp4",
     "still": "remotion still src/index.ts PrismDemo out/still.png"
   },
   "dependencies": {

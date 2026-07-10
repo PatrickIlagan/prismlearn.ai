@@ -4,20 +4,20 @@ import { Mascot } from "../Mascot";
 import { Wordmark } from "../components";
 import { COLOR, INK } from "../theme";
 
-export const DURATION = 125;
+export const DURATION = 94; // 6 beats @ 115bpm
 
 export function S1LogoIntro() {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  const mascotScale = spring({ frame, fps, config: { damping: 13, stiffness: 130 }, durationInFrames: 24 });
-  const wordmarkY = interpolate(frame, [16, 34], [24, 0], {
+  const mascotScale = spring({ frame, fps, config: { damping: 13, stiffness: 140 }, durationInFrames: 20 });
+  const wordmarkY = interpolate(frame, [10, 24], [24, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
     easing: Easing.out(Easing.cubic),
   });
-  const wordmarkOpacity = interpolate(frame, [16, 34], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const taglineOpacity = interpolate(frame, [38, 54], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const wordmarkOpacity = interpolate(frame, [10, 24], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const taglineOpacity = interpolate(frame, [26, 40], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const glow = interpolate(frame, [0, DURATION], [0, 1], {
     extrapolateRight: "clamp",
     easing: Easing.out(Easing.quad),

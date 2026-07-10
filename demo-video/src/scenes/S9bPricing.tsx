@@ -3,7 +3,7 @@ import { Scene } from "../Scene";
 import { Caption, GlassCard } from "../components";
 import { COLOR, INK } from "../theme";
 
-export const DURATION = 188;
+export const DURATION = 141; // 9 beats @ 115bpm
 
 const TIERS = [
   {
@@ -12,7 +12,7 @@ const TIERS = [
     cadence: "forever",
     blurb: "Get started",
     features: ["3 workspaces", "Core AI tutor", "Standard quizzes & flashcards"],
-    delay: 30,
+    delay: 22,
     highlight: false,
   },
   {
@@ -26,7 +26,7 @@ const TIERS = [
       "Boss battles & full gamification",
       "Priority AI responses",
     ],
-    delay: 52,
+    delay: 40,
     highlight: true,
   },
   {
@@ -34,8 +34,12 @@ const TIERS = [
     price: "Custom",
     cadence: "",
     blurb: "For schools & teams",
-    features: ["SSO & admin dashboard", "Bulk seats", "Dedicated support"],
-    delay: 76,
+    features: [
+      "Dedicated Gemma 4 on AMD Instinct™",
+      "SSO & admin dashboard",
+      "Bulk seats & dedicated support",
+    ],
+    delay: 58,
     highlight: false,
   },
 ];
@@ -43,8 +47,8 @@ const TIERS = [
 export function S9bPricing() {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const captionOpacity = interpolate(frame, [10, 26], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const badgeScale = spring({ frame: frame - 68, fps, config: { damping: 11 }, durationInFrames: 16 });
+  const captionOpacity = interpolate(frame, [8, 22], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const badgeScale = spring({ frame: frame - 52, fps, config: { damping: 11 }, durationInFrames: 14 });
 
   return (
     <Scene durationInFrames={DURATION}>

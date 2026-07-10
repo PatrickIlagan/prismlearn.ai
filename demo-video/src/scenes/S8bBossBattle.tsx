@@ -3,7 +3,7 @@ import { Scene } from "../Scene";
 import { Caption, GlassCard } from "../components";
 import { COLOR, INK } from "../theme";
 
-export const DURATION = 188;
+export const DURATION = 125; // 8 beats @ 115bpm
 
 /** Matches the real PracticeExamArena.tsx boss-battle UI: a top bar with a
  *  swords + chapter title (amber/orange), score with a lightning icon, a
@@ -13,15 +13,15 @@ export function S8bBossBattle() {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  const topBarOpacity = interpolate(frame, [0, 14], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const cardScale = spring({ frame: frame - 18, fps, config: { damping: 15 }, durationInFrames: 18 });
-  const comboScale = spring({ frame: frame - 70, fps, config: { damping: 11 }, durationInFrames: 16 });
+  const topBarOpacity = interpolate(frame, [0, 12], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const cardScale = spring({ frame: frame - 12, fps, config: { damping: 15 }, durationInFrames: 16 });
+  const comboScale = spring({ frame: frame - 46, fps, config: { damping: 11 }, durationInFrames: 14 });
 
-  const secondsLeft = interpolate(frame, [18, 150], [25, 4], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const secondsLeft = interpolate(frame, [12, 104], [25, 4], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const timePct = (secondsLeft / 25) * 100;
-  const score = Math.round(interpolate(frame, [18, 150], [0, 2450], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }));
+  const score = Math.round(interpolate(frame, [12, 104], [0, 2450], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }));
 
-  const captionOpacity = interpolate(frame, [128, 144], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const captionOpacity = interpolate(frame, [76, 92], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   return (
     <Scene durationInFrames={DURATION}>

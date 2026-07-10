@@ -3,7 +3,7 @@ import { Scene } from "../Scene";
 import { Caption, GlassCard } from "../components";
 import { COLOR, INK } from "../theme";
 
-export const DURATION = 188;
+export const DURATION = 125; // 8 beats @ 115bpm
 
 const SOURCES = [
   { label: "PDF", emoji: "📄", tint: COLOR.rose, angle: -135 },
@@ -16,15 +16,15 @@ export function S3Ingest() {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  const centerScale = spring({ frame: frame - 95, fps, config: { damping: 11 }, durationInFrames: 20 });
-  const captionOpacity = interpolate(frame, [130, 148], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const centerScale = spring({ frame: frame - 58, fps, config: { damping: 11 }, durationInFrames: 20 });
+  const captionOpacity = interpolate(frame, [76, 92], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   return (
     <Scene durationInFrames={DURATION}>
       <div style={{ position: "absolute", inset: 0 }}>
         {SOURCES.map((s, i) => {
-          const delay = i * 16;
-          const t = interpolate(frame, [delay, delay + 65], [0, 1], {
+          const delay = i * 8;
+          const t = interpolate(frame, [delay, delay + 45], [0, 1], {
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
           });
@@ -36,7 +36,7 @@ export function S3Ingest() {
           const y = 470 + r * Math.sin(rad);
           // Fade in fast, hold at full opacity while traveling, fade out only
           // right as it reaches (merges into) the center card.
-          const opacity = interpolate(frame, [delay, delay + 8, delay + 55, delay + 65], [0, 1, 1, 0], {
+          const opacity = interpolate(frame, [delay, delay + 6, delay + 38, delay + 45], [0, 1, 1, 0], {
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
           });

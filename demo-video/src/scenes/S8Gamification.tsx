@@ -3,19 +3,19 @@ import { Scene } from "../Scene";
 import { Caption, GlassCard, Pill } from "../components";
 import { COLOR } from "../theme";
 
-export const DURATION = 188;
+export const DURATION = 94; // 6 beats @ 115bpm
 
 export function S8Gamification() {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const captionOpacity = interpolate(frame, [128, 144], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const captionOpacity = interpolate(frame, [62, 76], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
-  const xpT = interpolate(frame, [8, 62], [0.2, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const burst = spring({ frame: frame - 62, fps, config: { damping: 9 }, durationInFrames: 16 });
-  const burstOpacity = interpolate(frame, [62, 70, 92], [0, 1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const xpT = interpolate(frame, [4, 34], [0.2, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const burst = spring({ frame: frame - 34, fps, config: { damping: 9 }, durationInFrames: 14 });
+  const burstOpacity = interpolate(frame, [34, 42, 62], [0, 1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
-  const streakScale = spring({ frame: frame - 88, fps, config: { damping: 12 }, durationInFrames: 16 });
-  const bossScale = spring({ frame: frame - 108, fps, config: { damping: 12 }, durationInFrames: 16 });
+  const streakScale = spring({ frame: frame - 46, fps, config: { damping: 12 }, durationInFrames: 14 });
+  const bossScale = spring({ frame: frame - 58, fps, config: { damping: 12 }, durationInFrames: 14 });
 
   return (
     <Scene durationInFrames={DURATION}>

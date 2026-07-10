@@ -3,7 +3,7 @@ import { Scene } from "../Scene";
 import { Caption, GlassCard } from "../components";
 import { COLOR, INK } from "../theme";
 
-export const DURATION = 188;
+export const DURATION = 156; // 10 beats @ 115bpm
 
 function QuestionCard({
   kind,
@@ -20,7 +20,7 @@ function QuestionCard({
   const s = spring({ frame: local, fps, config: { damping: 15 }, durationInFrames: 16 });
   // Fade in fast, hold fully readable for a good while, fade out only right
   // before the next card takes over.
-  const opacity = interpolate(local, [0, 10, 50, 60], [0, 1, 1, 0], {
+  const opacity = interpolate(local, [0, 8, 40, 48], [0, 1, 1, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
@@ -123,13 +123,13 @@ function QuestionCard({
 export function S6Quiz() {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const captionOpacity = interpolate(frame, [24, 40], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const captionOpacity = interpolate(frame, [20, 34], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   return (
     <Scene durationInFrames={DURATION}>
-      <QuestionCard kind="mcq" frame={frame} fps={fps} startAt={8} />
-      <QuestionCard kind="math" frame={frame} fps={fps} startAt={68} />
-      <QuestionCard kind="code" frame={frame} fps={fps} startAt={128} />
+      <QuestionCard kind="mcq" frame={frame} fps={fps} startAt={4} />
+      <QuestionCard kind="math" frame={frame} fps={fps} startAt={52} />
+      <QuestionCard kind="code" frame={frame} fps={fps} startAt={100} />
 
       <div style={{ opacity: captionOpacity }}>
         <Caption eyebrow="Quizzes & Exams" title="Real Math. Real Code. Not Just Multiple Choice." />
