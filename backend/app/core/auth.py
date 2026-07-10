@@ -69,10 +69,14 @@ async def get_current_user_id(
         settings.clerk_secret_key
     )
 
-    if authorization and authorization.startswith("Bearer "):
-        if not clerk_configured:
-            raise HTTPException(status_code=401, detail="Authentication is not configured.")
-        return _verify(authorization.removeprefix("Bearer ").strip())
+    if clerk_configured:
+        # Once Clerk is live, it is the only trusted identity source — X-User-Id
+        # must never be accepted alongside it, or any caller could impersonate
+        # any user by simply omitting the bearer token and setting that header.
+        if authorization and authorization.startswith("Bearer "):
+            return _verify(authorization.removeprefix("Bearer ").strip())
+        raise HTTPException(status_code=401, detail="Authentication required.")
 
-    # No bearer token: dev/testing fallback (also used while Clerk isn't set up).
+    # Clerk isn't configured at all (local dev with no credentials): fall back
+    # to the X-User-Id header so the API stays runnable without external setup.
     return x_user_id or DEV_USER_ID
