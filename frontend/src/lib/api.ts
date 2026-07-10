@@ -597,6 +597,36 @@ export async function generateFlashcards(
   return rows.map(fromRecord);
 }
 
+// --- Reading-level rewrite (Standard/ELI5 slider) -----------------------------
+export interface SimplifyBlockInput {
+  id: string;
+  text: string;
+}
+
+/** Real model call, batched (every block needing a rewrite goes in one
+ *  request, not one round trip per paragraph). Mock mode returns blocks
+ *  unchanged rather than faking a rewrite — showing correct-but-unsimplified
+ *  text beats showing something that looks simplified but might be wrong. */
+export async function simplifyBlocks(
+  workspaceId: string,
+  blocks: SimplifyBlockInput[],
+  level: "standard" | "eli5",
+): Promise<SimplifyBlockInput[]> {
+  if (blocks.length === 0) return [];
+  if (USE_MOCKS) {
+    await delay(500);
+    return blocks;
+  }
+  const res = await fetch(`${API_URL}/workspaces/${workspaceId}/simplify`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+    body: JSON.stringify({ blocks, level }),
+  });
+  if (!res.ok) throw new Error(await extractError(res, "Simplify failed"));
+  const data = (await res.json()) as { blocks: SimplifyBlockInput[] };
+  return data.blocks;
+}
+
 // --- helpers -----------------------------------------------------------------
 async function extractError(res: Response, fallback: string): Promise<string> {
   try {

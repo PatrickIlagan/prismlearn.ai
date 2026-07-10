@@ -17,10 +17,12 @@ from app.core.config import settings
 from app.prompts.flashcards import build_flashcard_messages
 from app.prompts.ingest import build_ingest_messages
 from app.prompts.quiz import build_quiz_messages
+from app.prompts.simplify import build_simplify_messages
 from app.prompts.tutor import build_tutor_messages
 from app.schemas.flashcards import FlashcardDeck
 from app.schemas.ingest import IngestPayload
 from app.schemas.quiz import Quiz
+from app.schemas.simplify import SimplifyBlock, SimplifyResponse
 from app.schemas.tutor import TutorRequest, TutorResponse
 
 
@@ -245,3 +247,38 @@ async def run_flashcard_generation(
         return FlashcardDeck.model_validate(data)
     except ValidationError as exc:
         raise InferenceError(f"Model JSON did not match the FlashcardDeck schema: {exc}") from exc
+
+
+async def run_simplify(blocks: list[SimplifyBlock], level: str) -> SimplifyResponse:
+    """Rewrite a batch of blocks at a target reading level (the Standard/ELI5
+    slider) — real model call, not the local word-substitution hack this
+    replaced (which broke grammar mid-sentence instead of simplifying)."""
+    client = get_client()
+    messages = build_simplify_messages([b.model_dump() for b in blocks], level)
+
+    try:
+        completion = await client.chat.completions.create(
+            model=settings.fireworks_model,
+            messages=messages,
+            temperature=0.4,
+            max_tokens=4096,
+            response_format=_schema_format(SimplifyResponse),
+            extra_body={"reasoning_effort": "low"},
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise InferenceError(f"Fireworks inference failed: {exc}") from exc
+
+    if not completion.choices:
+        raise InferenceError("Fireworks returned no choices (likely filtered or truncated).")
+    content = completion.choices[0].message.content or ""
+    if not content.strip():
+        raise InferenceError("Model returned an empty response (reasoning likely exhausted max_tokens).")
+    try:
+        data = _extract_json(content)
+    except json.JSONDecodeError as exc:
+        raise InferenceError(f"Model did not return valid JSON: {exc}") from exc
+
+    try:
+        return SimplifyResponse.model_validate(data)
+    except ValidationError as exc:
+        raise InferenceError(f"Model JSON did not match the SimplifyResponse schema: {exc}") from exc

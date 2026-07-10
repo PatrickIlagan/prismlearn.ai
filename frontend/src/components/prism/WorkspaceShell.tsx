@@ -40,6 +40,7 @@ export function WorkspaceShell({
   const resumeSession = useWorkspaceStore((s) => s.resumeSession);
   const setWorkspaceDocuments = useWorkspaceStore((s) => s.setWorkspaceDocuments);
   const setActiveDocument = useWorkspaceStore((s) => s.setActiveDocument);
+  const setActiveWorkspaceId = useWorkspaceStore((s) => s.setActiveWorkspaceId);
   const unlockAllChapters = useWorkspaceStore((s) => s.unlockAllChapters);
   const setFlashcards = useWorkspaceStore((s) => s.setFlashcards);
   const [mobileTab, setMobileTab] = useState<MobileTab>("reviewer");
@@ -48,6 +49,7 @@ export function WorkspaceShell({
   useEffect(() => {
     let alive = true;
     setStatus("loading");
+    setActiveWorkspaceId(workspaceId);
     (async () => {
       try {
         const docs = await listDocuments(workspaceId);
@@ -98,6 +100,7 @@ export function WorkspaceShell({
     resumeSession,
     setWorkspaceDocuments,
     setActiveDocument,
+    setActiveWorkspaceId,
     unlockAllChapters,
     setFlashcards,
   ]);

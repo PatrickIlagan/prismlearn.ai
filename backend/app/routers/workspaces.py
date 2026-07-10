@@ -29,6 +29,7 @@ from app.core.auth import get_current_user_id
 from app.db import get_repository
 from app.schemas.flashcards import FlashcardGenRequest
 from app.schemas.ingest import IngestPayload, TocEntry
+from app.schemas.simplify import SimplifyRequest, SimplifyResponse
 from app.schemas.workspace import (
     DocumentSummary,
     FlashcardCreate,
@@ -38,7 +39,7 @@ from app.schemas.workspace import (
     doc_to_summary,
     to_summary,
 )
-from app.services.ai_client import InferenceError, run_flashcard_generation
+from app.services.ai_client import InferenceError, run_flashcard_generation, run_simplify
 
 router = APIRouter(prefix="/workspaces", tags=["workspaces"])
 
@@ -265,3 +266,21 @@ async def generate_flashcards(
             )
         )
     return saved
+
+
+@router.post("/{workspace_id}/simplify", response_model=SimplifyResponse)
+async def simplify_blocks(
+    workspace_id: str,  # noqa: ARG001 - unused; kept for URL-shape consistency with the rest of the API
+    body: SimplifyRequest,
+    user_id: str = Depends(get_current_user_id),  # noqa: ARG001 - auth gate only, no per-user data touched
+) -> SimplifyResponse:
+    """Reading-level rewrite (Standard/ELI5 slider) — a real model call, batched
+    (many blocks per request) rather than one round trip per paragraph. Doesn't
+    read or write any stored workspace data, so no ownership check is needed
+    beyond being authenticated at all."""
+    if not body.blocks:
+        return SimplifyResponse(blocks=[])
+    try:
+        return await run_simplify(body.blocks, body.level)
+    except InferenceError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc

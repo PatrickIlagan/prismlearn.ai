@@ -71,7 +71,12 @@ export function InteractiveBlock({
 // original markdown, and back again if the slider returns to Academic.
 function ReadBlock({ block }: { block: CanvasBlock }) {
   const override = useWorkspaceStore((s) => s.blockComplexity[block.id]);
-  const showOverride = override && override.level > 0;
+  const textComplexity = useWorkspaceStore((s) => s.textComplexity);
+  // Must match the CURRENT slider level, not just "any cached rewrite exists"
+  // — otherwise a block still shows its old Standard rewrite (or vice versa)
+  // under the new level's badge while the real rewrite for this level is
+  // still in flight, which reads as a mismatched/stale simplification.
+  const showOverride = override && override.level > 0 && override.level === textComplexity;
 
   return (
     <AnimatePresence mode="wait" initial={false}>

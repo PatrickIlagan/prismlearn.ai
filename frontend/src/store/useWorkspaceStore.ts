@@ -17,7 +17,8 @@ import { parseCanvas } from "@/lib/canvas";
 import { playDing } from "@/lib/sounds";
 import { addXp as profileAddXp, completeQuest, recordActivity } from "@/lib/profile";
 import { boostConcept } from "@/lib/mastery";
-import { simplifyText, type ComplexityLevel } from "@/lib/textComplexity";
+import { type ComplexityLevel } from "@/lib/textComplexity";
+import { simplifyBlocks } from "@/lib/api";
 
 /**
  * The agentic UI-manipulation pipeline lives here.
@@ -109,6 +110,11 @@ interface WorkspaceState {
   // --- Documents in the current workspace ---
   documents: DocumentSummary[];
   activeDocumentId: string | null;
+  /** Set once by WorkspaceShell — the reading-level slider (setTextComplexity)
+   *  needs the workspace id to call the real rewrite endpoint but isn't
+   *  itself passed one as a prop. */
+  activeWorkspaceId: string | null;
+  setActiveWorkspaceId: (workspaceId: string) => void;
   setWorkspaceDocuments: (docs: DocumentSummary[]) => void;
   /** Record which document is active and its saved study mode. */
   setActiveDocument: (documentId: string, mode: SessionMode) => void;
@@ -240,6 +246,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
   documents: [],
   activeDocumentId: null,
+  activeWorkspaceId: null,
+  setActiveWorkspaceId: (workspaceId) => set({ activeWorkspaceId: workspaceId }),
   setWorkspaceDocuments: (docs) => set({ documents: docs }),
   setActiveDocument: (documentId, mode) =>
     set({ activeDocumentId: documentId, sessionMode: mode }),
@@ -342,21 +350,55 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   visibleBlockId: null,
   blockComplexity: {},
   setVisibleBlockId: (blockId) => set({ visibleBlockId: blockId }),
-  setTextComplexity: (level) => {
+  setTextComplexity: async (level) => {
+    // The slider position updates instantly regardless of what's below —
+    // Academic (0) is always just the reviewer's original text (no rewrite
+    // needed, no cost), Standard/ELI5 show whatever's already cached while
+    // the real rewrite for any not-yet-cached blocks is in flight.
+    set({ textComplexity: level });
+    if (level === 0) return;
+
+    const { chapters, activeWorkspaceId, blockComplexity } = get();
+    if (!activeWorkspaceId) return;
+
     // Applies to the WHOLE lesson, not just the paragraph in view — dragging
-    // the slider should change how the whole document reads, immediately,
-    // including chapters not unlocked/scrolled-to yet (so they're already
-    // correct the moment they do become visible). Cheap: simplifyText is a
-    // synchronous local rewrite, no AI round trip, even for a long document.
-    const { chapters } = get();
-    const updates: Record<string, { level: typeof level; text: string }> = {};
+    // the slider should (eventually) change how the whole document reads,
+    // including chapters not unlocked/scrolled-to yet. Only blocks without
+    // an existing cached rewrite AT THIS LEVEL go into the request — this is
+    // a real model call now (see lib/api.ts's simplifyBlocks), not a free
+    // local transform, so re-simplifying already-cached text would be pure
+    // waste.
+    const toSimplify: { id: string; text: string }[] = [];
     for (const chapter of chapters) {
       for (const block of chapter.blocks) {
         if (block.kind === "mermaid") continue; // no prose to rewrite
-        updates[block.id] = { level, text: simplifyText(block.plain, level) };
+        if (blockComplexity[block.id]?.level === level) continue;
+        toSimplify.push({ id: block.id, text: block.plain });
       }
     }
-    set((s) => ({ textComplexity: level, blockComplexity: { ...s.blockComplexity, ...updates } }));
+    if (toSimplify.length === 0) return;
+
+    try {
+      const results = await simplifyBlocks(
+        activeWorkspaceId,
+        toSimplify,
+        level === 1 ? "standard" : "eli5",
+      );
+      // Drop a response that arrives after the slider moved on again — avoids
+      // caching a rewrite under a level the student isn't even looking at
+      // anymore, or racing with a newer in-flight request for the real one.
+      if (get().textComplexity !== level) return;
+      set((s) => {
+        const updates = { ...s.blockComplexity };
+        for (const r of results) updates[r.id] = { level, text: r.text };
+        return { blockComplexity: updates };
+      });
+    } catch {
+      // Non-fatal: DocumentViewer already falls back to the original text for
+      // any block with no cache entry at the current level, so a failed
+      // rewrite call just means that block stays un-simplified — never a
+      // broken reader.
+    }
   },
 
   scrollTarget: null,

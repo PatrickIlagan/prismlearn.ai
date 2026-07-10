@@ -15,6 +15,7 @@ from app.core.config import settings
 from app.schemas.flashcards import FlashcardDeck
 from app.schemas.ingest import IngestPayload
 from app.schemas.quiz import Quiz
+from app.schemas.simplify import SimplifyBlock, SimplifyResponse
 from app.schemas.tutor import TutorRequest, TutorResponse
 from app.services import fireworks, gemma_amd
 
@@ -69,3 +70,7 @@ async def run_flashcard_generation(
         count=count,
         study_focus=study_focus,
     )
+
+
+async def run_simplify(blocks: list[SimplifyBlock], level: str) -> SimplifyResponse:
+    return await _provider().run_simplify(blocks, level)
