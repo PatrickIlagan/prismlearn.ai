@@ -62,7 +62,7 @@ export function AppSidebar({
         <button
           onClick={onToggle}
           className={cn(
-            "rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-white/60 hover:text-foreground",
+            "rounded-md p-1.5 text-muted-foreground transition-all duration-150 hover:bg-white/60 hover:text-foreground active:scale-90",
             collapsed && "absolute",
           )}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
@@ -76,7 +76,7 @@ export function AppSidebar({
         <button
           onClick={onOpenSearch}
           className={cn(
-            "flex w-full items-center gap-2 rounded-lg border border-white/50 bg-white/40 px-2.5 py-2 text-sm text-muted-foreground backdrop-blur-sm transition-colors hover:bg-white/70",
+            "flex w-full items-center gap-2 rounded-lg border border-white/50 bg-white/40 px-2.5 py-2 text-sm text-muted-foreground backdrop-blur-sm transition-all duration-150 hover:bg-white/70 active:scale-[0.98]",
             collapsed && "justify-center px-0",
           )}
         >
@@ -102,11 +102,11 @@ export function AppSidebar({
               href={href}
               onClick={onNavigate}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors",
+                "flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm font-medium transition-all duration-150 active:scale-[0.97]",
                 collapsed && "justify-center px-0",
                 active
                   ? "bg-gradient-to-r from-violet-500/15 to-fuchsia-500/10 text-primary ring-1 ring-white/50"
-                  : "text-foreground/70 hover:bg-white/50 hover:text-foreground",
+                  : "text-foreground/70 hover:translate-x-0.5 hover:bg-white/50 hover:text-foreground",
               )}
               title={collapsed ? label : undefined}
             >
@@ -131,7 +131,7 @@ export function AppSidebar({
               </div>
               <button
                 onClick={() => signOut({ redirectUrl: "/sign-in" })}
-                className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-white/60 hover:text-foreground"
+                className="rounded-md p-1.5 text-muted-foreground transition-all duration-150 hover:bg-white/60 hover:text-foreground active:scale-90"
                 aria-label="Sign out"
               >
                 <LogOut size={15} />

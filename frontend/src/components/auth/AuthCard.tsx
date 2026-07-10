@@ -1,6 +1,7 @@
 "use client";
 
 import { SignIn, SignUp } from "@clerk/nextjs";
+import { motion } from "framer-motion";
 import { MascotLumi } from "@/components/prism/MascotLumi";
 import { FluidBlob } from "@/components/prism/FluidBlob";
 
@@ -82,7 +83,12 @@ export function AuthCard({ mode }: { mode: "sign-in" | "sign-up" }) {
         hueShift
       />
 
-      <div className="glass relative z-10 w-full max-w-sm rounded-3xl p-7">
+      <motion.div
+        initial={{ opacity: 0, y: 18, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ type: "spring", stiffness: 220, damping: 24 }}
+        className="glass relative z-10 w-full max-w-sm rounded-3xl p-7"
+      >
         <div className="mb-5 flex justify-center">
           <MascotLumi size={46} />
         </div>
@@ -104,7 +110,7 @@ export function AuthCard({ mode }: { mode: "sign-in" | "sign-up" }) {
             appearance={clerkAppearance}
           />
         )}
-      </div>
+      </motion.div>
     </main>
   );
 }

@@ -1,8 +1,18 @@
 "use client";
 
+import { motion, type Variants } from "framer-motion";
 import { Loader2, FolderOpen } from "lucide-react";
 import { WorkspaceCard } from "./WorkspaceCard";
 import type { WorkspaceSummary } from "@/types/prism";
+
+const container: Variants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.06, delayChildren: 0.04 } },
+};
+const item: Variants = {
+  hidden: { opacity: 0, y: 14 },
+  show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 260, damping: 24 } },
+};
 
 /** Presentational grid. Pass `null` for the loading state. */
 export function WorkspaceGrid({
@@ -32,17 +42,23 @@ export function WorkspaceGrid({
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <motion.div
+      variants={container}
+      initial="hidden"
+      animate="show"
+      className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+    >
       {workspaces.map((ws) => (
-        <WorkspaceCard
-          key={ws.id}
-          ws={ws}
-          onDeleted={(id) => onWorkspacesChange?.(workspaces.filter((w) => w.id !== id))}
-          onRenamed={(id, title) =>
-            onWorkspacesChange?.(workspaces.map((w) => (w.id === id ? { ...w, title } : w)))
-          }
-        />
+        <motion.div key={ws.id} variants={item}>
+          <WorkspaceCard
+            ws={ws}
+            onDeleted={(id) => onWorkspacesChange?.(workspaces.filter((w) => w.id !== id))}
+            onRenamed={(id, title) =>
+              onWorkspacesChange?.(workspaces.map((w) => (w.id === id ? { ...w, title } : w)))
+            }
+          />
+        </motion.div>
       ))}
-    </div>
+    </motion.div>
   );
 }

@@ -95,7 +95,7 @@ export function SidebarAccordion({
                   <li key={c.anchor_id}>
                     <button
                       onClick={() => requestScrollTo(c.anchor_id, "purple")}
-                      className="w-full rounded-md px-2 py-1.5 text-left text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      className="w-full rounded-md px-2 py-1.5 text-left text-sm text-muted-foreground transition-all duration-150 hover:bg-muted hover:text-foreground active:scale-[0.98]"
                     >
                       {c.title}
                     </button>
@@ -120,7 +120,7 @@ export function SidebarAccordion({
                   <button
                     onClick={() => setFlashcardsOpen(true)}
                     disabled={!hasCards}
-                    className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50 disabled:hover:bg-transparent"
+                    className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left transition-all duration-150 hover:bg-muted hover:text-foreground active:scale-[0.98] disabled:opacity-50 disabled:hover:bg-transparent disabled:active:scale-100"
                   >
                     <Layers size={13} /> Flashcard Deck ({flashcards.length})
                   </button>
@@ -129,7 +129,7 @@ export function SidebarAccordion({
                   <button
                     onClick={handleGenerateFlashcards}
                     disabled={!hasDoc || generating}
-                    className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50 disabled:hover:bg-transparent"
+                    className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left transition-all duration-150 hover:bg-muted hover:text-foreground active:scale-[0.98] disabled:opacity-50 disabled:hover:bg-transparent disabled:active:scale-100"
                   >
                     {generating ? <Loader2 size={13} className="animate-spin" /> : "✨"} Generate
                     Flashcards
@@ -140,7 +140,7 @@ export function SidebarAccordion({
                   <button
                     onClick={() => setQuizOpen(true)}
                     disabled={!hasDoc}
-                    className="w-full rounded-md px-2 py-1 text-left transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50 disabled:hover:bg-transparent"
+                    className="w-full rounded-md px-2 py-1 text-left transition-all duration-150 hover:bg-muted hover:text-foreground active:scale-[0.98] disabled:opacity-50 disabled:hover:bg-transparent disabled:active:scale-100"
                   >
                     ✨ Generate Quiz
                   </button>

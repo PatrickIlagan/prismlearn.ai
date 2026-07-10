@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { motion } from "framer-motion";
 import { FileText, Presentation, Video, Globe, Play, Pencil, Trash2, Check, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ProgressRing } from "./ProgressRing";
@@ -67,7 +68,11 @@ export function WorkspaceCard({
   }
 
   return (
-    <div className="group glass relative flex flex-col rounded-2xl p-5 transition-all duration-200 hover:-translate-y-1 hover:shadow-xl hover:shadow-violet-500/15">
+    <motion.div
+      whileHover={{ y: -4 }}
+      transition={{ type: "spring", stiffness: 300, damping: 22 }}
+      className="group glass relative flex flex-col rounded-2xl p-5 transition-shadow duration-200 hover:shadow-xl hover:shadow-violet-500/15"
+    >
       {/* Hover actions */}
       <div className="absolute right-3 top-3 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
         <button
@@ -144,6 +149,6 @@ export function WorkspaceCard({
           <Play size={14} /> Resume Learning
         </Button>
       </Link>
-    </div>
+    </motion.div>
   );
 }
