@@ -8,6 +8,8 @@ import { fetchReviewer, generateQuiz, listDocuments } from "@/lib/api";
 import { useWorkspaceStore } from "@/store/useWorkspaceStore";
 import { addXp as profileAddXp, completeQuest, recordActivity } from "@/lib/profile";
 import { playDing } from "@/lib/sounds";
+import { gradeMath, gradeCode } from "@/lib/quizGrading";
+import { RichMarkdown } from "@/components/prism/RichMarkdown";
 import type { DocumentSummary, Quiz, QuizQuestion } from "@/types/prism";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +19,8 @@ const SECONDS_PER_Q = 25;
 const norm = (s: string) => s.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
 
 function isCorrect(q: QuizQuestion, given: string) {
+  if (q.type === "math") return gradeMath(q, given);
+  if (q.type === "code") return gradeCode(q, given);
   return norm(given) === norm(q.answer);
 }
 
@@ -321,7 +325,7 @@ export function PracticeExamArena({
           animate={{ opacity: 1, y: 0 }}
           transition={{ type: "spring", stiffness: 220, damping: 24 }}
         >
-          <p className="mb-6 text-center text-lg font-semibold">{current.prompt}</p>
+          <RichMarkdown text={current.prompt} className="mb-6 text-center text-lg font-semibold" />
           <ArenaAnswers question={current} given={given} verdict={verdict} onAnswer={answer} />
         </motion.div>
       </div>
@@ -374,7 +378,17 @@ function ArenaAnswers({
     );
   }
 
-  // fill in the blank
+  // fill in the blank / math / code — same free-text shape, math and code get
+  // monospace styling and a grading-aware answer readout.
+  const isMonospace = question.type === "math" || question.type === "code";
+  const placeholder =
+    question.type === "math"
+      ? question.answer_format === "numeric"
+        ? "Type a number…"
+        : "Type your answer…"
+      : question.type === "code"
+        ? "Type the exact output or missing line…"
+        : "Type your answer…";
   return (
     <form
       onSubmit={(e) => {
@@ -388,16 +402,25 @@ function ArenaAnswers({
         value={text}
         disabled={answered}
         onChange={(e) => setText(e.target.value)}
-        placeholder="Type your answer…"
+        placeholder={placeholder}
         className={cn(
           "glass w-full max-w-sm rounded-xl px-4 py-3 text-center text-sm outline-none",
+          isMonospace && "font-mono",
           verdict === "correct" && "!border-emerald-400 ring-2 ring-emerald-400/50",
           verdict === "wrong" && "!border-red-400 ring-2 ring-red-400/50",
         )}
       />
       {answered ? (
         <p className="text-sm text-muted-foreground">
-          Answer: <span className="font-semibold text-foreground">{question.answer}</span>
+          Answer:{" "}
+          <span
+            className={cn(
+              "font-semibold text-foreground",
+              isMonospace && "rounded bg-black/5 px-1 py-0.5 font-mono",
+            )}
+          >
+            {question.answer}
+          </span>
         </p>
       ) : (
         <button

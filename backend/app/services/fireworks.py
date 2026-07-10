@@ -180,9 +180,21 @@ async def run_quiz(
             model=settings.fireworks_model,
             messages=messages,
             temperature=0.5,
-            max_tokens=2048,
+            # Bumped alongside reasoning_effort: "high" spends more hidden
+            # reasoning tokens before the visible JSON, and 2048 was tight
+            # enough that it risked the empty-content failure mode (reasoning
+            # exhausting the budget before any output) we hit earlier with
+            # the tutor endpoint.
+            max_tokens=4096,
             response_format=_schema_format(Quiz),
-            extra_body={"reasoning_effort": "low"},
+            # "low" caused real arithmetic slips on "math" questions (e.g. a
+            # correct step-by-step explanation next to a wrong final `answer`
+            # field) — solving an equation/tracing code needs more than "low"
+            # gives, unlike picking a plausible MCQ distractor. "medium" still
+            # let the final `answer` field drift from the explanation's own
+            # correct derivation on multi-value systems; "high" is worth the
+            # extra latency here since correctness IS the feature.
+            extra_body={"reasoning_effort": "high"},
         )
     except Exception as exc:  # noqa: BLE001
         raise InferenceError(f"Fireworks inference failed: {exc}") from exc

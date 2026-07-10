@@ -16,6 +16,8 @@ import { exportQuizPdf } from "@/lib/exportPdf";
 import { playDing } from "@/lib/sounds";
 import { boostConcept } from "@/lib/mastery";
 import { addXp as profileAddXp, completeQuest, recordActivity } from "@/lib/profile";
+import { gradeMath, gradeCode } from "@/lib/quizGrading";
+import { RichMarkdown } from "./RichMarkdown";
 import type { Quiz, QuizQuestion } from "@/types/prism";
 import { cn } from "@/lib/utils";
 
@@ -27,9 +29,13 @@ const EMPTY_TOC: never[] = [];
 
 const norm = (s: string) => s.trim().toLowerCase().replace(/[^a-z0-9 ]/g, "");
 
-/** Grade an objective question client-side; short-answer is self-assessed. */
+/** Grade an objective question client-side; short-answer is self-assessed.
+ *  math/code use tolerance/whitespace-aware graders (see quizGrading.ts) since
+ *  norm()'s alphanumeric-only strip breaks negative signs and code syntax. */
 function isCorrect(q: QuizQuestion, given: string): boolean {
   if (q.type === "short_answer") return given === "self:correct";
+  if (q.type === "math") return gradeMath(q, given);
+  if (q.type === "code") return gradeCode(q, given);
   return norm(given) === norm(q.answer);
 }
 
@@ -175,6 +181,18 @@ export function InteractiveQuizModal() {
     }
   }
 
+  /** math/code auto-grading is best-effort (tolerance/whitespace-aware, not a
+   *  full symbolic/AST compare) — an equivalent-but-differently-formatted
+   *  answer can still get marked wrong. This lets the student say "actually
+   *  right" without a full self-assessment detour for every question. */
+  function overrideCorrect() {
+    if (!current || !revealed || isCorrect(current, given)) return;
+    setScore((s) => s + 1);
+    playDing();
+    if (current.anchor_id) boostConcept(current.anchor_id, 10);
+    setGiven(current.answer);
+  }
+
   function next() {
     if (!quiz) return;
     setPendingAnswer(null);
@@ -280,7 +298,7 @@ export function InteractiveQuizModal() {
                   transition={{ type: "spring", stiffness: 220, damping: 24 }}
                   className="py-3"
                 >
-                  <p className="mb-4 font-medium">{current.prompt}</p>
+                  <RichMarkdown text={current.prompt} className="mb-4 font-medium" />
                   <div className="glass rounded-xl p-4 text-center">
                     <p className="mb-3 text-sm text-muted-foreground">
                       How confident are you in that answer?
@@ -310,7 +328,7 @@ export function InteractiveQuizModal() {
                   transition={{ type: "spring", stiffness: 220, damping: 24 }}
                   className="py-3"
                 >
-                  <p className="mb-4 font-medium">{current.prompt}</p>
+                  <RichMarkdown text={current.prompt} className="mb-4 font-medium" />
                   <QuestionBody
                     question={current}
                     given={given}
@@ -333,13 +351,29 @@ export function InteractiveQuizModal() {
                 )}
               >
                 <p className="font-medium">
-                  {isCorrect(current, given) ? "Correct!" : `Answer: ${current.answer}`}
+                  {isCorrect(current, given) ? (
+                    "Correct!"
+                  ) : current.type === "code" ? (
+                    <>
+                      Answer: <code className="rounded bg-black/5 px-1 py-0.5 font-mono">{current.answer}</code>
+                    </>
+                  ) : (
+                    `Answer: ${current.answer}`
+                  )}
                 </p>
                 {current.explanation && <p className="mt-1 opacity-80">{current.explanation}</p>}
                 {confidence && (
                   <p className="mt-1.5 text-xs italic opacity-70">
                     {confidenceInsight(confidence, isCorrect(current, given))}
                   </p>
+                )}
+                {!isCorrect(current, given) && (current.type === "math" || current.type === "code") && (
+                  <button
+                    onClick={overrideCorrect}
+                    className="mt-2 block text-xs font-medium text-primary underline-offset-2 hover:underline"
+                  >
+                    Actually right (different format) — mark correct
+                  </button>
                 )}
                 {current.anchor_id && (
                   <button
@@ -472,6 +506,50 @@ function QuestionBody({
         />
         {!revealed && (
           <Button onClick={() => text.trim() && onAnswer(text)} disabled={!text.trim()}>
+            Check
+          </Button>
+        )}
+      </div>
+    );
+  }
+
+  // --- Math: numeric/symbolic answer, auto-graded with tolerance ---
+  if (question.type === "math") {
+    return (
+      <div className="flex gap-2">
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          disabled={revealed}
+          placeholder={
+            question.answer_format === "numeric" ? "Type a number…" : "Type your answer…"
+          }
+          onKeyDown={(e) => e.key === "Enter" && text.trim() && onAnswer(text)}
+          className="flex-1 rounded-lg border bg-white/50 backdrop-blur-sm px-3 py-2 font-mono text-sm outline-none focus:ring-2 focus:ring-primary/40"
+        />
+        {!revealed && (
+          <Button onClick={() => text.trim() && onAnswer(text)} disabled={!text.trim()}>
+            Check
+          </Button>
+        )}
+      </div>
+    );
+  }
+
+  // --- Code: predict-the-output / fill-in-the-code, monospace textarea ---
+  if (question.type === "code") {
+    return (
+      <div className="space-y-2">
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          disabled={revealed}
+          rows={3}
+          placeholder="Type the exact output or missing line…"
+          className="w-full resize-none rounded-lg border bg-white/50 backdrop-blur-sm px-3 py-2 font-mono text-sm outline-none focus:ring-2 focus:ring-primary/40"
+        />
+        {!revealed && (
+          <Button className="w-full" onClick={() => text.trim() && onAnswer(text)} disabled={!text.trim()}>
             Check
           </Button>
         )}

@@ -75,14 +75,27 @@ export interface TutorResponse {
 
 // ---------- [MODE: QUIZ] ----------
 
-export type QuestionType = "mcq" | "true_false" | "fill_blank" | "short_answer";
+export type QuestionType =
+  | "mcq"
+  | "true_false"
+  | "fill_blank"
+  | "short_answer"
+  | "math"
+  | "code";
 
 export interface QuizQuestion {
   id: string;
   type: QuestionType;
+  /** May contain $inline$ / $$block$$ LaTeX and fenced ```lang code — render via RichMarkdown. */
   prompt: string;
   options: string[];
   answer: string;
+  /** math-only: "numeric" grades by parse + tolerance; "text" is a normalized symbolic compare. */
+  answer_format: "numeric" | "text";
+  /** math-only, numeric format: absolute tolerance for the compare. */
+  tolerance: number | null;
+  /** code-only: snippet language, e.g. "python" — drives syntax highlighting. */
+  language: string | null;
   explanation: string;
   anchor_id: string | null;
 }

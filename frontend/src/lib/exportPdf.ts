@@ -153,7 +153,21 @@ const TYPE_LABEL: Record<QuizQuestion["type"], string> = {
   true_false: "True / False",
   fill_blank: "Fill in the blank",
   short_answer: "Short answer",
+  math: "Math",
+  code: "Code",
 };
+
+/** jsPDF's standard fonts render text verbatim (no markdown/LaTeX engine), so
+ *  strip the delimiters math/code questions rely on for on-screen rendering —
+ *  otherwise "Solve for x: $$x^2-5x+6=0$$" prints with literal $$ and ``` in
+ *  the exported PDF. The underlying math/code content stays intact. */
+function plainTextForPdf(text: string): string {
+  return text
+    .replace(/```[a-z]*\n?/gi, "")
+    .replace(/```/g, "")
+    .replace(/\$\$/g, "")
+    .replace(/\$/g, "");
+}
 
 /** Advance the cursor, adding a page (with header) when `needed` mm won't fit. */
 function ensureSpace(doc: jsPDF, y: number, needed: number, title: string, kind: string): number {
@@ -169,7 +183,7 @@ function drawQuestion(doc: jsPDF, q: QuizQuestion, n: number, y: number, title: 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
 
-  const promptLines = doc.splitTextToSize(q.prompt, CONTENT_W - numberW);
+  const promptLines = doc.splitTextToSize(plainTextForPdf(q.prompt), CONTENT_W - numberW);
   y = ensureSpace(doc, y, promptLines.length * 5 + 4, title, "Quiz");
   doc.text(`${n}.`, MARGIN, y);
   promptLines.forEach((line: string, i: number) => doc.text(line, MARGIN + numberW, y + i * 5));
@@ -235,7 +249,7 @@ export function exportQuizPdf(workspaceTitle: string, quiz: Quiz): void {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
     doc.setTextColor(30);
-    const head = `${i + 1}. ${q.answer}`;
+    const head = `${i + 1}. ${plainTextForPdf(q.answer)}`;
     const headLines = doc.splitTextToSize(head, CONTENT_W);
     ay = ensureSpace(doc, ay, headLines.length * 5 + 4, quiz.title || workspaceTitle, "Answer Key");
     headLines.forEach((line: string, j: number) => doc.text(line, MARGIN, ay + j * 5));
@@ -245,7 +259,7 @@ export function exportQuizPdf(workspaceTitle: string, quiz: Quiz): void {
       doc.setFont("helvetica", "normal");
       doc.setFontSize(9);
       doc.setTextColor(110);
-      const expl = doc.splitTextToSize(q.explanation, CONTENT_W - 4);
+      const expl = doc.splitTextToSize(plainTextForPdf(q.explanation), CONTENT_W - 4);
       ay = ensureSpace(doc, ay, expl.length * 4.5 + 3, quiz.title || workspaceTitle, "Answer Key");
       expl.forEach((line: string, j: number) => doc.text(line, MARGIN + 4, ay + j * 4.5));
       ay += expl.length * 4.5;
