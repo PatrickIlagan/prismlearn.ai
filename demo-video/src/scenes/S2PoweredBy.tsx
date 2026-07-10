@@ -3,7 +3,7 @@ import { Scene } from "../Scene";
 import { Pill } from "../components";
 import { COLOR } from "../theme";
 
-export const DURATION = 60;
+export const DURATION = 105;
 
 export function S2PoweredBy() {
   const frame = useCurrentFrame();

@@ -3,18 +3,18 @@ import { Scene } from "../Scene";
 import { Caption, GlassCard } from "../components";
 import { COLOR } from "../theme";
 
-export const DURATION = 75;
+export const DURATION = 135;
 
 export function S5Adaptive() {
   const frame = useCurrentFrame();
   const captionOpacity = interpolate(frame, [8, 20], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   // Fog-of-war chapter unlocking.
-  const blur = interpolate(frame, [20, 45], [10, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const lockOpacity = interpolate(frame, [20, 38], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const blur = interpolate(frame, [20, 55], [10, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const lockOpacity = interpolate(frame, [20, 45], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   // Reading-level slider sliding Academic -> ELI5.
-  const sliderT = interpolate(frame, [15, 60], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const sliderT = interpolate(frame, [25, 105], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const levels = ["Academic", "Standard", "ELI5"];
   const levelIdx = Math.min(2, Math.floor(sliderT * 3));
 

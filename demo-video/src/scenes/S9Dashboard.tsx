@@ -3,7 +3,7 @@ import { Scene } from "../Scene";
 import { Caption, GlassCard } from "../components";
 import { COLOR } from "../theme";
 
-export const DURATION = 75;
+export const DURATION = 135;
 
 const WORKSPACES = [
   { title: "Cell Biology", emoji: "🧬", tint: COLOR.rose, pct: 72 },
@@ -17,7 +17,7 @@ const WORKSPACES = [
 export function S9Dashboard() {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const captionOpacity = interpolate(frame, [55, 66], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const captionOpacity = interpolate(frame, [95, 108], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   return (
     <Scene durationInFrames={DURATION}>
@@ -33,7 +33,7 @@ export function S9Dashboard() {
         }}
       >
         {WORKSPACES.map((w, i) => {
-          const delay = 4 + i * 5;
+          const delay = 6 + i * 10;
           const s = spring({ frame: frame - delay, fps, config: { damping: 16 }, durationInFrames: 16 });
           return (
             <div

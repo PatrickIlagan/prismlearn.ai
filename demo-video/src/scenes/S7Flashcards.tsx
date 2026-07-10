@@ -3,14 +3,14 @@ import { Scene } from "../Scene";
 import { Caption, GlassCard } from "../components";
 import { COLOR } from "../theme";
 
-export const DURATION = 75;
+export const DURATION = 135;
 
 export function S7Flashcards() {
   const frame = useCurrentFrame();
-  const captionOpacity = interpolate(frame, [55, 66], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const captionOpacity = interpolate(frame, [78, 92], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   // Flip animation: 0 -> 90deg (front out) -> 180deg (back in), looped-ish once.
-  const flip = interpolate(frame, [10, 40], [0, 180], {
+  const flip = interpolate(frame, [15, 55], [0, 180], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
@@ -23,7 +23,7 @@ export function S7Flashcards() {
     { label: "Good", tint: COLOR.mint },
     { label: "Easy", tint: COLOR.sky },
   ];
-  const buttonsOpacity = interpolate(frame, [42, 54], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const buttonsOpacity = interpolate(frame, [60, 75], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   return (
     <Scene durationInFrames={DURATION}>

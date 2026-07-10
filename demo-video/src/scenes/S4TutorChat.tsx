@@ -4,22 +4,22 @@ import { Caption, GlassCard } from "../components";
 import { Mascot } from "../Mascot";
 import { COLOR } from "../theme";
 
-export const DURATION = 90;
+export const DURATION = 165;
 
 const BUBBLES = [
   { from: "lumi", text: "Hey! A cell is the smallest unit that can be considered alive.", delay: 0 },
-  { from: "student", text: "got it — what does it actually do?", delay: 22 },
+  { from: "student", text: "got it — what does it actually do?", delay: 34 },
   {
     from: "lumi",
     text: "It takes in nutrients, turns them into energy, and can make more cells — like a tiny factory.",
-    delay: 44,
+    delay: 68,
   },
 ];
 
 export function S4TutorChat() {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const captionOpacity = interpolate(frame, [70, 82], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const captionOpacity = interpolate(frame, [100, 116], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const mascotBob = Math.sin(frame / 10) * 4;
 
   return (

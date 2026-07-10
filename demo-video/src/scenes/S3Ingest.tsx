@@ -3,7 +3,7 @@ import { Scene } from "../Scene";
 import { Caption, GlassCard } from "../components";
 import { COLOR } from "../theme";
 
-export const DURATION = 90;
+export const DURATION = 150;
 
 const SOURCES = [
   { label: "PDF", emoji: "📄", tint: COLOR.rose, angle: -135 },
@@ -16,15 +16,15 @@ export function S3Ingest() {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  const centerScale = spring({ frame: frame - 45, fps, config: { damping: 11 }, durationInFrames: 20 });
-  const captionOpacity = interpolate(frame, [55, 68], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const centerScale = spring({ frame: frame - 75, fps, config: { damping: 11 }, durationInFrames: 20 });
+  const captionOpacity = interpolate(frame, [95, 112], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   return (
     <Scene durationInFrames={DURATION}>
       <div style={{ position: "absolute", inset: 0 }}>
         {SOURCES.map((s, i) => {
-          const delay = i * 6;
-          const t = interpolate(frame, [delay, delay + 30], [0, 1], {
+          const delay = i * 12;
+          const t = interpolate(frame, [delay, delay + 55], [0, 1], {
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
           });
@@ -34,7 +34,9 @@ export function S3Ingest() {
           const rad = (s.angle * Math.PI) / 180;
           const x = 960 + r * Math.cos(rad);
           const y = 470 + r * Math.sin(rad);
-          const opacity = interpolate(frame, [delay, delay + 10, 40, 48], [0, 1, 1, 0], {
+          // Fade in fast, hold at full opacity while traveling, fade out only
+          // right as it reaches (merges into) the center card.
+          const opacity = interpolate(frame, [delay, delay + 8, delay + 46, delay + 55], [0, 1, 1, 0], {
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
           });

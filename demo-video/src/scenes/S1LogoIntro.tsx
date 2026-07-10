@@ -4,7 +4,7 @@ import { Mascot } from "../Mascot";
 import { Wordmark } from "../components";
 import { COLOR } from "../theme";
 
-export const DURATION = 45;
+export const DURATION = 90;
 
 export function S1LogoIntro() {
   const frame = useCurrentFrame();
@@ -14,7 +14,7 @@ export function S1LogoIntro() {
   const wordmarkY = interpolate(frame, [10, 24], [24, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const wordmarkOpacity = interpolate(frame, [10, 24], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const taglineOpacity = interpolate(frame, [22, 34], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const glow = interpolate(frame, [0, 45], [0, 1], { extrapolateRight: "clamp" });
+  const glow = interpolate(frame, [0, DURATION], [0, 1], { extrapolateRight: "clamp" });
 
   return (
     <Scene durationInFrames={DURATION}>

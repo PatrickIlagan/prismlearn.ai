@@ -1,13 +1,17 @@
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill } from "remotion";
 import type { CSSProperties, ReactNode } from "react";
 import { FONT_STACK, GRADIENT_BG } from "./theme";
 
-/** Every scene gets a free crossfade in/out (8 frames each) so cuts never
- *  hard-pop — matches the "smooth animations everywhere" pass done on the
- *  live app itself. */
+/** Plain hard-cut scene wrapper (background + font only). Scenes previously
+ *  self-faded in/out via opacity, but since Remotion unmounts each Sequence
+ *  outside its own frame range (no overlap), the outgoing and incoming scene
+ *  were never actually on screen at the same time — both just independently
+ *  dipped to near-zero opacity right at the cut, which read as a flash/
+ *  flicker to the background color rather than a smooth crossfade. A clean
+ *  hard cut looks better here anyway for a fast-paced promo. Per-element
+ *  entrances inside each scene (spring/slide-ins) still provide the motion. */
 export function Scene({
   children,
-  durationInFrames,
   background = true,
   style,
 }: {
@@ -16,17 +20,9 @@ export function Scene({
   background?: boolean;
   style?: CSSProperties;
 }) {
-  const frame = useCurrentFrame();
-  const opacity = interpolate(
-    frame,
-    [0, 8, durationInFrames - 8, durationInFrames],
-    [0, 1, 1, 0],
-    { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
-  );
   return (
     <AbsoluteFill
       style={{
-        opacity,
         background: background ? GRADIENT_BG : undefined,
         fontFamily: FONT_STACK,
         color: "white",
