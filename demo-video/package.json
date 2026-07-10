@@ -1,0 +1,21 @@
+{
+  "name": "prismlearn-demo-video",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts PrismDemo out/PrismLearn-Demo.mp4",
+    "still": "remotion still src/index.ts PrismDemo out/still.png"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "remotion": "^4.0.190",
+    "@remotion/cli": "^4.0.190"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.1",
+    "@types/react-dom": "^18.3.1",
+    "typescript": "^5.5.0"
+  }
+}
