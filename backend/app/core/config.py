@@ -35,6 +35,19 @@ class Settings(BaseSettings):
     # running (see documentation for the exact deployment command).
     fireworks_gemma_model: str = ""
 
+    # Gemma 3 27B on Fireworks — a TASK-level model override for flashcard
+    # generation specifically (see run_flashcard_generation in fireworks.py),
+    # not a provider-wide switch like ai_provider. Flashcard generation is a
+    # short, templated extraction task, unlike the multi-turn scaffolded
+    # reasoning the tutor does — a smaller model is a deliberate fit, not a
+    # downgrade. As of this writing no Gemma model is served serverless on
+    # Fireworks (verified directly against the chat completions API — every
+    # Gemma slug 404s until an on-demand deployment is running), so this
+    # stays unset by default: flashcards keep using fireworks_model (gpt-
+    # oss-120b) with zero behavior or cost change until a real Gemma 3
+    # deployment's model id is set here.
+    gemma_flashcards_model: str = ""
+
     # Supabase
     supabase_url: str = ""
     supabase_service_role_key: str = ""

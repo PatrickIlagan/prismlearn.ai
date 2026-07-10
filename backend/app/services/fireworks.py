@@ -223,7 +223,16 @@ async def run_flashcard_generation(
     count: int,
     study_focus: str,
 ) -> FlashcardDeck:
-    """Generate a flashcard deck via [MODE: FLASHCARDS], independent of tutor progress."""
+    """Generate a flashcard deck via [MODE: FLASHCARDS], independent of tutor progress.
+
+    Task-level model override: flashcard generation is a short, templated
+    extraction task, unlike the tutor's multi-turn scaffolded reasoning — a
+    deliberately good fit for a smaller model. When GEMMA_FLASHCARDS_MODEL is
+    set (a real Gemma 3 27B on-demand deployment), this routes there instead
+    of gpt-oss-120b; unset (the default) changes nothing. `reasoning_effort`
+    is gpt-oss's own harmony-format field — only sent for the default model,
+    since Gemma doesn't use it.
+    """
     client = get_client()
     messages = build_flashcard_messages(
         markdown_content,
@@ -232,18 +241,20 @@ async def run_flashcard_generation(
         count=count,
         study_focus=study_focus,
     )
+    model = settings.gemma_flashcards_model or settings.fireworks_model
+    extra_body = {} if settings.gemma_flashcards_model else {"reasoning_effort": "low"}
 
     try:
         completion = await client.chat.completions.create(
-            model=settings.fireworks_model,
+            model=model,
             messages=messages,
             temperature=0.5,
             max_tokens=2048,
             response_format=_schema_format(FlashcardDeck),
-            extra_body={"reasoning_effort": "low"},
+            extra_body=extra_body,
         )
     except Exception as exc:  # noqa: BLE001
-        raise InferenceError(f"Fireworks inference failed: {exc}") from exc
+        raise InferenceError(f"Fireworks inference failed ({model}): {exc}") from exc
 
     if not completion.choices:
         raise InferenceError("Fireworks returned no choices (likely filtered or truncated).")

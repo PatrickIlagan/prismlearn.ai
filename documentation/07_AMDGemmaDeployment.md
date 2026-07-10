@@ -89,3 +89,29 @@ skip:
 Also just watch real latency for a tutor turn (`max_tokens=1536`) against the
 hackathon's 30-second cap — a single MI300X should be fast, but this hasn't been
 timed live yet.
+
+## 5. Every Gemma integration point in this app
+
+This codebase has four separate places Gemma shows up, at three different levels of
+"real" — worth being precise about which is which rather than letting them blur together:
+
+| # | What | Model | Where | Status |
+|---|------|-------|-------|--------|
+| 1 | Tutoring/quiz/ingest, wholesale | Gemma 4 (26B-A4B-IT or 31B-IT) | `AI_PROVIDER=amd_cloud`, `app/services/gemma_amd.py` | Dormant — the runbook above, needs AMD Developer Cloud credits |
+| 2 | PPTX slide-image captioning during ingestion | Gemma 4 vision | `FIREWORKS_GEMMA_MODEL`, `app/services/vision.py` | Dormant — needs a paid Fireworks on-demand deployment (Gemma is not served serverless on Fireworks as of this writing — confirmed by calling the chat completions API directly against `gemma2-9b-it`, `gemma-3-27b-it`, `gemma-4-e4b`, and `gemma-4-26b-a4b-it`; all four 404 with no deployment running) |
+| 3 | Flashcard generation specifically (tutoring stays on gpt-oss-120b) | Gemma 3 27B | `GEMMA_FLASHCARDS_MODEL`, `run_flashcard_generation` in `app/services/fireworks.py` | Dormant, same reason as #2 — real code path, task-level override (not a whole-provider swap like #1), zero cost/behavior change until set |
+| 4 | Enterprise settings UI — "flip tutoring to Gemma 4" | Gemma 4 | `frontend/src/app/dashboard/settings/page.tsx`, "AI Model Provider" card | Frontend proof-of-concept only — the toggle is real UI state, but selecting it doesn't reroute inference; it documents that #1's `AI_PROVIDER=amd_cloud` switch is what an actual Enterprise deployment would flip |
+
+**Why #3 exists as a separate mechanism from #1**: `AI_PROVIDER` swaps *every* generation
+call to the alternate provider wholesale. Flashcard generation is a short, templated
+extraction task — a deliberately different shape of work from the tutor's multi-turn
+scaffolded reasoning — so it gets its own override that can point at Gemma while tutoring
+stays on gpt-oss-120b. To activate it once a Gemma 3 27B on-demand deployment is running:
+
+```
+GEMMA_FLASHCARDS_MODEL=accounts/fireworks/models/<your-deployment-id>
+```
+
+Same on/off mechanics as `FIREWORKS_GEMMA_MODEL` (#2): unset by default, zero cost, and
+`run_flashcard_generation` falls straight back to `fireworks_model` (gpt-oss-120b) with no
+other code change.
