@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useWorkspaceStore } from "@/store/useWorkspaceStore";
 import type { StudyMode } from "@/types/prism";
@@ -11,6 +12,13 @@ const MODES: { value: StudyMode; label: string; desc: string }[] = [
   { value: "comprehensive", label: "Comprehensive", desc: "A balance of both." },
 ];
 
+type ModelProvider = "fireworks" | "gemma4";
+
+const PROVIDERS: { value: ModelProvider; label: string; desc: string }[] = [
+  { value: "fireworks", label: "Fireworks AI (default)", desc: "gpt-oss-120b · shared serverless" },
+  { value: "gemma4", label: "Gemma 4 (Enterprise)", desc: "Dedicated deployment · AMD Instinct GPUs" },
+];
+
 export default function SettingsPage() {
   const { user } = useUser();
   const displayName = user?.fullName || user?.firstName;
@@ -19,6 +27,7 @@ export default function SettingsPage() {
   const setStudyMode = useWorkspaceStore((s) => s.setStudyMode);
   const ttsEnabled = useWorkspaceStore((s) => s.ttsEnabled);
   const toggleTts = useWorkspaceStore((s) => s.toggleTts);
+  const [provider, setProvider] = useState<ModelProvider>("fireworks");
 
   return (
     <div className="mx-auto max-w-3xl px-1 pb-10 sm:px-2">
@@ -59,6 +68,45 @@ export default function SettingsPage() {
             </button>
           ))}
         </div>
+      </div>
+
+      <div className="glass mt-4 rounded-2xl p-5">
+        <div className="flex items-center gap-2">
+          <h2 className="text-sm font-semibold">AI Model Provider</h2>
+          <span className="rounded-full bg-gradient-to-r from-amber-400 to-orange-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+            Enterprise
+          </span>
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Every plan runs tutoring on Fireworks AI&apos;s gpt-oss-120b by default. Enterprise customers
+          can point their organization at a dedicated Gemma 4 deployment instead — full data
+          residency, no shared multi-tenant infrastructure.
+        </p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          {PROVIDERS.map((p) => (
+            <button
+              key={p.value}
+              onClick={() => setProvider(p.value)}
+              className={cn(
+                "rounded-xl border p-3 text-left transition-colors",
+                provider === p.value
+                  ? "border-primary/50 bg-primary/10 ring-1 ring-primary/20"
+                  : "border-white/50 bg-white/40 hover:bg-white/70",
+              )}
+            >
+              <p className="text-sm font-medium">{p.label}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{p.desc}</p>
+            </button>
+          ))}
+        </div>
+        {provider === "gemma4" && (
+          <p className="mt-3 rounded-lg border border-amber-300/50 bg-amber-50/50 p-3 text-xs text-amber-800">
+            This previews the switch an Enterprise admin flips — routing is a single{" "}
+            <code className="rounded bg-amber-100 px-1 py-0.5 font-mono">AI_PROVIDER=amd_cloud</code>{" "}
+            environment variable, already wired in the backend. Contact sales to provision a
+            dedicated deployment.
+          </p>
+        )}
       </div>
 
       <div className="glass mt-4 flex items-center justify-between rounded-2xl p-5">
