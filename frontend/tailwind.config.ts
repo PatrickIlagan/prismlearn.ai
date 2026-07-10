@@ -9,6 +9,21 @@ const config: Config = {
   ],
   theme: {
   	extend: {
+  		// App-wide font size bump (~6-8% per step, larger headings scale a bit
+  		// more) — only the sizes below are overridden; text-4xl and up keep
+  		// Tailwind's defaults since hero/landing headings are already large.
+  		// Deliberately a scale override (not a root html font-size change) so
+  		// spacing/padding/icon sizes — which use the same rem units — don't
+  		// shift along with it and throw off layouts.
+  		fontSize: {
+  			xs: ['0.8125rem', { lineHeight: '1.15rem' }],       // 13px, was 12px
+  			sm: ['0.9375rem', { lineHeight: '1.4rem' }],        // 15px, was 14px
+  			base: ['1.0625rem', { lineHeight: '1.65rem' }],     // 17px, was 16px
+  			lg: ['1.1875rem', { lineHeight: '1.8rem' }],        // 19px, was 18px
+  			xl: ['1.3125rem', { lineHeight: '1.9rem' }],        // 21px, was 20px
+  			'2xl': ['1.625rem', { lineHeight: '2.1rem' }],      // 26px, was 24px
+  			'3xl': ['2rem', { lineHeight: '2.4rem' }],          // 32px, was 30px
+  		},
   		colors: {
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',

@@ -8,6 +8,7 @@ import { sendTutorMessage } from "@/lib/api";
 import { speak, stopSpeaking } from "@/lib/sounds";
 import { useVoiceInput } from "@/lib/useVoiceInput";
 import { MascotLumi } from "./MascotLumi";
+import { RichMarkdown } from "./RichMarkdown";
 import { StepProgressStepper } from "./StepProgressStepper";
 import { XpBadge } from "./XpBadge";
 import { cn } from "@/lib/utils";
@@ -158,7 +159,7 @@ export function LumiChatUI({ workspaceId }: { workspaceId: string }) {
       {/* Message list */}
       <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-4">
         {messages.length === 0 && (
-          <p className="mt-8 text-center text-sm text-muted-foreground">
+          <p className="mt-8 text-center text-base text-muted-foreground">
             Say hello to Lumi to begin your guided lesson.
           </p>
         )}
@@ -185,14 +186,22 @@ export function LumiChatUI({ workspaceId }: { workspaceId: string }) {
             >
               <div
                 className={cn(
-                  "max-w-[80%] whitespace-pre-line rounded-2xl px-3.5 py-2 text-sm shadow-sm",
+                  "max-w-[80%] rounded-2xl px-3.5 py-2 text-base shadow-sm",
                   m.role === "student"
-                    ? "rounded-br-md bg-gradient-to-br from-violet-500 to-violet-600 text-white shadow-violet-500/20"
+                    ? "whitespace-pre-line rounded-br-md bg-gradient-to-br from-violet-500 to-violet-600 text-white shadow-violet-500/20"
                     : "rounded-bl-md border border-white/50 bg-white/40 text-foreground backdrop-blur-md",
                   m.verdict === "correct" && "ring-2 ring-emerald-400/70 ring-offset-1",
                 )}
               >
-                {m.text}
+                {m.role === "student" ? (
+                  m.text
+                ) : (
+                  <RichMarkdown
+                    text={m.text}
+                    size="base"
+                    className="prose-p:my-1.5 prose-p:first:mt-0 prose-p:last:mb-0 prose-strong:text-foreground"
+                  />
+                )}
               </div>
             </motion.div>
           ))}
@@ -238,7 +247,7 @@ export function LumiChatUI({ workspaceId }: { workspaceId: string }) {
             }}
             rows={1}
             placeholder={voice.listening ? "Listening…" : "Answer Lumi or ask a question…"}
-            className="max-h-32 flex-1 resize-none rounded-xl border border-white/50 bg-white/35 px-3 py-2 text-sm outline-none backdrop-blur-md transition-shadow placeholder:text-muted-foreground/70 focus:ring-2 focus:ring-primary/40"
+            className="max-h-32 flex-1 resize-none rounded-xl border border-white/50 bg-white/35 px-3 py-2 text-base outline-none backdrop-blur-md transition-shadow placeholder:text-muted-foreground/70 focus:ring-2 focus:ring-primary/40"
           />
           {voice.supported && (
             <button

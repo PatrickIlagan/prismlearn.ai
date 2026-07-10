@@ -104,7 +104,7 @@ function ReadBlock({ block }: { block: CanvasBlock }) {
           exit={{ opacity: 0, y: -4 }}
           transition={{ duration: 0.35, ease: "easeInOut" }}
           className={cn(
-            "prose prose-sm prose-slate max-w-none rounded-lg p-2.5 text-sm leading-relaxed prose-p:leading-relaxed prose-strong:text-foreground",
+            "prose prose-lg prose-slate max-w-none rounded-lg p-2.5 leading-relaxed prose-p:leading-relaxed prose-strong:text-foreground",
             override.level === 2
               ? "border border-fuchsia-300/50 bg-fuchsia-50/50 text-foreground/90"
               : "text-foreground/90",
@@ -124,7 +124,7 @@ function ReadBlock({ block }: { block: CanvasBlock }) {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -4 }}
           transition={{ duration: 0.35, ease: "easeInOut" }}
-          className="prose prose-sm prose-slate max-w-none prose-p:leading-relaxed prose-strong:text-foreground"
+          className="prose prose-lg prose-slate max-w-none prose-p:leading-relaxed prose-strong:text-foreground"
         >
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{block.markdown}</ReactMarkdown>
         </motion.div>
@@ -193,7 +193,7 @@ function ClozeBlock({
   }
 
   return (
-    <div className="rounded-xl border border-violet-300/50 bg-violet-50/40 p-3 text-sm leading-loose backdrop-blur-sm">
+    <div className="rounded-xl border border-violet-300/50 bg-violet-50/40 p-3 text-base leading-loose backdrop-blur-sm">
       <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-primary">
         ✍️ Fill in the blanks
       </p>
@@ -237,7 +237,7 @@ function ClozeInput({
       placeholder="…"
       style={{ width: `${Math.max(answer.length, 4) * 0.72 + 1.5}em` }}
       className={cn(
-        "mx-0.5 inline-block rounded-md border-b-2 bg-white/70 px-1.5 py-0.5 text-center text-sm outline-none transition-colors",
+        "mx-0.5 inline-block rounded-md border-b-2 bg-white/70 px-1.5 py-0.5 text-center text-base outline-none transition-colors",
         val.length === 0
           ? "border-violet-400"
           : correct
@@ -281,7 +281,7 @@ function SpotTheLieBlock({
   }
 
   return (
-    <div className="rounded-xl border border-amber-300/60 bg-amber-50/40 p-3 text-sm backdrop-blur-sm">
+    <div className="rounded-xl border border-amber-300/60 bg-amber-50/40 p-3 text-base backdrop-blur-sm">
       <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-amber-600">
         🕵️ Spot the lie — click the false statement
       </p>
@@ -334,7 +334,7 @@ function OrderBlock({
   if (correct.length === 0) return null;
 
   return (
-    <div className="rounded-xl border border-sky-300/60 bg-sky-50/40 p-3 text-sm backdrop-blur-sm">
+    <div className="rounded-xl border border-sky-300/60 bg-sky-50/40 p-3 text-base backdrop-blur-sm">
       <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-sky-600">
         🔀 Put the steps in order — drag to rearrange
       </p>
