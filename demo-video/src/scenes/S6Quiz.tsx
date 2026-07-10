@@ -3,7 +3,7 @@ import { Scene } from "../Scene";
 import { Caption, GlassCard } from "../components";
 import { COLOR, INK } from "../theme";
 
-export const DURATION = 205;
+export const DURATION = 188;
 
 function QuestionCard({
   kind,
@@ -128,8 +128,8 @@ export function S6Quiz() {
   return (
     <Scene durationInFrames={DURATION}>
       <QuestionCard kind="mcq" frame={frame} fps={fps} startAt={8} />
-      <QuestionCard kind="math" frame={frame} fps={fps} startAt={73} />
-      <QuestionCard kind="code" frame={frame} fps={fps} startAt={138} />
+      <QuestionCard kind="math" frame={frame} fps={fps} startAt={68} />
+      <QuestionCard kind="code" frame={frame} fps={fps} startAt={128} />
 
       <div style={{ opacity: captionOpacity }}>
         <Caption eyebrow="Quizzes & Exams" title="Real Math. Real Code. Not Just Multiple Choice." />

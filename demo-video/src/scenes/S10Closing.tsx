@@ -4,7 +4,7 @@ import { Mascot } from "../Mascot";
 import { Wordmark, Pill } from "../components";
 import { COLOR, INK } from "../theme";
 
-export const DURATION = 150;
+export const DURATION = 188;
 
 export function S10Closing() {
   const frame = useCurrentFrame();

@@ -3,7 +3,7 @@ import { Scene } from "../Scene";
 import { Caption, GlassCard } from "../components";
 import { COLOR, INK } from "../theme";
 
-export const DURATION = 160;
+export const DURATION = 188;
 
 export function S5Adaptive() {
   const frame = useCurrentFrame();

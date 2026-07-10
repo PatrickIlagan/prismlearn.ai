@@ -3,7 +3,7 @@ import { Scene } from "../Scene";
 import { Caption, GlassCard, Pill } from "../components";
 import { COLOR } from "../theme";
 
-export const DURATION = 175;
+export const DURATION = 188;
 
 export function S8Gamification() {
   const frame = useCurrentFrame();

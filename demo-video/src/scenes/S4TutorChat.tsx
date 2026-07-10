@@ -4,7 +4,7 @@ import { Caption, GlassCard } from "../components";
 import { Mascot } from "../Mascot";
 import { COLOR, INK } from "../theme";
 
-export const DURATION = 205;
+export const DURATION = 188;
 
 const BUBBLES = [
   { from: "lumi", text: "Hey! A cell is the smallest unit that can be considered alive.", delay: 0 },

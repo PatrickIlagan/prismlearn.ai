@@ -4,7 +4,7 @@ import { Mascot } from "../Mascot";
 import { Wordmark } from "../components";
 import { COLOR, INK } from "../theme";
 
-export const DURATION = 110;
+export const DURATION = 125;
 
 export function S1LogoIntro() {
   const frame = useCurrentFrame();
