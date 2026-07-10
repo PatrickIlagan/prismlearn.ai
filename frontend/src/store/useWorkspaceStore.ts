@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type {
   BlockGameState,
   BlockMode,
+  CanvasBlock,
   CanvasChapter,
   ChatMessage,
   DocumentSummary,
@@ -19,6 +20,68 @@ import { addXp as profileAddXp, completeQuest, recordActivity } from "@/lib/prof
 import { boostConcept } from "@/lib/mastery";
 import { type ComplexityLevel } from "@/lib/textComplexity";
 import { simplifyBlocks } from "@/lib/api";
+
+/** Blocks with less than this much real text aren't worth a model call — a
+ *  bare "---" divider or a two-word heading fragment (both real artifacts
+ *  the markdown-to-blocks parser can produce) has nothing to simplify, and
+ *  sending it just wastes a request and comes back looking like a bug (an
+ *  "ELI5" badge over unchanged "---"). */
+const MIN_SIMPLIFY_CHARS = 15;
+
+/**
+ * Shared by setTextComplexity (unlocked chapters, right when the slider
+ * moves) and unlockChapter (background pre-fetch for a chapter the moment
+ * it unlocks, so it's already cached by the time the student scrolls to
+ * it). Only sends blocks not already cached at this level and not already
+ * in flight — cheap to call repeatedly, it naturally no-ops once warm.
+ */
+async function simplifyChapterBlocks(
+  blocks: CanvasBlock[],
+  level: ComplexityLevel,
+  workspaceId: string,
+  get: () => WorkspaceState,
+  set: (fn: (s: WorkspaceState) => Partial<WorkspaceState>) => void,
+): Promise<void> {
+  if (level === 0) return;
+  const { blockComplexity, simplifyingBlockIds } = get();
+  const toSimplify = blocks.filter(
+    (b) =>
+      b.kind !== "mermaid" &&
+      b.plain.trim().length >= MIN_SIMPLIFY_CHARS &&
+      blockComplexity[b.id]?.level !== level &&
+      !simplifyingBlockIds[b.id],
+  );
+  if (toSimplify.length === 0) return;
+
+  set((s) => ({
+    simplifyingBlockIds: {
+      ...s.simplifyingBlockIds,
+      ...Object.fromEntries(toSimplify.map((b) => [b.id, true])),
+    },
+  }));
+
+  try {
+    const results = await simplifyBlocks(
+      workspaceId,
+      toSimplify.map((b) => ({ id: b.id, text: b.plain })),
+      level === 1 ? "standard" : "eli5",
+    );
+    set((s) => {
+      const complexity = { ...s.blockComplexity };
+      for (const r of results) complexity[r.id] = { level, text: r.text };
+      return { blockComplexity: complexity };
+    });
+  } catch {
+    // Non-fatal — a block with no cache entry at this level just falls back
+    // to the original text (see InteractiveBlock's ReadBlock).
+  } finally {
+    set((s) => {
+      const pending = { ...s.simplifyingBlockIds };
+      for (const b of toSimplify) delete pending[b.id];
+      return { simplifyingBlockIds: pending };
+    });
+  }
+}
 
 /**
  * The agentic UI-manipulation pipeline lives here.
@@ -144,8 +207,14 @@ interface WorkspaceState {
   /** Per-block rewrite cache: once a block has been simplified, it stays that way
    *  even if you scroll away and back, keyed by the level it was rewritten at. */
   blockComplexity: Record<string, { level: ComplexityLevel; text: string }>;
+  /** Block ids with a simplify request currently in flight — drives the
+   *  loading skeleton in InteractiveBlock's ReadBlock. */
+  simplifyingBlockIds: Record<string, boolean>;
   setVisibleBlockId: (blockId: string | null) => void;
-  /** Moves the slider and — mock ui_action — rewrites the currently visible block. */
+  /** Moves the slider; rewrites unlocked chapters' blocks via a real model
+   *  call (locked chapters are pre-fetched in the background as they unlock —
+   *  see unlockChapter — so eagerly rewriting the whole document up front,
+   *  including chapters the student can't even see yet, isn't necessary). */
   setTextComplexity: (level: ComplexityLevel) => void;
 
   // --- Gamification (XP / levels) ---
@@ -232,6 +301,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       textComplexity: 0,
       visibleBlockId: null,
       blockComplexity: {},
+      simplifyingBlockIds: {},
       // Flashcards are per-document; WorkspaceShell reloads the persisted deck
       // for the newly active document right after this reset.
       flashcards: [],
@@ -264,12 +334,22 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   bossBattle: null,
   dismissBossBattle: () => set({ bossBattle: null }),
 
-  unlockChapter: (anchorId) =>
+  unlockChapter: (anchorId) => {
+    const isNewUnlock = !get().unlockedAnchors.includes(anchorId);
     set((s) =>
-      s.unlockedAnchors.includes(anchorId)
-        ? s
-        : { unlockedAnchors: [...s.unlockedAnchors, anchorId] },
-    ),
+      isNewUnlock ? { unlockedAnchors: [...s.unlockedAnchors, anchorId] } : s,
+    );
+    // Warm the simplify cache for a genuinely NEW unlock, so Standard/ELI5
+    // text is likely already there by the time the student scrolls to this
+    // chapter, instead of them waiting on it right as they arrive.
+    if (isNewUnlock) {
+      const { chapters, textComplexity, activeWorkspaceId } = get();
+      if (textComplexity > 0 && activeWorkspaceId) {
+        const chapter = chapters.find((c) => c.anchorId === anchorId);
+        if (chapter) void simplifyChapterBlocks(chapter.blocks, textComplexity, activeWorkspaceId, get, set);
+      }
+    }
+  },
 
   unlockNextChapter: () => {
     const { chapters, unlockedAnchors } = get();
@@ -349,56 +429,30 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   textComplexity: 0,
   visibleBlockId: null,
   blockComplexity: {},
+  simplifyingBlockIds: {},
   setVisibleBlockId: (blockId) => set({ visibleBlockId: blockId }),
-  setTextComplexity: async (level) => {
+  setTextComplexity: (level) => {
     // The slider position updates instantly regardless of what's below —
     // Academic (0) is always just the reviewer's original text (no rewrite
     // needed, no cost), Standard/ELI5 show whatever's already cached while
-    // the real rewrite for any not-yet-cached blocks is in flight.
+    // the real rewrite for any not-yet-cached blocks is in flight (see the
+    // loading skeleton in InteractiveBlock's ReadBlock).
     set({ textComplexity: level });
     if (level === 0) return;
 
-    const { chapters, activeWorkspaceId, blockComplexity } = get();
+    const { chapters, activeWorkspaceId, unlockedAnchors } = get();
     if (!activeWorkspaceId) return;
 
-    // Applies to the WHOLE lesson, not just the paragraph in view — dragging
-    // the slider should (eventually) change how the whole document reads,
-    // including chapters not unlocked/scrolled-to yet. Only blocks without
-    // an existing cached rewrite AT THIS LEVEL go into the request — this is
-    // a real model call now (see lib/api.ts's simplifyBlocks), not a free
-    // local transform, so re-simplifying already-cached text would be pure
-    // waste.
-    const toSimplify: { id: string; text: string }[] = [];
-    for (const chapter of chapters) {
-      for (const block of chapter.blocks) {
-        if (block.kind === "mermaid") continue; // no prose to rewrite
-        if (blockComplexity[block.id]?.level === level) continue;
-        toSimplify.push({ id: block.id, text: block.plain });
-      }
-    }
-    if (toSimplify.length === 0) return;
-
-    try {
-      const results = await simplifyBlocks(
-        activeWorkspaceId,
-        toSimplify,
-        level === 1 ? "standard" : "eli5",
-      );
-      // Drop a response that arrives after the slider moved on again — avoids
-      // caching a rewrite under a level the student isn't even looking at
-      // anymore, or racing with a newer in-flight request for the real one.
-      if (get().textComplexity !== level) return;
-      set((s) => {
-        const updates = { ...s.blockComplexity };
-        for (const r of results) updates[r.id] = { level, text: r.text };
-        return { blockComplexity: updates };
-      });
-    } catch {
-      // Non-fatal: DocumentViewer already falls back to the original text for
-      // any block with no cache entry at the current level, so a failed
-      // rewrite call just means that block stays un-simplified — never a
-      // broken reader.
-    }
+    // Only UNLOCKED chapters — locked ones are blurred behind fog-of-war and
+    // can't be read yet anyway, so eagerly rewriting the whole document up
+    // front (including chapters the student hasn't reached) was pure wasted
+    // latency on the request that's actually blocking them right now. Locked
+    // chapters get warmed in the background the moment they unlock instead
+    // (see unlockChapter) — usually well before the student scrolls there.
+    const visibleBlocks = chapters
+      .filter((c) => unlockedAnchors.includes(c.anchorId))
+      .flatMap((c) => c.blocks);
+    void simplifyChapterBlocks(visibleBlocks, level, activeWorkspaceId, get, set);
   },
 
   scrollTarget: null,

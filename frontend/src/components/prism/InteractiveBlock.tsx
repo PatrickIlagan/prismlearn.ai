@@ -72,15 +72,31 @@ export function InteractiveBlock({
 function ReadBlock({ block }: { block: CanvasBlock }) {
   const override = useWorkspaceStore((s) => s.blockComplexity[block.id]);
   const textComplexity = useWorkspaceStore((s) => s.textComplexity);
+  const isSimplifying = useWorkspaceStore((s) => Boolean(s.simplifyingBlockIds[block.id]));
   // Must match the CURRENT slider level, not just "any cached rewrite exists"
   // — otherwise a block still shows its old Standard rewrite (or vice versa)
   // under the new level's badge while the real rewrite for this level is
   // still in flight, which reads as a mismatched/stale simplification.
   const showOverride = override && override.level > 0 && override.level === textComplexity;
+  const showLoading = !showOverride && textComplexity > 0 && isSimplifying;
 
   return (
     <AnimatePresence mode="wait" initial={false}>
-      {showOverride ? (
+      {showLoading ? (
+        <motion.div
+          key="simplify-loading"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.25 }}
+          className="space-y-2 rounded-lg p-2.5"
+          aria-label="Rewriting this section…"
+        >
+          <div className="h-3 w-3/4 animate-pulse rounded-full bg-foreground/10" />
+          <div className="h-3 w-full animate-pulse rounded-full bg-foreground/10" />
+          <div className="h-3 w-5/6 animate-pulse rounded-full bg-foreground/10" />
+        </motion.div>
+      ) : showOverride ? (
         <motion.div
           key={`simplified-${override.level}`}
           initial={{ opacity: 0, y: 4 }}
@@ -88,18 +104,18 @@ function ReadBlock({ block }: { block: CanvasBlock }) {
           exit={{ opacity: 0, y: -4 }}
           transition={{ duration: 0.35, ease: "easeInOut" }}
           className={cn(
-            "rounded-lg p-2.5 text-sm leading-relaxed",
+            "prose prose-sm prose-slate max-w-none rounded-lg p-2.5 text-sm leading-relaxed prose-p:leading-relaxed prose-strong:text-foreground",
             override.level === 2
               ? "border border-fuchsia-300/50 bg-fuchsia-50/50 text-foreground/90"
               : "text-foreground/90",
           )}
         >
           {override.level === 2 && (
-            <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-fuchsia-600">
+            <p className="not-prose mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-fuchsia-600">
               <Sparkles size={12} /> ELI5
             </p>
           )}
-          {override.text}
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{override.text}</ReactMarkdown>
         </motion.div>
       ) : (
         <motion.div

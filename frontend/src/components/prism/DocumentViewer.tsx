@@ -121,6 +121,9 @@ const COMPLEXITY_TINT = [
 function ComplexityToolbar() {
   const textComplexity = useWorkspaceStore((s) => s.textComplexity);
   const setTextComplexity = useWorkspaceStore((s) => s.setTextComplexity);
+  const pendingCount = useWorkspaceStore(
+    (s) => Object.keys(s.simplifyingBlockIds).length,
+  );
   const Icon = COMPLEXITY_ICON[textComplexity];
 
   return (
@@ -143,6 +146,12 @@ function ComplexityToolbar() {
         <Icon size={14} />
         {COMPLEXITY_LABELS[textComplexity]}
       </span>
+      {pendingCount > 0 && (
+        <span className="ml-auto flex shrink-0 items-center gap-1.5 text-[11px] text-muted-foreground">
+          <span className="h-3 w-3 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
+          Rewriting…
+        </span>
+      )}
     </div>
   );
 }
