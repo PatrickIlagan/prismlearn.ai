@@ -30,7 +30,8 @@ since it requires a dedicated GPU deployment. See
 [`documentation/07_AMDGemmaDeployment.md`](documentation/07_AMDGemmaDeployment.md) for the
 full breakdown of every Gemma integration point and its exact on/off switch.
 
-**Live demo:** _TODO — add the deployed Vercel URL here once §9 is done._
+**Live demo:** [prismlearn-ai-steel.vercel.app](https://prismlearn-ai-steel.vercel.app) ·
+backend at [prismlearn-backend.onrender.com](https://prismlearn-backend.onrender.com)
 
 ---
 
@@ -51,7 +52,7 @@ There are three AI "modes", each a strict JSON contract:
 | `[MODE: TUTOR]`  | User chats with Lumi | An evaluation + `ui_action` + stepper state + optional flashcard spawn |
 | `[MODE: QUIZ]`   | User clicks "Generate Quiz" | A mixed-type quiz grounded in the reviewer |
 
-See [`documentation/`](documentation/) for the full 6-part product spec.
+See [`documentation/`](documentation/) for the full product + architecture spec.
 
 ---
 
@@ -59,12 +60,14 @@ See [`documentation/`](documentation/) for the full 6-part product spec.
 
 **Frontend** — Next.js 14 (App Router) · TypeScript · Tailwind CSS · shadcn/ui (pinned to
 `2.3.0` for Tailwind v3) · Zustand (agentic UI state) · Framer Motion · Mermaid.js ·
-react-markdown + rehype-raw (renders the AI's anchored HTML spans) · jsPDF (client-side
-exports) · Clerk (auth, `@clerk/nextjs@6`).
+react-markdown + remark-gfm/remark-math/remark-breaks + rehype-katex (renders the AI's
+markdown and LaTeX — no raw-HTML plugin, so model output can't inject arbitrary HTML) ·
+jsPDF (client-side exports) · Clerk (auth, `@clerk/nextjs@6`).
 
 **Backend** — Python 3.11 · FastAPI · Pydantic v2 · `openai` SDK pointed at Fireworks ·
 `python-pptx` / `pdfplumber` / `youtube-transcript-api` (extraction) · `supabase-py`
-(persistence) · PyJWT (Clerk verification, planned).
+(persistence) · PyJWT (verifies every Clerk session JWT against Clerk's JWKS — live, not
+a stub).
 
 **AI & infra** — OpenAI `gpt-oss-120b` (served via Fireworks AI, on AMD Instinct GPUs) ·
 Supabase (PostgreSQL + RLS) · Clerk (auth) · Docker Compose.
@@ -100,13 +103,15 @@ spawn, and a sound.
 PrismLearn/
 ├── docker-compose.yml            # runs frontend + backend containers
 ├── README.md                     # this file
-├── documentation/                # 6-part product + architecture spec
+├── documentation/                # product + architecture spec
 │   ├── 01_Functions.md
 │   ├── 02_UI_UX.md
 │   ├── 03_SystemPrompts.md
 │   ├── 04_Security.md
 │   ├── 05_TechStack.md
-│   └── 06_DatabaseArchitecture.md
+│   ├── 06_DatabaseArchitecture.md
+│   ├── 07_AMDGemmaDeployment.md
+│   └── 08_AuthorsNote.md         # a personal note from the builder
 ├── backend/
 │   ├── Dockerfile · requirements.txt · .env.example
 │   └── app/
@@ -132,34 +137,54 @@ PrismLearn/
 
 Legend: ✅ built & verified · 🟡 built, credential-gated (untestable without keys) · ⬜ planned
 
-### Frontend (feature-complete in mock mode)
+### Frontend
 - ✅ Marketing landing page + dashboard with drag-drop / YouTube upload zone
 - ✅ 3-pane resizable glassmorphic workspace (sidebar accordion · document · Lumi chat)
 - ✅ `DocumentViewer` — markdown + anchored spans + interactive Mermaid diagrams
 - ✅ **Agentic UI pipeline** — scroll-to-concept, purple/mint glow, stepper, flashcard spawn, dopamine ding
-- ✅ Lumi chat with the DataCamp-style progress stepper
-- ✅ `InteractiveQuizModal` — 4 question types, live grading, score summary
+- ✅ Lumi chat with the DataCamp-style progress stepper, **voice input** (Web Speech API mic)
+- ✅ Adaptive reading-level slider — live ELI5/technical rewrite of the current chapter
+- ✅ Learn / Review study modes, set per document at upload or flipped later
+- ✅ `InteractiveQuizModal` — 6 question types incl. **math (KaTeX)** and **code**, a
+  confidence check before every reveal, live grading, score summary
+- ✅ Flashcards with **spaced repetition** (SM-2-lite) and **mastery decay** over time
+- ✅ **Chapter boss battles** — mastering a chapter's first mini-game triggers a themed,
+  timed practice exam (`PracticeExamArena`)
+- ✅ Gamification — XP, levels, streaks, daily quests (currently `localStorage`-only; the
+  backend tables/API for this exist and are wired for a future swap, see §5 Backend)
+- ✅ Analytics page — mastery-by-workspace, weakness/needs-review list
 - ✅ Client-side PDF export — flashcards (cut-out squares) **and** quizzes (+ answer key)
+- ✅ Settings — study mode, TTS toggle, and an **AI Models** card listing all three models
+  in play (gpt-oss-120b / Gemma 3 27B / Gemma 4) plus the Gemma 4 Enterprise toggle demo
 - ✅ Live dashboard grid (created workspaces appear first)
 - ✅ Mobile single-pane view with bottom nav
 - ⬜ Onboarding spotlight tours · TTS pulse polish
 
 ### Backend
-- ✅ `POST /ingest/file` · `POST /ingest/youtube` — extraction + `[MODE: INGEST]` + persist
+- ✅ `POST /ingest/file` · `POST /ingest/youtube` · `POST /ingest/url` — extraction +
+  `[MODE: INGEST]` + persist. YouTube ingestion needs a residential proxy once deployed to
+  a cloud host (Google blocks datacenter IPs outright) — see `YOUTUBE_PROXY_*` in
+  `.env.example`; unset by default, direct requests work fine for local dev.
 - ✅ `GET /workspaces` · `GET /workspaces/{id}/reviewer`
-- ✅ `GET|POST /workspaces/{id}/flashcards`
+- ✅ `GET|POST /workspaces/{id}/flashcards` · `POST .../flashcards/generate`
 - ✅ `POST /workspaces/{id}/tutor` — `[MODE: TUTOR]`, reviewer loaded server-side
-- ✅ `POST /workspaces/{id}/quiz` — `[MODE: QUIZ]`
+- ✅ `POST /workspaces/{id}/quiz` — `[MODE: QUIZ]`, math/code question types hard-required
+  when the source document has worked equations/code listings
+- ✅ `/gamification/*` — profile (XP/streak/quests) + concept-mastery endpoints, fully
+  implemented and Supabase-backed, not yet called by the frontend (see above)
 - ✅ Repository pattern: in-memory (default) + Supabase impl, auto-selected by config
-- ✅ Hard limits (20 pages/slides, 30 min video), prompt-injection isolation, guardrails
+- ✅ Hard limits (20 pages/slides, 30 min video, 25MB upload streamed with an early-exit
+  cap), prompt-injection isolation, guardrails
 - ✅ Live `gpt-oss-120b` inference via Fireworks AI serverless (on AMD Instinct™ GPUs)
 - ✅ Gemma 3 27B task-level override for flashcard generation (`GEMMA_FLASHCARDS_MODEL`,
   gated off by default — see §"Best Use of Gemma Models" above)
 - ⬜ Gemma 4 self-hosted on AMD Instinct™ GPUs (`AI_PROVIDER=amd_cloud`) — code path is
   real and tested against the schema, not yet run against a live deployment
 - ✅ Supabase persistence — real project, RLS-scoped by Clerk user id
-- ✅ Clerk JWT verification against Clerk's JWKS (falls back to an `X-User-Id` dev header
-  only when Clerk isn't configured at all — see §7)
+- ✅ Clerk JWT verification against Clerk's JWKS, RS256, checked live. Once Clerk is
+  configured, a valid bearer token is *required* — the `X-User-Id` dev header is only ever
+  trusted when Clerk isn't configured at all, never as a fallback alongside it (this used
+  to be a real auth-bypass gap; fixed and verified against a live deployment — see §8)
 
 ---
 
@@ -223,9 +248,19 @@ code as graceful-degradation paths (never used when real credentials are present
 ## 8. Security posture (see `documentation/04_Security.md`)
 - **Zero-retention uploads:** raw files are held in memory only during the request and never
   written to storage — only the derived reviewer JSON is persisted.
-- **Row Level Security:** Supabase RLS scopes every row to its owner's Clerk id.
+- **Row Level Security:** Supabase RLS scopes every row to its owner's Clerk id, in addition
+  to app-layer `user_id` filtering on every repository call.
 - **Prompt-injection isolation:** the student message is always a separate turn from the
   system rules; the tutor prompt refuses system-prompt extraction and academic dishonesty.
+- **No raw-HTML rendering:** AI output (tutor replies, quiz text) renders through
+  react-markdown with no `dangerouslySetInnerHTML` or raw-HTML plugin anywhere in the
+  frontend, so model output can't inject a script tag even if it tried.
+- **Auth bypass, found and fixed:** the Clerk-verification dependency used to fall back to a
+  spoofable `X-User-Id` header whenever a request had no bearer token — including once
+  Clerk was fully configured in production, which meant any caller could impersonate any
+  user by simply omitting `Authorization`. Caught during a pre-deploy audit, fixed so that
+  fallback only applies when Clerk isn't configured at all, and verified live against the
+  deployed backend (`X-User-Id` alone now correctly returns `401`).
 
 See [`documentation/06_DatabaseArchitecture.md`](documentation/06_DatabaseArchitecture.md)
 for the full data model, including user accounts.
@@ -244,7 +279,8 @@ deploys natively to Vercel.
 2. Fill in the secrets Render leaves blank (`sync: false` in the blueprint) in its dashboard:
    `FIREWORKS_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `CLERK_SECRET_KEY`,
    `CLERK_JWKS_URL`. Leave `FRONTEND_ORIGIN` blank for now — it's set in step C, after the
-   frontend has a URL.
+   frontend has a URL. `YOUTUBE_PROXY_WEBSHARE_USERNAME`/`_PASSWORD` are optional — only
+   needed if you want YouTube ingestion to work from this deployment (see §5 Backend).
 3. Deploy. Note the resulting URL (e.g. `https://prismlearn-backend.onrender.com`) — the
    frontend needs it in step B.
 
@@ -266,7 +302,11 @@ deploys natively to Vercel.
    requests (it defaults to `http://localhost:3000`).
 2. In Clerk's dashboard, add the Vercel URL as an authorized redirect/origin (Clerk rejects
    sign-in redirects to hosts it doesn't know about).
-3. Paste the final Vercel URL into §"Live demo" at the top of this README.
 
 Both platforms auto-redeploy on every push to `feature/prism-ui-overhaul` (or whichever
 branch each is configured to track) once connected — no manual redeploy needed afterward.
+
+---
+
+There's also a short, personal note from the builder on why this exists —
+[`documentation/08_AuthorsNote.md`](documentation/08_AuthorsNote.md).
