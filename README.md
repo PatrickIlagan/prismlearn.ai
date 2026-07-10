@@ -111,7 +111,8 @@ PrismLearn/
 │   ├── 05_TechStack.md
 │   ├── 06_DatabaseArchitecture.md
 │   ├── 07_AMDGemmaDeployment.md
-│   └── 08_AuthorsNote.md         # a personal note from the builder
+│   ├── 08_AuthorsNote.md         # a personal note from the builder
+│   └── 09_Roadmap.md             # known gaps + forward-looking product direction
 ├── backend/
 │   ├── Dockerfile · requirements.txt · .env.example
 │   └── app/
