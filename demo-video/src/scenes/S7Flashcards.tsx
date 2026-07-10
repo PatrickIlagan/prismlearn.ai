@@ -1,16 +1,16 @@
 import { interpolate, useCurrentFrame } from "remotion";
 import { Scene } from "../Scene";
 import { Caption, GlassCard } from "../components";
-import { COLOR } from "../theme";
+import { COLOR, INK } from "../theme";
 
-export const DURATION = 135;
+export const DURATION = 160;
 
 export function S7Flashcards() {
   const frame = useCurrentFrame();
-  const captionOpacity = interpolate(frame, [78, 92], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const captionOpacity = interpolate(frame, [95, 112], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   // Flip animation: 0 -> 90deg (front out) -> 180deg (back in), looped-ish once.
-  const flip = interpolate(frame, [15, 55], [0, 180], {
+  const flip = interpolate(frame, [20, 68], [0, 180], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
@@ -23,7 +23,7 @@ export function S7Flashcards() {
     { label: "Good", tint: COLOR.mint },
     { label: "Easy", tint: COLOR.sky },
   ];
-  const buttonsOpacity = interpolate(frame, [60, 75], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const buttonsOpacity = interpolate(frame, [75, 92], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   return (
     <Scene durationInFrames={DURATION}>
@@ -59,7 +59,7 @@ export function S7Flashcards() {
                 textAlign: "center",
               }}
             >
-              <div style={{ fontSize: 38, fontWeight: 800 }}>What is the spacing effect?</div>
+              <div style={{ fontSize: 38, fontWeight: 800, color: INK.strong }}>What is the spacing effect?</div>
             </GlassCard>
             <GlassCard
               style={{
@@ -72,10 +72,11 @@ export function S7Flashcards() {
                 backfaceVisibility: "hidden",
                 transform: "rotateY(180deg)",
                 textAlign: "center",
-                background: `${COLOR.violet600}33`,
+                backgroundImage: "none",
+                background: "linear-gradient(135deg, rgba(139,92,246,0.16), rgba(217,70,239,0.10))",
               }}
             >
-              <div style={{ fontSize: 28, fontWeight: 600, lineHeight: 1.4 }}>
+              <div style={{ fontSize: 28, fontWeight: 600, lineHeight: 1.4, color: INK.strong }}>
                 Spreading reviews over increasing intervals beats cramming — review right before you&apos;d forget.
               </div>
             </GlassCard>

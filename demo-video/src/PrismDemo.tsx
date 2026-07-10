@@ -9,12 +9,13 @@ import { S6Quiz, DURATION as D6 } from "./scenes/S6Quiz";
 import { S7Flashcards, DURATION as D7 } from "./scenes/S7Flashcards";
 import { S8Gamification, DURATION as D8 } from "./scenes/S8Gamification";
 import { S9Dashboard, DURATION as D9 } from "./scenes/S9Dashboard";
+import { S9bPricing, DURATION as D9b } from "./scenes/S9bPricing";
 import { S10Closing, DURATION as D10 } from "./scenes/S10Closing";
 
-/** 25s @ 30fps = 750 frames, ~10 fast-paced scenes back to back. This list is
- * the single source of truth for both the running `from` offset and the
- * total composition length (see Root.tsx) — change a scene's pacing in one
- * place, not two. */
+/** ~60s @ 30fps, 11 scenes back to back with generous breathing room between
+ * beats within each scene. This list is the single source of truth for both
+ * the running `from` offset and the total composition length (see Root.tsx)
+ * — change a scene's pacing in one place, not two. */
 const SCENES: { Component: ComponentType; duration: number }[] = [
   { Component: S1LogoIntro, duration: D1 },
   { Component: S2PoweredBy, duration: D2 },
@@ -25,6 +26,7 @@ const SCENES: { Component: ComponentType; duration: number }[] = [
   { Component: S7Flashcards, duration: D7 },
   { Component: S8Gamification, duration: D8 },
   { Component: S9Dashboard, duration: D9 },
+  { Component: S9bPricing, duration: D9b },
   { Component: S10Closing, duration: D10 },
 ];
 
@@ -35,7 +37,7 @@ export function totalDuration(): number {
 export function PrismDemo() {
   let cursor = 0;
   return (
-    <AbsoluteFill style={{ backgroundColor: "#0f0a1f" }}>
+    <AbsoluteFill style={{ backgroundColor: "#fafaff" }}>
       {SCENES.map(({ Component, duration }, i) => {
         const from = cursor;
         cursor += duration;

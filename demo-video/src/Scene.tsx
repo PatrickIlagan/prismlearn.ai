@@ -1,6 +1,6 @@
 import { AbsoluteFill } from "remotion";
 import type { CSSProperties, ReactNode } from "react";
-import { FONT_STACK, GRADIENT_BG } from "./theme";
+import { FONT_STACK, GRADIENT_BG, INK } from "./theme";
 
 /** Plain hard-cut scene wrapper (background + font only). Scenes previously
  *  self-faded in/out via opacity, but since Remotion unmounts each Sequence
@@ -25,7 +25,7 @@ export function Scene({
       style={{
         background: background ? GRADIENT_BG : undefined,
         fontFamily: FONT_STACK,
-        color: "white",
+        color: INK.strong,
         ...style,
       }}
     >

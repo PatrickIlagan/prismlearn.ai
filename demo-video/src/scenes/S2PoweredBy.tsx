@@ -1,18 +1,18 @@
 import { interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { Scene } from "../Scene";
 import { Pill } from "../components";
-import { COLOR } from "../theme";
+import { COLOR, INK } from "../theme";
 
-export const DURATION = 105;
+export const DURATION = 125;
 
 export function S2PoweredBy() {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  const headerOpacity = interpolate(frame, [0, 12], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const fireworksScale = spring({ frame: frame - 12, fps, config: { damping: 14 }, durationInFrames: 20 });
-  const amdScale = spring({ frame: frame - 24, fps, config: { damping: 14 }, durationInFrames: 20 });
-  const pulse = 1 + Math.sin(frame / 6) * 0.02;
+  const headerOpacity = interpolate(frame, [0, 16], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const fireworksScale = spring({ frame: frame - 18, fps, config: { damping: 14 }, durationInFrames: 20 });
+  const amdScale = spring({ frame: frame - 40, fps, config: { damping: 14 }, durationInFrames: 20 });
+  const pulse = 1 + Math.sin(frame / 8) * 0.02;
 
   return (
     <Scene durationInFrames={DURATION}>
@@ -33,7 +33,7 @@ export function S2PoweredBy() {
             fontWeight: 700,
             letterSpacing: 4,
             textTransform: "uppercase",
-            color: "rgba(255,255,255,0.55)",
+            color: INK.muted,
             opacity: headerOpacity,
           }}
         >

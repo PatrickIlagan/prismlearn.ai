@@ -1,9 +1,9 @@
 import { interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { Scene } from "../Scene";
 import { Caption, GlassCard } from "../components";
-import { COLOR } from "../theme";
+import { COLOR, INK } from "../theme";
 
-export const DURATION = 135;
+export const DURATION = 160;
 
 const WORKSPACES = [
   { title: "Cell Biology", emoji: "🧬", tint: COLOR.rose, pct: 72 },
@@ -17,7 +17,7 @@ const WORKSPACES = [
 export function S9Dashboard() {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const captionOpacity = interpolate(frame, [95, 108], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const captionOpacity = interpolate(frame, [115, 130], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   return (
     <Scene durationInFrames={DURATION}>
@@ -33,7 +33,7 @@ export function S9Dashboard() {
         }}
       >
         {WORKSPACES.map((w, i) => {
-          const delay = 6 + i * 10;
+          const delay = 8 + i * 14;
           const s = spring({ frame: frame - delay, fps, config: { damping: 16 }, durationInFrames: 16 });
           return (
             <div
@@ -60,7 +60,7 @@ export function S9Dashboard() {
                     {w.emoji}
                   </div>
                   <svg width="44" height="44" viewBox="0 0 44 44">
-                    <circle cx="22" cy="22" r="18" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="5" />
+                    <circle cx="22" cy="22" r="18" fill="none" stroke="rgba(15,23,42,0.1)" strokeWidth="5" />
                     <circle
                       cx="22"
                       cy="22"
@@ -76,7 +76,7 @@ export function S9Dashboard() {
                   </svg>
                 </div>
                 <div style={{ fontSize: 24, fontWeight: 800, marginTop: 16 }}>{w.title}</div>
-                <div style={{ fontSize: 16, color: "rgba(255,255,255,0.5)", marginTop: 4 }}>
+                <div style={{ fontSize: 16, color: INK.muted, marginTop: 4 }}>
                   {w.pct}% mastered
                 </div>
               </GlassCard>

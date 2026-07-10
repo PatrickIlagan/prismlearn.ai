@@ -1,9 +1,9 @@
 import { interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { Scene } from "../Scene";
 import { Caption, GlassCard } from "../components";
-import { COLOR } from "../theme";
+import { COLOR, INK } from "../theme";
 
-export const DURATION = 165;
+export const DURATION = 205;
 
 function QuestionCard({
   kind,
@@ -20,7 +20,7 @@ function QuestionCard({
   const s = spring({ frame: local, fps, config: { damping: 15 }, durationInFrames: 16 });
   // Fade in fast, hold fully readable for a good while, fade out only right
   // before the next card takes over.
-  const opacity = interpolate(local, [0, 10, 42, 52], [0, 1, 1, 0], {
+  const opacity = interpolate(local, [0, 10, 50, 60], [0, 1, 1, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
@@ -55,8 +55,8 @@ function QuestionCard({
                   style={{
                     padding: "14px 20px",
                     borderRadius: 14,
-                    background: opt === "Nucleus" ? `${COLOR.mint}33` : "rgba(255,255,255,0.06)",
-                    border: opt === "Nucleus" ? `2px solid ${COLOR.mint}` : "1px solid rgba(255,255,255,0.15)",
+                    background: opt === "Nucleus" ? `${COLOR.mint}22` : "rgba(15,23,42,0.035)",
+                    border: opt === "Nucleus" ? `2px solid ${COLOR.mint}` : "1px solid rgba(15,23,42,0.1)",
                     fontSize: 24,
                   }}
                 >
@@ -77,12 +77,12 @@ function QuestionCard({
                 fontStyle: "italic",
                 textAlign: "center",
                 padding: "20px 0",
-                color: COLOR.fuchsia500,
+                color: COLOR.fuchsia600,
               }}
             >
               x² − 5x + 6 = 0
             </div>
-            <div style={{ fontSize: 22, color: "rgba(255,255,255,0.6)" }}>
+            <div style={{ fontSize: 22, color: INK.muted }}>
               Answer: <span style={{ color: COLOR.mint, fontWeight: 700 }}>x = 2, x = 3</span>
             </div>
           </>
@@ -93,23 +93,24 @@ function QuestionCard({
             <div style={{ fontSize: 30, fontWeight: 700, marginBottom: 20 }}>What does this print?</div>
             <div
               style={{
-                background: "#0f172a",
+                background: "#f1f5f9",
+                border: "1px solid #e2e8f0",
                 borderRadius: 14,
                 padding: "20px 26px",
                 fontFamily: "monospace",
                 fontSize: 24,
                 lineHeight: 1.6,
-                color: "#e2e8f0",
+                color: "#1e293b",
               }}
             >
-              <div><span style={{ color: "#c084fc" }}>total</span> = <span style={{ color: "#fbbf24" }}>0</span></div>
+              <div><span style={{ color: "#7c3aed" }}>total</span> = <span style={{ color: "#b45309" }}>0</span></div>
               <div>
-                <span style={{ color: "#c084fc" }}>for</span> i <span style={{ color: "#c084fc" }}>in</span> range(1, 6):
+                <span style={{ color: "#7c3aed" }}>for</span> i <span style={{ color: "#7c3aed" }}>in</span> range(1, 6):
               </div>
               <div>&nbsp;&nbsp;total += i</div>
               <div>print(total)</div>
             </div>
-            <div style={{ fontSize: 22, color: "rgba(255,255,255,0.6)", marginTop: 14 }}>
+            <div style={{ fontSize: 22, color: INK.muted, marginTop: 14 }}>
               Answer: <span style={{ color: COLOR.mint, fontWeight: 700 }}>15</span>
             </div>
           </>
@@ -122,13 +123,13 @@ function QuestionCard({
 export function S6Quiz() {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const captionOpacity = interpolate(frame, [20, 32], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const captionOpacity = interpolate(frame, [24, 40], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   return (
     <Scene durationInFrames={DURATION}>
-      <QuestionCard kind="mcq" frame={frame} fps={fps} startAt={6} />
-      <QuestionCard kind="math" frame={frame} fps={fps} startAt={58} />
-      <QuestionCard kind="code" frame={frame} fps={fps} startAt={110} />
+      <QuestionCard kind="mcq" frame={frame} fps={fps} startAt={8} />
+      <QuestionCard kind="math" frame={frame} fps={fps} startAt={73} />
+      <QuestionCard kind="code" frame={frame} fps={fps} startAt={138} />
 
       <div style={{ opacity: captionOpacity }}>
         <Caption eyebrow="Quizzes & Exams" title="Real Math. Real Code. Not Just Multiple Choice." />
@@ -136,4 +137,3 @@ export function S6Quiz() {
     </Scene>
   );
 }
-

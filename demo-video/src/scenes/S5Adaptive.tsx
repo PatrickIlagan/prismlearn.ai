@@ -1,20 +1,20 @@
 import { interpolate, useCurrentFrame } from "remotion";
 import { Scene } from "../Scene";
 import { Caption, GlassCard } from "../components";
-import { COLOR } from "../theme";
+import { COLOR, INK } from "../theme";
 
-export const DURATION = 135;
+export const DURATION = 160;
 
 export function S5Adaptive() {
   const frame = useCurrentFrame();
-  const captionOpacity = interpolate(frame, [8, 20], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const captionOpacity = interpolate(frame, [10, 24], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   // Fog-of-war chapter unlocking.
-  const blur = interpolate(frame, [20, 55], [10, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const lockOpacity = interpolate(frame, [20, 45], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const blur = interpolate(frame, [26, 68], [10, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const lockOpacity = interpolate(frame, [26, 56], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   // Reading-level slider sliding Academic -> ELI5.
-  const sliderT = interpolate(frame, [25, 105], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const sliderT = interpolate(frame, [34, 128], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const levels = ["Academic", "Standard", "ELI5"];
   const levelIdx = Math.min(2, Math.floor(sliderT * 3));
 
@@ -36,7 +36,7 @@ export function S5Adaptive() {
             style={{
               fontSize: 20,
               lineHeight: 1.6,
-              color: "rgba(255,255,255,0.85)",
+              color: INK.base,
               filter: `blur(${blur}px)`,
             }}
           >
@@ -61,8 +61,8 @@ export function S5Adaptive() {
 
       <div style={{ position: "absolute", left: 160, right: 160, top: 480 }}>
         <GlassCard style={{ padding: "26px 40px" }}>
-          <div style={{ fontSize: 20, color: "rgba(255,255,255,0.6)", marginBottom: 14 }}>Reading level</div>
-          <div style={{ position: "relative", height: 10, borderRadius: 999, background: "rgba(255,255,255,0.15)" }}>
+          <div style={{ fontSize: 20, color: INK.muted, marginBottom: 14 }}>Reading level</div>
+          <div style={{ position: "relative", height: 10, borderRadius: 999, background: "rgba(15,23,42,0.1)" }}>
             <div
               style={{
                 position: "absolute",
@@ -79,7 +79,7 @@ export function S5Adaptive() {
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", marginTop: 16, fontSize: 22, fontWeight: 700 }}>
             {levels.map((l, i) => (
-              <span key={l} style={{ color: i === levelIdx ? COLOR.fuchsia500 : "rgba(255,255,255,0.4)" }}>
+              <span key={l} style={{ color: i === levelIdx ? COLOR.fuchsia600 : INK.faint }}>
                 {l}
               </span>
             ))}

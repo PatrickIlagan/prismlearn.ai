@@ -2,18 +2,18 @@ import { interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { Scene } from "../Scene";
 import { Mascot } from "../Mascot";
 import { Wordmark, Pill } from "../components";
-import { COLOR } from "../theme";
+import { COLOR, INK } from "../theme";
 
-export const DURATION = 120;
+export const DURATION = 150;
 
 export function S10Closing() {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
   const mascotScale = spring({ frame, fps, config: { damping: 13 }, durationInFrames: 18 });
-  const wordmarkOpacity = interpolate(frame, [10, 22], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const badgesOpacity = interpolate(frame, [24, 36], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const taglineOpacity = interpolate(frame, [34, 44], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const wordmarkOpacity = interpolate(frame, [14, 30], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const badgesOpacity = interpolate(frame, [34, 50], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const taglineOpacity = interpolate(frame, [48, 62], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   return (
     <Scene durationInFrames={DURATION}>
@@ -34,7 +34,7 @@ export function S10Closing() {
         <div style={{ opacity: wordmarkOpacity }}>
           <Wordmark size={58} />
         </div>
-        <div style={{ opacity: taglineOpacity, fontSize: 26, color: "rgba(255,255,255,0.7)" }}>
+        <div style={{ opacity: taglineOpacity, fontSize: 26, color: INK.muted }}>
           Learn anything. Faster.
         </div>
         <div style={{ display: "flex", gap: 16, marginTop: 10, opacity: badgesOpacity }}>

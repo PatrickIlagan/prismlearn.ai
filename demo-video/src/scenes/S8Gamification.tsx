@@ -3,19 +3,19 @@ import { Scene } from "../Scene";
 import { Caption, GlassCard, Pill } from "../components";
 import { COLOR } from "../theme";
 
-export const DURATION = 150;
+export const DURATION = 175;
 
 export function S8Gamification() {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const captionOpacity = interpolate(frame, [110, 124], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const captionOpacity = interpolate(frame, [128, 144], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
-  const xpT = interpolate(frame, [6, 50], [0.2, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const burst = spring({ frame: frame - 50, fps, config: { damping: 9 }, durationInFrames: 16 });
-  const burstOpacity = interpolate(frame, [50, 58, 78], [0, 1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const xpT = interpolate(frame, [8, 62], [0.2, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const burst = spring({ frame: frame - 62, fps, config: { damping: 9 }, durationInFrames: 16 });
+  const burstOpacity = interpolate(frame, [62, 70, 92], [0, 1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
-  const streakScale = spring({ frame: frame - 72, fps, config: { damping: 12 }, durationInFrames: 16 });
-  const bossScale = spring({ frame: frame - 90, fps, config: { damping: 12 }, durationInFrames: 16 });
+  const streakScale = spring({ frame: frame - 88, fps, config: { damping: 12 }, durationInFrames: 16 });
+  const bossScale = spring({ frame: frame - 108, fps, config: { damping: 12 }, durationInFrames: 16 });
 
   return (
     <Scene durationInFrames={DURATION}>
@@ -36,7 +36,7 @@ export function S8Gamification() {
               <div style={{ fontSize: 24, fontWeight: 800 }}>Level 6 · Cell Biology</div>
               <div style={{ fontSize: 22, color: COLOR.mint, fontWeight: 700 }}>+180 XP</div>
             </div>
-            <div style={{ height: 22, borderRadius: 999, background: "rgba(255,255,255,0.12)", overflow: "hidden" }}>
+            <div style={{ height: 22, borderRadius: 999, background: "rgba(15,23,42,0.08)", overflow: "hidden" }}>
               <div
                 style={{
                   height: "100%",

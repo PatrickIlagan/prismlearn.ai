@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
-import { COLOR, GLASS } from "./theme";
+import { COLOR, GLASS, INK } from "./theme";
 
 export function GlassCard({
   children,
@@ -8,7 +8,7 @@ export function GlassCard({
   children: ReactNode;
   style?: CSSProperties;
 }) {
-  return <div style={{ ...GLASS, ...style }}>{children}</div>;
+  return <div style={{ ...GLASS, color: INK.strong, ...style }}>{children}</div>;
 }
 
 export function Pill({
@@ -28,12 +28,12 @@ export function Pill({
         gap: 10,
         padding: "14px 28px",
         borderRadius: 999,
-        background: `${tint}22`,
-        border: `1.5px solid ${tint}88`,
-        color: "white",
+        background: `${tint}1f`,
+        border: `1.5px solid ${tint}99`,
+        color: INK.strong,
         fontSize: 26,
         fontWeight: 700,
-        boxShadow: `0 0 40px ${tint}55`,
+        boxShadow: `0 8px 28px -8px ${tint}66`,
         ...style,
       }}
     >
@@ -62,14 +62,14 @@ export function Caption({
             fontWeight: 700,
             letterSpacing: 3,
             textTransform: "uppercase",
-            color: COLOR.fuchsia500,
+            color: COLOR.fuchsia600,
             marginBottom: 8,
           }}
         >
           {eyebrow}
         </div>
       )}
-      <div style={{ fontSize: 52, fontWeight: 800, letterSpacing: -1, lineHeight: 1.1 }}>
+      <div style={{ fontSize: 52, fontWeight: 800, letterSpacing: -1, lineHeight: 1.1, color: INK.strong }}>
         {title}
       </div>
     </div>
@@ -78,7 +78,7 @@ export function Caption({
 
 export function Wordmark({ size = 56 }: { size?: number }) {
   return (
-    <div style={{ fontSize: size, fontWeight: 800, letterSpacing: -1.5 }}>
+    <div style={{ fontSize: size, fontWeight: 800, letterSpacing: -1.5, color: INK.strong }}>
       Prism
       <span
         style={{

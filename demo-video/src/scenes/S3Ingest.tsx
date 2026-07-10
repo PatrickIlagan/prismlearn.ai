@@ -1,9 +1,9 @@
 import { interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { Scene } from "../Scene";
 import { Caption, GlassCard } from "../components";
-import { COLOR } from "../theme";
+import { COLOR, INK } from "../theme";
 
-export const DURATION = 150;
+export const DURATION = 175;
 
 const SOURCES = [
   { label: "PDF", emoji: "📄", tint: COLOR.rose, angle: -135 },
@@ -16,15 +16,15 @@ export function S3Ingest() {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  const centerScale = spring({ frame: frame - 75, fps, config: { damping: 11 }, durationInFrames: 20 });
-  const captionOpacity = interpolate(frame, [95, 112], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const centerScale = spring({ frame: frame - 95, fps, config: { damping: 11 }, durationInFrames: 20 });
+  const captionOpacity = interpolate(frame, [130, 148], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   return (
     <Scene durationInFrames={DURATION}>
       <div style={{ position: "absolute", inset: 0 }}>
         {SOURCES.map((s, i) => {
-          const delay = i * 12;
-          const t = interpolate(frame, [delay, delay + 55], [0, 1], {
+          const delay = i * 16;
+          const t = interpolate(frame, [delay, delay + 65], [0, 1], {
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
           });
@@ -36,7 +36,7 @@ export function S3Ingest() {
           const y = 470 + r * Math.sin(rad);
           // Fade in fast, hold at full opacity while traveling, fade out only
           // right as it reaches (merges into) the center card.
-          const opacity = interpolate(frame, [delay, delay + 8, delay + 46, delay + 55], [0, 1, 1, 0], {
+          const opacity = interpolate(frame, [delay, delay + 8, delay + 55, delay + 65], [0, 1, 1, 0], {
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
           });
@@ -85,7 +85,7 @@ export function S3Ingest() {
           <GlassCard style={{ width: 340, padding: 36, textAlign: "center" }}>
             <div style={{ fontSize: 48, marginBottom: 10 }}>✨</div>
             <div style={{ fontSize: 30, fontWeight: 800 }}>Master Reviewer</div>
-            <div style={{ fontSize: 20, color: "rgba(255,255,255,0.6)", marginTop: 6 }}>
+            <div style={{ fontSize: 20, color: INK.muted, marginTop: 6 }}>
               Structured study guide
             </div>
           </GlassCard>

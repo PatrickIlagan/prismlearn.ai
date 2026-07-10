@@ -1,20 +1,27 @@
-import { interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
+import { Easing, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { Scene } from "../Scene";
 import { Mascot } from "../Mascot";
 import { Wordmark } from "../components";
-import { COLOR } from "../theme";
+import { COLOR, INK } from "../theme";
 
-export const DURATION = 90;
+export const DURATION = 110;
 
 export function S1LogoIntro() {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  const mascotScale = spring({ frame, fps, config: { damping: 12, stiffness: 140 }, durationInFrames: 22 });
-  const wordmarkY = interpolate(frame, [10, 24], [24, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const wordmarkOpacity = interpolate(frame, [10, 24], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const taglineOpacity = interpolate(frame, [22, 34], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const glow = interpolate(frame, [0, DURATION], [0, 1], { extrapolateRight: "clamp" });
+  const mascotScale = spring({ frame, fps, config: { damping: 13, stiffness: 130 }, durationInFrames: 24 });
+  const wordmarkY = interpolate(frame, [16, 34], [24, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: Easing.out(Easing.cubic),
+  });
+  const wordmarkOpacity = interpolate(frame, [16, 34], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const taglineOpacity = interpolate(frame, [38, 54], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const glow = interpolate(frame, [0, DURATION], [0, 1], {
+    extrapolateRight: "clamp",
+    easing: Easing.out(Easing.quad),
+  });
 
   return (
     <Scene durationInFrames={DURATION}>
@@ -34,7 +41,7 @@ export function S1LogoIntro() {
             width: 700,
             height: 700,
             borderRadius: "50%",
-            background: `radial-gradient(circle, ${COLOR.violet500}55, transparent 65%)`,
+            background: `radial-gradient(circle, ${COLOR.violet500}3a, transparent 65%)`,
             opacity: glow,
             filter: "blur(10px)",
           }}
@@ -50,7 +57,7 @@ export function S1LogoIntro() {
             marginTop: 14,
             fontSize: 30,
             fontWeight: 500,
-            color: "rgba(255,255,255,0.7)",
+            color: INK.muted,
             opacity: taglineOpacity,
           }}
         >
@@ -60,4 +67,3 @@ export function S1LogoIntro() {
     </Scene>
   );
 }
-
