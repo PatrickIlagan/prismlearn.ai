@@ -19,6 +19,17 @@ const PROVIDERS: { value: ModelProvider; label: string; desc: string }[] = [
   { value: "gemma4", label: "Gemma 4 (Enterprise)", desc: "Dedicated deployment · AMD Instinct GPUs" },
 ];
 
+const MODELS: {
+  name: string;
+  role: string;
+  infra: string;
+  status: "Active" | "Gated";
+}[] = [
+  { name: "gpt-oss-120b", role: "Tutoring & chat", infra: "Fireworks AI serverless", status: "Active" },
+  { name: "Gemma 3 27B", role: "Flashcard generation", infra: "Fireworks AI serverless", status: "Gated" },
+  { name: "Gemma 4", role: "Enterprise tutoring override", infra: "AMD Instinct™ GPUs", status: "Gated" },
+];
+
 export default function SettingsPage() {
   const { user } = useUser();
   const displayName = user?.fullName || user?.firstName;
@@ -66,6 +77,34 @@ export default function SettingsPage() {
               <p className="text-sm font-medium">{m.label}</p>
               <p className="mt-0.5 text-xs text-muted-foreground">{m.desc}</p>
             </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="glass mt-4 rounded-2xl p-5">
+        <h2 className="text-sm font-semibold">AI Models</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          One architecture, three models — each doing the job it&apos;s best at.
+        </p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+          {MODELS.map((m) => (
+            <div key={m.name} className="rounded-xl border border-white/50 bg-white/40 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-medium">{m.name}</p>
+                <span
+                  className={cn(
+                    "rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide",
+                    m.status === "Active"
+                      ? "bg-emerald-100 text-emerald-700"
+                      : "bg-slate-200 text-slate-600",
+                  )}
+                >
+                  {m.status}
+                </span>
+              </div>
+              <p className="mt-0.5 text-xs text-muted-foreground">{m.role}</p>
+              <p className="mt-1 text-[10px] text-muted-foreground/80">{m.infra}</p>
+            </div>
           ))}
         </div>
       </div>
