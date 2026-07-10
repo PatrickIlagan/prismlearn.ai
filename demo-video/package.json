@@ -4,14 +4,15 @@
   "private": true,
   "scripts": {
     "start": "remotion studio src/index.ts",
-    "render": "remotion render src/index.ts PrismDemo out/PrismLearn-Demo-v3.mp4",
+    "render": "remotion render src/index.ts PrismDemo out/PrismLearn-Demo-v4.mp4",
     "still": "remotion still src/index.ts PrismDemo out/still.png"
   },
   "dependencies": {
+    "@remotion/cli": "^4.0.190",
+    "@remotion/transitions": "^4.0.487",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "remotion": "^4.0.190",
-    "@remotion/cli": "^4.0.190"
+    "remotion": "^4.0.190"
   },
   "devDependencies": {
     "@types/react": "^18.3.1",
