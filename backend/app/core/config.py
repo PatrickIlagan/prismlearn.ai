@@ -56,6 +56,17 @@ class Settings(BaseSettings):
     clerk_secret_key: str = ""
     clerk_jwks_url: str = ""
 
+    # YouTube transcript proxy — cloud-provider IPs (Render, AWS, GCP, etc.)
+    # are blocked outright by YouTube's transcript endpoint, so this works
+    # locally but fails once deployed (see extract_youtube in extractors.py).
+    # Webshare is youtube-transcript-api's own recommended fix: it has
+    # first-class support (auto retry-on-block) via these two vars alone.
+    # A generic HTTP(S) proxy also works if set instead. Leave both unset and
+    # requests go direct, unchanged from before this existed.
+    youtube_proxy_webshare_username: str = ""
+    youtube_proxy_webshare_password: str = ""
+    youtube_proxy_url: str = ""
+
     # App
     frontend_origin: str = "http://localhost:3000"
     max_document_pages: int = 20

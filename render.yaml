@@ -29,3 +29,7 @@ services:
         sync: false
       - key: FRONTEND_ORIGIN
         sync: false
+      - key: YOUTUBE_PROXY_WEBSHARE_USERNAME
+        sync: false
+      - key: YOUTUBE_PROXY_WEBSHARE_PASSWORD
+        sync: false

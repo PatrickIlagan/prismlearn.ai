@@ -129,6 +129,24 @@ def extract_pdf(data: bytes, filename: str) -> ExtractedSource:
 # --------------------------------------------------------------------------- #
 # YouTube
 # --------------------------------------------------------------------------- #
+def _youtube_proxy_config():
+    """None when unset (requests go direct — fine for local dev, blocked once
+    deployed to a cloud host). Prefers Webshare (built-in retry-on-block) over
+    a generic proxy when both happen to be set."""
+    from youtube_transcript_api.proxies import GenericProxyConfig, WebshareProxyConfig
+
+    if settings.youtube_proxy_webshare_username and settings.youtube_proxy_webshare_password:
+        return WebshareProxyConfig(
+            proxy_username=settings.youtube_proxy_webshare_username,
+            proxy_password=settings.youtube_proxy_webshare_password,
+        )
+    if settings.youtube_proxy_url:
+        return GenericProxyConfig(
+            http_url=settings.youtube_proxy_url, https_url=settings.youtube_proxy_url
+        )
+    return None
+
+
 def extract_youtube(url: str) -> ExtractedSource:
     # youtube-transcript-api v1.x is instance-based (.fetch), not the old
     # classmethod .get_transcript. Imported lazily to keep import cost off startup.
@@ -138,18 +156,24 @@ def extract_youtube(url: str) -> ExtractedSource:
         TranscriptsDisabled,
         VideoUnavailable,
     )
+    from youtube_transcript_api._errors import IpBlocked, RequestBlocked
 
     video_id = _parse_youtube_id(url)
     if not video_id:
         raise ExtractionError("Could not parse a YouTube video ID from that URL.")
 
     try:
-        fetched = YouTubeTranscriptApi().fetch(video_id)
+        fetched = YouTubeTranscriptApi(proxy_config=_youtube_proxy_config()).fetch(video_id)
         segments = fetched.to_raw_data()  # -> [{"text", "start", "duration"}, ...]
     except (TranscriptsDisabled, NoTranscriptFound):
         raise ExtractionError("This video has no available transcript/captions.")
     except VideoUnavailable:
         raise ExtractionError("This video is unavailable.")
+    except (IpBlocked, RequestBlocked) as exc:
+        raise ExtractionError(
+            "YouTube is blocking this server's IP (common on cloud hosts like Render). "
+            "Set YOUTUBE_PROXY_WEBSHARE_USERNAME/PASSWORD (or YOUTUBE_PROXY_URL) to fix this."
+        ) from exc
     except Exception as exc:  # noqa: BLE001
         raise ExtractionError(f"Failed to fetch transcript: {exc}") from exc
 
