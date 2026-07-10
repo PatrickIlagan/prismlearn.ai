@@ -24,6 +24,17 @@ class Settings(BaseSettings):
     amd_cloud_api_key: str = ""
     amd_cloud_model: str = "google/gemma-4-26B-A4B-it"
 
+    # Gemma 4 on Fireworks (on-demand deployment) — used ONLY for optional
+    # slide/page image captioning during PPTX ingestion (see
+    # app/services/vision.py). Deliberately separate from ai_provider/
+    # fireworks_model: this is not part of the always-on pipeline every user
+    # hits, since a dedicated GPU deployment doesn't pencil out against a
+    # $10/mo subscription at any real scale. Leave unset — the default — and
+    # captioning is skipped entirely at zero cost; ingestion is unchanged
+    # from before this existed. Only set this while a deployment is actually
+    # running (see documentation for the exact deployment command).
+    fireworks_gemma_model: str = ""
+
     # Supabase
     supabase_url: str = ""
     supabase_service_role_key: str = ""

@@ -18,9 +18,11 @@ import httpx
 import pdfplumber
 import trafilatura
 from pptx import Presentation
+from pptx.enum.shapes import MSO_SHAPE_TYPE
 
 from app.core.config import settings
 from app.schemas.ingest import ExtractedSource, SourceType
+from app.services import vision
 
 
 class ExtractionError(Exception):
@@ -42,7 +44,13 @@ def extract_pptx(data: bytes, filename: str) -> ExtractedSource:
             f"Presentation has {len(slides)} slides; the limit is {settings.max_document_pages}."
         )
 
-    chunks: list[str] = []
+    # Gather text and embedded pictures per slide first, so captioning (one
+    # Gemma call per image, when enabled) happens as a single capped batch
+    # across the whole deck rather than per-slide. When vision.captions_enabled()
+    # is False (the default), caption_images() is a no-op and this whole path
+    # produces byte-identical output to before slide images were considered.
+    slide_text: dict[int, list[str]] = {}
+    slide_images: list[tuple[int, bytes]] = []
     for idx, slide in enumerate(slides, start=1):
         lines = [
             shape.text.strip()
@@ -50,7 +58,26 @@ def extract_pptx(data: bytes, filename: str) -> ExtractedSource:
             if shape.has_text_frame and shape.text.strip()
         ]
         if lines:
-            chunks.append(f"[Slide {idx}]\n" + "\n".join(lines))
+            slide_text[idx] = lines
+        for shape in slide.shapes:
+            if shape.shape_type == MSO_SHAPE_TYPE.PICTURE:
+                try:
+                    slide_images.append((idx, shape.image.blob))
+                except Exception:  # noqa: BLE001 - unsupported/corrupt image, skip it
+                    continue
+
+    captions = vision.caption_images([blob for _, blob in slide_images])
+    captions_by_slide: dict[int, list[str]] = {}
+    for (idx, _blob), caption in zip(slide_images, captions):
+        if caption:
+            captions_by_slide.setdefault(idx, []).append(caption)
+
+    chunks: list[str] = []
+    for idx in range(1, len(slides) + 1):
+        body = list(slide_text.get(idx, []))
+        body.extend(f"[Figure: {c}]" for c in captions_by_slide.get(idx, []))
+        if body:
+            chunks.append(f"[Slide {idx}]\n" + "\n".join(body))
 
     text = "\n\n".join(chunks).strip()
     if not text:
