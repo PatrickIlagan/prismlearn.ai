@@ -5,6 +5,7 @@
   "scripts": {
     "start": "remotion studio src/index.ts",
     "render": "remotion render src/index.ts PrismDemo out/PrismLearn-Demo-v4.mp4",
+    "render:outro": "remotion render src/index.ts PrismOutro out/PrismLearn-Outro.mp4",
     "still": "remotion still src/index.ts PrismDemo out/still.png"
   },
   "dependencies": {
