@@ -6,11 +6,16 @@ export default function PracticeExamPage({
   searchParams,
 }: {
   params: { id: string };
-  searchParams: { doc?: string };
+  searchParams: { doc?: string; chapter?: string; chapterTitle?: string };
 }) {
   return (
     <RequireAuth>
-      <PracticeExamArena workspaceId={params.id} documentId={searchParams.doc} />
+      <PracticeExamArena
+        workspaceId={params.id}
+        documentId={searchParams.doc}
+        chapterAnchorId={searchParams.chapter}
+        chapterTitle={searchParams.chapterTitle}
+      />
     </RequireAuth>
   );
 }

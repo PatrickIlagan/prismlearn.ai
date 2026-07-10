@@ -11,6 +11,11 @@ import type { TocEntry } from "@/types/prism";
  * high mastery and 3-strike "needs review" flags before the student had done
  * anything — a real bug, not a feature.) Persisted to localStorage until the
  * backend's concept_mastery table is wired up on the frontend.
+ *
+ * Mastery also DECAYS over time since it was last boosted (the forgetting
+ * curve) — a concept you nailed three weeks ago and haven't touched since
+ * shouldn't still show 100%. Without this, mastery only ever goes up, which
+ * is dishonest and gives no reason to come back and actually re-review.
  */
 
 export interface ConceptMastery {
@@ -20,15 +25,39 @@ export interface ConceptMastery {
   strikes: number; // failed attempts (0 = never failed OR never attempted)
 }
 
-const BOOST_KEY = "prism_mastery_boost";
+interface BoostRecord {
+  strength: number; // strength AS OF lastBoost, before any decay is applied
+  lastBoost: string; // ISO date
+}
 
-function readBoosts(): Record<string, number> {
+const BOOST_KEY = "prism_mastery_boost";
+const DECAY_PER_DAY = 1.5; // points/day
+const DECAY_GRACE_DAYS = 1; // no decay for the first day after a boost
+
+function readBoosts(): Record<string, BoostRecord> {
   if (typeof window === "undefined") return {};
   try {
-    return JSON.parse(localStorage.getItem(BOOST_KEY) || "{}") as Record<string, number>;
+    const raw = JSON.parse(localStorage.getItem(BOOST_KEY) || "{}") as Record<
+      string,
+      number | BoostRecord
+    >;
+    const normalized: Record<string, BoostRecord> = {};
+    for (const [anchorId, value] of Object.entries(raw)) {
+      // Back-compat: the pre-decay format stored a bare number. Treat those
+      // as boosted "now" (no retroactive decay) rather than losing the data.
+      normalized[anchorId] =
+        typeof value === "number" ? { strength: value, lastBoost: new Date().toISOString() } : value;
+    }
+    return normalized;
   } catch {
     return {};
   }
+}
+
+function decayedStrength(rec: BoostRecord): number {
+  const days = (Date.now() - Date.parse(rec.lastBoost)) / 86_400_000;
+  const decayDays = Math.max(0, days - DECAY_GRACE_DAYS);
+  return Math.max(0, rec.strength - decayDays * DECAY_PER_DAY);
 }
 
 /** Persist mastery gained by actually engaging with a concept. */
@@ -36,16 +65,20 @@ export function boostConcept(anchorId: string, amount: number): void {
   if (typeof window === "undefined") return;
   try {
     const boosts = readBoosts();
-    boosts[anchorId] = Math.min(100, (boosts[anchorId] ?? 0) + amount);
+    const current = boosts[anchorId] ? decayedStrength(boosts[anchorId]) : 0;
+    boosts[anchorId] = { strength: Math.min(100, current + amount), lastBoost: new Date().toISOString() };
     localStorage.setItem(BOOST_KEY, JSON.stringify(boosts));
   } catch {
     /* non-fatal */
   }
 }
 
-/** True mastery: 0 until the student has actually engaged with this concept. */
+/** True mastery: 0 until the student has actually engaged with this concept,
+ *  decaying since it was last boosted. */
 export function conceptStrength(anchorId: string): number {
-  return Math.min(100, readBoosts()[anchorId] ?? 0);
+  const rec = readBoosts()[anchorId];
+  if (!rec) return 0;
+  return Math.min(100, Math.round(decayedStrength(rec)));
 }
 
 function strikesFor(strength: number): number {

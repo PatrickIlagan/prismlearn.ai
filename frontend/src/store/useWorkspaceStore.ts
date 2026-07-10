@@ -151,6 +151,10 @@ interface WorkspaceState {
   levelUpLabel: string;
   /** Add XP without touching chapter progress (e.g. Practice Exam payout). */
   awardXp: (amount: number) => void;
+  /** Set when a chapter is freshly mastered — offers a themed, chapter-scoped
+   *  Practice Exam ("boss battle"). Cleared by dismissBossBattle. */
+  bossBattle: { anchorId: string; title: string } | null;
+  dismissBossBattle: () => void;
 
   // --- Agentic viewport control ---
   scrollTarget: string | null;
@@ -212,6 +216,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       completedChapters: [],
       levelUpTick: 0,
       levelUpLabel: "",
+      bossBattle: null,
       messages: [],
       step: { currentStep: 0, totalSteps: 0, stepTitle: "" },
       strikeCount: 0,
@@ -248,6 +253,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   levelUpTick: 0,
   levelUpLabel: "",
   awardXp: (amount) => set((s) => ({ xp: s.xp + Math.max(0, amount) })),
+  bossBattle: null,
+  dismissBossBattle: () => set({ bossBattle: null }),
 
   unlockChapter: (anchorId) =>
     set((s) =>
@@ -309,6 +316,9 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         levelUpLabel: newlyMasteredChapter
           ? `Level ${level + 1} · ${chapter?.title ?? "Chapter"} mastered`
           : s.levelUpLabel,
+        bossBattle: newlyMasteredChapter
+          ? { anchorId: newlyMasteredChapter, title: chapter?.title ?? "Chapter" }
+          : s.bossBattle,
       };
     });
     playDing();

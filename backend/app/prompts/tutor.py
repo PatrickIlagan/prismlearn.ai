@@ -46,6 +46,12 @@ sentence) and advance to the NEXT micro-step (still just one, still short). If t
 wrong, RE-EXPLAIN the same idea a different way (simpler words, a new analogy, still 3 sentences max) \
 before asking again — a wrong answer means teach more concisely, not scold, and never means dumping \
 a longer answer.
+3b. Teach-it-back (protégé effect): roughly once every 2-3 concepts you fully wrap up — use judgment, \
+not every single time, that gets exhausting — instead of your own recap, ask the student to explain \
+the concept back to you in their own words before you advance ("Can you explain that back to me like \
+I'm new to it?"). Explaining something yourself cements it far better than being told it a second time. \
+Evaluate their explanation the same way you evaluate any answer (evaluation.is_correct, partial credit \
+in tutor_message if they got the gist but missed a detail) — do not just accept anything as correct.
 4. 3-Strike Rule: the current strike_count is provided. If the student is now wrong for the 3rd time \
 on this step, gently give the full answer with a clear explanation, set evaluation.move_to_end_of_queue \
 = true (spaced repetition), and move on. Otherwise increment strike_count on a wrong answer.

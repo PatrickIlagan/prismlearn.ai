@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { Flame, Timer, Trophy, Zap, X, RotateCcw, Check } from "lucide-react";
+import { Flame, Timer, Trophy, Zap, X, RotateCcw, Check, Swords } from "lucide-react";
 import { fetchReviewer, generateQuiz, listDocuments } from "@/lib/api";
 import { useWorkspaceStore } from "@/store/useWorkspaceStore";
 import { addXp as profileAddXp, completeQuest, recordActivity } from "@/lib/profile";
@@ -23,10 +23,17 @@ function isCorrect(q: QuizQuestion, given: string) {
 export function PracticeExamArena({
   workspaceId,
   documentId,
+  chapterAnchorId,
+  chapterTitle,
 }: {
   workspaceId: string;
   documentId?: string;
+  /** Scopes the exam to one chapter ("boss battle") instead of the whole
+   *  document — set together, from a Boss Battle prompt's link. */
+  chapterAnchorId?: string;
+  chapterTitle?: string;
 }) {
+  const isBossBattle = Boolean(chapterAnchorId);
   const awardXp = useWorkspaceStore((s) => s.awardXp);
   const studyMode = useWorkspaceStore((s) => s.studyMode);
   const storeActiveDoc = useWorkspaceStore((s) => s.activeDocumentId);
@@ -68,9 +75,9 @@ export function PracticeExamArena({
     xpAwardedRef.current = false;
     fetchReviewer(workspaceId, docId)
       .then((reviewer) =>
-        generateQuiz(
+  generateQuiz(
           workspaceId,
-          { scope: "all", question_count: 8, study_focus: studyMode },
+          { scope: chapterAnchorId ?? "all", question_count: 8, study_focus: studyMode },
           reviewer,
           docId,
         ),
@@ -93,7 +100,7 @@ export function PracticeExamArena({
     return () => {
       alive = false;
     };
-  }, [workspaceId, studyMode, docId]);
+  }, [workspaceId, studyMode, docId, chapterAnchorId]);
 
   const current = questions[index];
   const answered = given !== null;
@@ -199,10 +206,17 @@ export function PracticeExamArena({
           animate={{ scale: 1, opacity: 1 }}
           className="glass w-full max-w-md rounded-3xl p-8 text-center"
         >
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white">
-            <Trophy size={26} />
+          <div
+            className={cn(
+              "mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br text-white",
+              isBossBattle ? "from-amber-400 to-orange-500" : "from-violet-500 to-fuchsia-500",
+            )}
+          >
+            {isBossBattle ? <Swords size={26} /> : <Trophy size={26} />}
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">Exam complete</h1>
+          <h1 className="text-2xl font-bold tracking-tight">
+            {isBossBattle ? `Boss defeated · ${chapterTitle}` : "Exam complete"}
+          </h1>
           <div className="my-5 text-5xl font-bold">
             <span className="prism-text">{score.toLocaleString()}</span>
             <span className="ml-1 text-base font-medium text-muted-foreground">pts</span>
@@ -248,7 +262,13 @@ export function PracticeExamArena({
         >
           <X size={16} /> Exit
         </Link>
-        {docPicker}
+        {isBossBattle ? (
+          <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-orange-500">
+            <Swords size={13} /> {chapterTitle}
+          </div>
+        ) : (
+          docPicker
+        )}
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1.5 text-sm font-semibold">
             <Zap size={15} className="fill-violet-500 text-violet-500" />

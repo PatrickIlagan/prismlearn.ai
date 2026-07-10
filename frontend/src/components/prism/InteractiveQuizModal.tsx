@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, X, Sparkles, RotateCcw, Download } from "lucide-react";
+import { Check, X, Sparkles, RotateCcw, Download, Meh, ThumbsUp } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -33,6 +33,16 @@ function isCorrect(q: QuizQuestion, given: string): boolean {
   return norm(given) === norm(q.answer);
 }
 
+/** The confidence/correctness mismatch is itself useful feedback — fights
+ *  the "illusion of competence" (feeling like you know something vs.
+ *  actually knowing it) better than a bare right/wrong ever does. */
+function confidenceInsight(confidence: "confident" | "unsure", correct: boolean): string {
+  if (confidence === "confident" && correct) return "You were sure — and you were right.";
+  if (confidence === "confident" && !correct) return "You were sure, but that's not it — this one's worth a closer look.";
+  if (confidence === "unsure" && correct) return "You weren't sure, but you got it — nice.";
+  return "You weren't sure, and that's okay — now you know.";
+}
+
 export function InteractiveQuizModal() {
   const open = useWorkspaceStore((s) => s.quizOpen);
   const setOpen = useWorkspaceStore((s) => s.setQuizOpen);
@@ -52,6 +62,10 @@ export function InteractiveQuizModal() {
   const [score, setScore] = useState(0);
   const [skipped, setSkipped] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  // An answer the student has picked/submitted but not yet confirmed a
+  // confidence level for — grading (and reveal) is deferred until they do.
+  const [pendingAnswer, setPendingAnswer] = useState<string | null>(null);
+  const [confidence, setConfidence] = useState<"confident" | "unsure" | null>(null);
   const xpAwardedRef = useRef(false);
 
   function reset() {
@@ -63,6 +77,8 @@ export function InteractiveQuizModal() {
     setScore(0);
     setSkipped(0);
     setError(null);
+    setPendingAnswer(null);
+    setConfidence(null);
     xpAwardedRef.current = false;
   }
 
@@ -106,10 +122,13 @@ export function InteractiveQuizModal() {
 
   const current = quiz?.questions[index];
 
-  function check(answer: string) {
+  /** The actual grading + reveal, run once a confidence level is confirmed
+   *  (or immediately for short-answer's second self-assessment stage, which
+   *  never goes through the confidence gate — confidence was already
+   *  captured before the model answer was shown). */
+  function grade(answer: string) {
     if (!current) return;
 
-    // Short answer is two-stage: reveal the model answer first, then self-assess.
     if (current.type === "short_answer") {
       if (answer === "self:pending") {
         if (revealed) return;
@@ -117,7 +136,6 @@ export function InteractiveQuizModal() {
         setRevealed(true); // reveal without scoring
         return;
       }
-      // self:correct / self:wrong — the scoring stage (after reveal)
       setGiven(answer);
       if (answer === "self:correct") {
         setScore((s) => s + 1);
@@ -127,7 +145,6 @@ export function InteractiveQuizModal() {
       return;
     }
 
-    // Objective questions: grade immediately on selection.
     if (revealed) return;
     setGiven(answer);
     setRevealed(true);
@@ -138,8 +155,30 @@ export function InteractiveQuizModal() {
     }
   }
 
+  /** What QuestionBody actually calls. Defers to a confidence check before
+   *  grading — except short-answer's post-reveal self-assessment
+   *  (self:correct/self:wrong), which bypasses it entirely. */
+  function check(answer: string) {
+    if (!current || revealed) return;
+    if (current.type === "short_answer" && answer !== "self:pending") {
+      grade(answer);
+      return;
+    }
+    setPendingAnswer(answer);
+  }
+
+  function confirmConfidence(level: "confident" | "unsure") {
+    setConfidence(level);
+    if (pendingAnswer !== null) {
+      grade(pendingAnswer);
+      setPendingAnswer(null);
+    }
+  }
+
   function next() {
     if (!quiz) return;
+    setPendingAnswer(null);
+    setConfidence(null);
     if (index + 1 >= quiz.questions.length) {
       setPhase("done");
     } else {
@@ -232,22 +271,54 @@ export function InteractiveQuizModal() {
             </div>
 
             <AnimatePresence mode="wait">
-              <motion.div
-                key={current.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ type: "spring", stiffness: 220, damping: 24 }}
-                className="py-3"
-              >
-                <p className="mb-4 font-medium">{current.prompt}</p>
-                <QuestionBody
-                  question={current}
-                  given={given}
-                  revealed={revealed}
-                  onAnswer={check}
-                />
-              </motion.div>
+              {pendingAnswer !== null ? (
+                <motion.div
+                  key={`${current.id}-confidence`}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ type: "spring", stiffness: 220, damping: 24 }}
+                  className="py-3"
+                >
+                  <p className="mb-4 font-medium">{current.prompt}</p>
+                  <div className="glass rounded-xl p-4 text-center">
+                    <p className="mb-3 text-sm text-muted-foreground">
+                      How confident are you in that answer?
+                    </p>
+                    <div className="flex justify-center gap-2">
+                      <button
+                        onClick={() => confirmConfidence("unsure")}
+                        className="glass flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-medium text-amber-600 transition-colors hover:bg-amber-500/10"
+                      >
+                        <Meh size={16} /> Not sure
+                      </button>
+                      <button
+                        onClick={() => confirmConfidence("confident")}
+                        className="glass flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-medium text-emerald-600 transition-colors hover:bg-emerald-500/10"
+                      >
+                        <ThumbsUp size={16} /> Confident
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key={current.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ type: "spring", stiffness: 220, damping: 24 }}
+                  className="py-3"
+                >
+                  <p className="mb-4 font-medium">{current.prompt}</p>
+                  <QuestionBody
+                    question={current}
+                    given={given}
+                    revealed={revealed}
+                    onAnswer={check}
+                  />
+                </motion.div>
+              )}
             </AnimatePresence>
 
             {revealed && (
@@ -265,6 +336,11 @@ export function InteractiveQuizModal() {
                   {isCorrect(current, given) ? "Correct!" : `Answer: ${current.answer}`}
                 </p>
                 {current.explanation && <p className="mt-1 opacity-80">{current.explanation}</p>}
+                {confidence && (
+                  <p className="mt-1.5 text-xs italic opacity-70">
+                    {confidenceInsight(confidence, isCorrect(current, given))}
+                  </p>
+                )}
                 {current.anchor_id && (
                   <button
                     onClick={() => {

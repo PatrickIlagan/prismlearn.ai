@@ -15,6 +15,7 @@ import { LumiChatUI } from "./LumiChatUI";
 import { InteractiveQuizModal } from "./InteractiveQuizModal";
 import { FlashcardSwiper } from "./FlashcardSwiper";
 import { LevelUpBurst } from "./LevelUpBurst";
+import { BossBattlePrompt } from "./BossBattlePrompt";
 import { cn } from "@/lib/utils";
 
 const { Group, Panel, Separator } = ResizablePanels;
@@ -134,6 +135,8 @@ export function WorkspaceShell({
       <FlashcardSwiper />
       {/* Level-up celebration on chapter mastery */}
       <LevelUpBurst />
+      {/* Chapter-scoped Practice Exam offer, right after the burst */}
+      <BossBattlePrompt workspaceId={workspaceId} />
 
       {/* ---------- Desktop: resizable 3-pane ---------- */}
       <div className="hidden h-full p-3 md:block">
