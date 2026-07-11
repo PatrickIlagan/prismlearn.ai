@@ -22,6 +22,31 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/**
+ * Retries a fetch on a 5xx response or network failure — specifically to
+ * ride out Render's free-tier cold start. The backend container sleeps after
+ * ~15 min idle; the request that wakes it (and anything racing right behind
+ * it) can 500 or fail outright while it's still coming up. This matters most
+ * right after sign-in, when the dashboard fires one reviewer fetch per
+ * workspace in parallel — exactly the burst most likely to land mid-wake.
+ * A couple of short-backoff retries turn "page is broken" into "page took an
+ * extra second," with zero cost once the instance is actually warm.
+ */
+async function fetchWithRetry(url: string, init: RequestInit, attempts = 3): Promise<Response> {
+  let lastError: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const res = await fetch(url, init);
+      if (res.ok || (res.status < 500 && res.status !== 0)) return res;
+      lastError = new Error(`HTTP ${res.status}`);
+    } catch (err) {
+      lastError = err;
+    }
+    if (i < attempts - 1) await delay(1500 * (i + 1));
+  }
+  throw lastError instanceof Error ? lastError : new Error("Request failed after retries");
+}
+
 // Mock-mode lesson cursor (advances through MOCK_TUTOR_TURNS per session).
 let mockTurnIndex = 0;
 
@@ -282,7 +307,7 @@ export async function listWorkspaces(): Promise<WorkspaceSummary[]> {
     // Workspaces created this session appear first, then the demo samples.
     return [...readLocalWorkspaces(), ...MOCK_WORKSPACES];
   }
-  const res = await fetch(`${API_URL}/workspaces`, { headers: await authHeaders() });
+  const res = await fetchWithRetry(`${API_URL}/workspaces`, { headers: await authHeaders() });
   if (!res.ok) throw new Error(await extractError(res, "Failed to load workspaces"));
   const rows = (await res.json()) as Array<{
     id: string;
@@ -466,7 +491,7 @@ export async function fetchReviewer(
   const cached = readCachedReviewer(documentId ?? workspaceId);
   if (cached) return cached;
   const qs = documentId ? `?document_id=${encodeURIComponent(documentId)}` : "";
-  const res = await fetch(`${API_URL}/workspaces/${workspaceId}/reviewer${qs}`, {
+  const res = await fetchWithRetry(`${API_URL}/workspaces/${workspaceId}/reviewer${qs}`, {
     headers: await authHeaders(),
   });
   if (!res.ok) throw new Error(`Failed to load reviewer: ${res.status}`);
