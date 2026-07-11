@@ -35,18 +35,22 @@ class Settings(BaseSettings):
     # running (see documentation for the exact deployment command).
     fireworks_gemma_model: str = ""
 
-    # Gemma 3 27B on Fireworks — a TASK-level model override for flashcard
-    # generation specifically (see run_flashcard_generation in fireworks.py),
-    # not a provider-wide switch like ai_provider. Flashcard generation is a
-    # short, templated extraction task, unlike the multi-turn scaffolded
-    # reasoning the tutor does — a smaller model is a deliberate fit, not a
-    # downgrade. As of this writing no Gemma model is served serverless on
-    # Fireworks (verified directly against the chat completions API — every
-    # Gemma slug 404s until an on-demand deployment is running), so this
-    # stays unset by default: flashcards keep using fireworks_model (gpt-
-    # oss-120b) with zero behavior or cost change until a real Gemma 3
-    # deployment's model id is set here.
-    gemma_flashcards_model: str = ""
+    # Gemma 3 27B (Google DeepMind) on Fireworks — the TASK-level model tried
+    # FIRST for flashcard generation specifically (see run_flashcard_generation
+    # in fireworks.py), not a provider-wide switch like ai_provider. Flashcard
+    # generation is a short, templated extraction task, unlike the multi-turn
+    # scaffolded reasoning the tutor does — a smaller model is a deliberate
+    # fit, not a downgrade. run_flashcard_generation calls this model first on
+    # every request and automatically falls back to fireworks_model
+    # (gpt-oss-120b) if the call fails — a real runtime fallback, not a config
+    # flag someone has to flip. As of this writing no Gemma model is served
+    # serverless on Fireworks yet (verified directly against the chat
+    # completions API — this exact slug still 404s), so every request
+    # currently exercises that fallback path; the moment Fireworks lists it
+    # (or an on-demand deployment is stood up under this slug), flashcards
+    # start running on Gemma with zero code change. Set to "" to skip the
+    # Gemma attempt entirely and go straight to gpt-oss-120b.
+    gemma_flashcards_model: str = "accounts/fireworks/models/gemma3-27b-it"
 
     # Supabase
     supabase_url: str = ""

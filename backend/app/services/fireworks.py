@@ -9,6 +9,7 @@ schema before it ever reaches the frontend — the frontend never sees raw model
 from __future__ import annotations
 
 import json
+import logging
 
 from openai import AsyncOpenAI
 from pydantic import BaseModel, ValidationError
@@ -24,6 +25,9 @@ from app.schemas.ingest import IngestPayload
 from app.schemas.quiz import Quiz
 from app.schemas.simplify import SimplifyBlock, SimplifyResponse
 from app.schemas.tutor import TutorRequest, TutorResponse
+
+
+logger = logging.getLogger("prismlearning")
 
 
 class InferenceError(Exception):
@@ -215,6 +219,24 @@ async def run_quiz(
         raise InferenceError(f"Model JSON did not match the Quiz schema: {exc}") from exc
 
 
+async def _call_flashcard_model(client: AsyncOpenAI, model: str, messages: list, extra_body: dict) -> FlashcardDeck:
+    completion = await client.chat.completions.create(
+        model=model,
+        messages=messages,
+        temperature=0.5,
+        max_tokens=2048,
+        response_format=_schema_format(FlashcardDeck),
+        extra_body=extra_body,
+    )
+    if not completion.choices:
+        raise InferenceError("Fireworks returned no choices (likely filtered or truncated).")
+    content = completion.choices[0].message.content or ""
+    if not content.strip():
+        raise InferenceError("Model returned an empty response (reasoning likely exhausted max_tokens).")
+    data = _extract_json(content)  # raises json.JSONDecodeError, caught by the caller
+    return FlashcardDeck.model_validate(data)  # raises ValidationError, caught by the caller
+
+
 async def run_flashcard_generation(
     markdown_content: str,
     anchor_ids: list[str],
@@ -225,13 +247,15 @@ async def run_flashcard_generation(
 ) -> FlashcardDeck:
     """Generate a flashcard deck via [MODE: FLASHCARDS], independent of tutor progress.
 
-    Task-level model override: flashcard generation is a short, templated
-    extraction task, unlike the tutor's multi-turn scaffolded reasoning — a
-    deliberately good fit for a smaller model. When GEMMA_FLASHCARDS_MODEL is
-    set (a real Gemma 3 27B on-demand deployment), this routes there instead
-    of gpt-oss-120b; unset (the default) changes nothing. `reasoning_effort`
-    is gpt-oss's own harmony-format field — only sent for the default model,
-    since Gemma doesn't use it.
+    Gemma 3 27B (Google DeepMind), via Fireworks AI, is the first model tried —
+    a short, templated extraction task like this is a deliberately good fit for
+    a smaller model, unlike the tutor's multi-turn scaffolded reasoning which
+    stays on gpt-oss-120b. If that call fails for any reason (model not yet
+    provisioned as an on-demand deployment, transient error, bad output), this
+    automatically retries once against gpt-oss-120b before giving up — a real
+    fallback that runs every time, not a config flag nobody flips. `reasoning_effort`
+    is gpt-oss's own harmony-format field, so it's only sent on the fallback
+    attempt; Gemma doesn't use it.
     """
     client = get_client()
     messages = build_flashcard_messages(
@@ -241,35 +265,27 @@ async def run_flashcard_generation(
         count=count,
         study_focus=study_focus,
     )
-    model = settings.gemma_flashcards_model or settings.fireworks_model
-    extra_body = {} if settings.gemma_flashcards_model else {"reasoning_effort": "low"}
 
+    gemma_model = settings.gemma_flashcards_model
+    if gemma_model:
+        try:
+            return await _call_flashcard_model(client, gemma_model, messages, extra_body={})
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Gemma flashcard generation failed (%s), falling back to gpt-oss-120b: %s", gemma_model, exc)
+
+    fallback_model = settings.fireworks_model
     try:
-        completion = await client.chat.completions.create(
-            model=model,
-            messages=messages,
-            temperature=0.5,
-            max_tokens=2048,
-            response_format=_schema_format(FlashcardDeck),
-            extra_body=extra_body,
+        return await _call_flashcard_model(
+            client, fallback_model, messages, extra_body={"reasoning_effort": "low"}
         )
-    except Exception as exc:  # noqa: BLE001
-        raise InferenceError(f"Fireworks inference failed ({model}): {exc}") from exc
-
-    if not completion.choices:
-        raise InferenceError("Fireworks returned no choices (likely filtered or truncated).")
-    content = completion.choices[0].message.content or ""
-    if not content.strip():
-        raise InferenceError("Model returned an empty response (reasoning likely exhausted max_tokens).")
-    try:
-        data = _extract_json(content)
     except json.JSONDecodeError as exc:
         raise InferenceError(f"Model did not return valid JSON: {exc}") from exc
-
-    try:
-        return FlashcardDeck.model_validate(data)
     except ValidationError as exc:
         raise InferenceError(f"Model JSON did not match the FlashcardDeck schema: {exc}") from exc
+    except InferenceError:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        raise InferenceError(f"Fireworks inference failed ({fallback_model}): {exc}") from exc
 
 
 async def run_simplify(blocks: list[SimplifyBlock], level: str) -> SimplifyResponse:

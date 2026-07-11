@@ -20,15 +20,20 @@ on this path — nothing is generated locally, cached, or hardcoded, and no othe
 provider is used anywhere in this codebase. The same statement is shown, unauthenticated,
 on the live site's landing page footer, so it's visible without signing in.
 
-**Best Use of Gemma Models:** flashcard generation runs on **Gemma 3 27B** via Fireworks AI
-serverless — a deliberately smaller, task-matched model for a short templated extraction
-job, while tutoring keeps the larger `gpt-oss-120b` for its multi-turn scaffolded reasoning.
-The app also ships a proof-of-concept **Enterprise** setting (Settings → AI Model Provider)
-that flips tutoring itself to **Gemma 4**, self-hosted on **AMD Instinct™ GPUs** via AMD
-Developer Cloud — a real, tested code path (`AI_PROVIDER=amd_cloud`), gated off by default
-since it requires a dedicated GPU deployment. See
-[`documentation/07_AMDGemmaDeployment.md`](documentation/07_AMDGemmaDeployment.md) for the
-full breakdown of every Gemma integration point and its exact on/off switch.
+**Best Use of Gemma Models:** flashcard generation calls **Google DeepMind's Gemma 3 27B**
+via Fireworks AI **first, on every request** — a deliberately smaller, task-matched model
+for a short templated extraction job, while tutoring keeps the larger `gpt-oss-120b` for its
+multi-turn scaffolded reasoning. This isn't a config flag someone has to flip: it's the real
+runtime code path (`run_flashcard_generation` in `fireworks.py`), with an automatic fallback
+to `gpt-oss-120b` if that call fails — which, as of this writing, it always does, since no
+Gemma model is served serverless on Fireworks yet (verified directly against the chat
+completions API). The moment Fireworks lists it, flashcards start running on Gemma with zero
+code change. The app also ships a proof-of-concept **Enterprise** setting (Settings → AI
+Model Provider) that flips tutoring itself to **Google DeepMind's Gemma 4**, self-hosted on
+**AMD Instinct™ GPUs** via AMD Developer Cloud — a real, tested code path
+(`AI_PROVIDER=amd_cloud`), gated off by default since it requires a dedicated GPU deployment.
+See [`documentation/07_AMDGemmaDeployment.md`](documentation/07_AMDGemmaDeployment.md) for
+the full breakdown of every Gemma integration point and its exact on/off switch.
 
 **Live demo:** [prismlearn-ai-steel.vercel.app](https://prismlearn-ai-steel.vercel.app) ·
 backend at [prismlearn-backend.onrender.com](https://prismlearn-backend.onrender.com)
@@ -177,8 +182,9 @@ Legend: ✅ built & verified · 🟡 built, credential-gated (untestable without
 - ✅ Hard limits (20 pages/slides, 30 min video, 25MB upload streamed with an early-exit
   cap), prompt-injection isolation, guardrails
 - ✅ Live `gpt-oss-120b` inference via Fireworks AI serverless (on AMD Instinct™ GPUs)
-- ✅ Gemma 3 27B task-level override for flashcard generation (`GEMMA_FLASHCARDS_MODEL`,
-  gated off by default — see §"Best Use of Gemma Models" above)
+- ✅ Gemma 3 27B (Google DeepMind) tried first for flashcard generation on every request
+  (`GEMMA_FLASHCARDS_MODEL`), with an automatic fallback to gpt-oss-120b — see
+  §"Best Use of Gemma Models" above
 - ⬜ Gemma 4 self-hosted on AMD Instinct™ GPUs (`AI_PROVIDER=amd_cloud`) — code path is
   real and tested against the schema, not yet run against a live deployment
 - ✅ Supabase persistence — real project, RLS-scoped by Clerk user id

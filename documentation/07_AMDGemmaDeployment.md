@@ -97,9 +97,9 @@ This codebase has four separate places Gemma shows up, at three different levels
 
 | # | What | Model | Where | Status |
 |---|------|-------|-------|--------|
-| 1 | Tutoring/quiz/ingest, wholesale | Gemma 4 (26B-A4B-IT or 31B-IT) | `AI_PROVIDER=amd_cloud`, `app/services/gemma_amd.py` | Dormant — the runbook above, needs AMD Developer Cloud credits |
+| 1 | Tutoring/quiz/ingest, wholesale | Gemma 4 (Google DeepMind, 26B-A4B-IT or 31B-IT) | `AI_PROVIDER=amd_cloud`, `app/services/gemma_amd.py` | Dormant — the runbook above, needs AMD Developer Cloud credits |
 | 2 | PPTX slide-image captioning during ingestion | Gemma 4 vision | `FIREWORKS_GEMMA_MODEL`, `app/services/vision.py` | Dormant — needs a paid Fireworks on-demand deployment (Gemma is not served serverless on Fireworks as of this writing — confirmed by calling the chat completions API directly against `gemma2-9b-it`, `gemma-3-27b-it`, `gemma-4-e4b`, and `gemma-4-26b-a4b-it`; all four 404 with no deployment running) |
-| 3 | Flashcard generation specifically (tutoring stays on gpt-oss-120b) | Gemma 3 27B | `GEMMA_FLASHCARDS_MODEL`, `run_flashcard_generation` in `app/services/fireworks.py` | Dormant, same reason as #2 — real code path, task-level override (not a whole-provider swap like #1), zero cost/behavior change until set |
+| 3 | Flashcard generation specifically (tutoring stays on gpt-oss-120b) | Gemma 3 27B (Google DeepMind) | `GEMMA_FLASHCARDS_MODEL`, `run_flashcard_generation` in `app/services/fireworks.py` | **Live, not gated** — called first on every flashcard request, real code path, task-level override (not a whole-provider swap like #1). Currently always falls back to gpt-oss-120b since Fireworks hasn't listed the model yet (same 404 as #2); the moment it does, flashcards run on Gemma with zero code change |
 | 4 | Enterprise settings UI — "flip tutoring to Gemma 4" | Gemma 4 | `frontend/src/app/dashboard/settings/page.tsx`, "AI Model Provider" card | Frontend proof-of-concept only — the toggle is real UI state, but selecting it doesn't reroute inference; it documents that #1's `AI_PROVIDER=amd_cloud` switch is what an actual Enterprise deployment would flip |
 
 **Why #3 exists as a separate mechanism from #1**: `AI_PROVIDER` swaps *every* generation
