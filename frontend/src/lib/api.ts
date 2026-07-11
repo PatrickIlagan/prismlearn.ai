@@ -24,15 +24,15 @@ const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
  * Retries a fetch on a 5xx response or network failure — specifically to
- * ride out Render's free-tier cold start. The backend container sleeps after
- * ~15 min idle; the request that wakes it (and anything racing right behind
- * it) can 500 or fail outright while it's still coming up. This matters most
- * right after sign-in, when the dashboard fires one reviewer fetch per
- * workspace in parallel — exactly the burst most likely to land mid-wake.
- * A couple of short-backoff retries turn "page is broken" into "page took an
- * extra second," with zero cost once the instance is actually warm.
+ * ride out Render's free-tier cold start. A full wake-from-sleep can take
+ * 30-50s (not just a couple seconds), and it's most visible right after
+ * sign-in, when the dashboard fires one reviewer fetch per workspace in
+ * parallel — exactly the burst most likely to land mid-wake. The keep-alive
+ * cron (.github/workflows/keep-alive.yml) is the primary defense against the
+ * backend ever sleeping at all; this is the fallback for the window before
+ * that first ping lands, or any other transient 5xx/restart.
  */
-async function fetchWithRetry(url: string, init: RequestInit, attempts = 3): Promise<Response> {
+async function fetchWithRetry(url: string, init: RequestInit, attempts = 6): Promise<Response> {
   let lastError: unknown;
   for (let i = 0; i < attempts; i++) {
     try {
@@ -42,7 +42,7 @@ async function fetchWithRetry(url: string, init: RequestInit, attempts = 3): Pro
     } catch (err) {
       lastError = err;
     }
-    if (i < attempts - 1) await delay(1500 * (i + 1));
+    if (i < attempts - 1) await delay(Math.min(2000 * (i + 1), 8000));
   }
   throw lastError instanceof Error ? lastError : new Error("Request failed after retries");
 }
