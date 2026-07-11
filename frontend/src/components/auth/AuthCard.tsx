@@ -1,6 +1,6 @@
 "use client";
 
-import { SignIn, SignUp } from "@clerk/nextjs";
+import { ClerkLoaded, ClerkLoading, SignIn, SignUp } from "@clerk/nextjs";
 import { motion } from "framer-motion";
 import { MascotLumi } from "@/components/prism/MascotLumi";
 import { FluidBlob } from "@/components/prism/FluidBlob";
@@ -93,23 +93,38 @@ export function AuthCard({ mode }: { mode: "sign-in" | "sign-up" }) {
           <MascotLumi size={46} />
         </div>
 
-        {isSignUp ? (
-          <SignUp
-            path="/sign-up"
-            routing="path"
-            signInUrl="/sign-in"
-            forceRedirectUrl="/dashboard"
-            appearance={clerkAppearance}
-          />
-        ) : (
-          <SignIn
-            path="/sign-in"
-            routing="path"
-            signUpUrl="/sign-up"
-            forceRedirectUrl="/dashboard"
-            appearance={clerkAppearance}
-          />
-        )}
+        {/* Clerk's <SignIn>/<SignUp> render nothing until their own JS + the
+            bot-protection widget finish loading, which can take a beat on a
+            cold connection — without this, that gap is just a blank card. */}
+        <ClerkLoading>
+          <div className="flex flex-col items-center gap-3 py-10">
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 0.9, repeat: Infinity, ease: "linear" }}
+              className="h-8 w-8 rounded-full border-2 border-primary/25 border-t-primary"
+            />
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          </div>
+        </ClerkLoading>
+        <ClerkLoaded>
+          {isSignUp ? (
+            <SignUp
+              path="/sign-up"
+              routing="path"
+              signInUrl="/sign-in"
+              forceRedirectUrl="/dashboard"
+              appearance={clerkAppearance}
+            />
+          ) : (
+            <SignIn
+              path="/sign-in"
+              routing="path"
+              signUpUrl="/sign-up"
+              forceRedirectUrl="/dashboard"
+              appearance={clerkAppearance}
+            />
+          )}
+        </ClerkLoaded>
       </motion.div>
     </main>
   );

@@ -1,4 +1,5 @@
 import type { TocEntry } from "@/types/prism";
+import { scopedKey } from "./userScope";
 
 /**
  * Per-concept mastery.
@@ -37,7 +38,7 @@ const DECAY_GRACE_DAYS = 1; // no decay for the first day after a boost
 function readBoosts(): Record<string, BoostRecord> {
   if (typeof window === "undefined") return {};
   try {
-    const raw = JSON.parse(localStorage.getItem(BOOST_KEY) || "{}") as Record<
+    const raw = JSON.parse(localStorage.getItem(scopedKey(BOOST_KEY)) || "{}") as Record<
       string,
       number | BoostRecord
     >;
@@ -67,7 +68,7 @@ export function boostConcept(anchorId: string, amount: number): void {
     const boosts = readBoosts();
     const current = boosts[anchorId] ? decayedStrength(boosts[anchorId]) : 0;
     boosts[anchorId] = { strength: Math.min(100, current + amount), lastBoost: new Date().toISOString() };
-    localStorage.setItem(BOOST_KEY, JSON.stringify(boosts));
+    localStorage.setItem(scopedKey(BOOST_KEY), JSON.stringify(boosts));
   } catch {
     /* non-fatal */
   }

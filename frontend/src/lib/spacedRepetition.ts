@@ -7,6 +7,8 @@
  * by card id — a fresh (never-reviewed) card is always due immediately.
  */
 
+import { scopedKey } from "./userScope";
+
 export type Recall = "again" | "hard" | "good" | "easy";
 
 interface CardState {
@@ -16,7 +18,7 @@ interface CardState {
   dueAt: string; // ISO date
 }
 
-const KEY = "prism_srs";
+const BASE_KEY = "prism_srs";
 const MIN_EASE = 1.3;
 const MAX_EASE = 2.8;
 const DEFAULT_EASE = 2.3;
@@ -24,7 +26,7 @@ const DEFAULT_EASE = 2.3;
 function readAll(): Record<string, CardState> {
   if (typeof window === "undefined") return {};
   try {
-    return JSON.parse(localStorage.getItem(KEY) || "{}") as Record<string, CardState>;
+    return JSON.parse(localStorage.getItem(scopedKey(BASE_KEY)) || "{}") as Record<string, CardState>;
   } catch {
     return {};
   }
@@ -33,7 +35,7 @@ function readAll(): Record<string, CardState> {
 function writeAll(data: Record<string, CardState>): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(KEY, JSON.stringify(data));
+    localStorage.setItem(scopedKey(BASE_KEY), JSON.stringify(data));
   } catch {
     /* non-fatal */
   }

@@ -7,7 +7,9 @@
  * localStorage reads/writes for API calls — every caller stays the same.
  */
 
-const KEY = "prism_profile";
+import { scopedKey } from "./userScope";
+
+const BASE_KEY = "prism_profile";
 const XP_PER_LEVEL = 100;
 
 export interface DailyQuest {
@@ -47,7 +49,7 @@ function daysBetween(a: string, b: string): number {
 function read(): ProfileData {
   if (typeof window === "undefined") return { ...EMPTY };
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(scopedKey(BASE_KEY));
     return raw ? { ...EMPTY, ...(JSON.parse(raw) as ProfileData) } : { ...EMPTY };
   } catch {
     return { ...EMPTY };
@@ -57,7 +59,7 @@ function read(): ProfileData {
 function write(data: ProfileData): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(KEY, JSON.stringify(data));
+    localStorage.setItem(scopedKey(BASE_KEY), JSON.stringify(data));
   } catch {
     /* non-fatal */
   }
