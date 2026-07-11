@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Send, Volume2, VolumeX, Mic, MicOff } from "lucide-react";
+import { Gamepad2, Send, Volume2, VolumeX, Mic, MicOff } from "lucide-react";
 import { useWorkspaceStore } from "@/store/useWorkspaceStore";
 import { sendTutorMessage } from "@/lib/api";
 import { speak, stopSpeaking } from "@/lib/sounds";
@@ -21,6 +21,10 @@ export function LumiChatUI({ workspaceId }: { workspaceId: string }) {
   const pushStudentMessage = useWorkspaceStore((s) => s.pushStudentMessage);
   const setTutorThinking = useWorkspaceStore((s) => s.setTutorThinking);
   const applyTutorResponse = useWorkspaceStore((s) => s.applyTutorResponse);
+  const chapters = useWorkspaceStore((s) => s.chapters);
+  const unlockedAnchors = useWorkspaceStore((s) => s.unlockedAnchors);
+  const completedChapters = useWorkspaceStore((s) => s.completedChapters);
+  const mutateBlockToGame = useWorkspaceStore((s) => s.mutateBlockToGame);
 
   const [input, setInput] = useState("");
   const [speaking, setSpeaking] = useState(false);
@@ -112,6 +116,19 @@ export function LumiChatUI({ workspaceId }: { workspaceId: string }) {
     if (lastFailedRef.current && !isThinking) requestTutorTurn(lastFailedRef.current);
   }
 
+  // Manual practice trigger: normally a mini-game is Lumi's own call, spawned
+  // mid-conversation once it judges you've engaged with a concept — there's
+  // no other way to ask for one on demand. Targets the chapter you're
+  // actively working through (the last unlocked one not yet mastered), or
+  // the most recently unlocked chapter if everything so far is mastered.
+  function practiceCurrentChapter() {
+    const target =
+      [...unlockedAnchors].reverse().find((a) => !completedChapters.includes(a)) ??
+      unlockedAnchors[unlockedAnchors.length - 1];
+    if (target) mutateBlockToGame(target, "cloze");
+  }
+  const canPractice = chapters.length > 0 && unlockedAnchors.length > 0;
+
   // Feature 2 — Voice-to-Voice: transcribe speech into the input live, and
   // auto-send once the student stops talking (or they click the mic again).
   const voice = useVoiceInput({
@@ -138,6 +155,16 @@ export function LumiChatUI({ workspaceId }: { workspaceId: string }) {
         </div>
         <div className="flex items-center gap-3">
           <XpBadge />
+          {canPractice && (
+            <button
+              onClick={practiceCurrentChapter}
+              className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              aria-label="Practice this chapter with a mini-game"
+              title="Practice this chapter with a mini-game"
+            >
+              <Gamepad2 size={18} />
+            </button>
+          )}
           <button
             onClick={() => {
               if (ttsEnabled) {
