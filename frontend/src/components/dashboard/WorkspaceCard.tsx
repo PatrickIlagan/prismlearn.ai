@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { FileText, Presentation, Video, Globe, Play, Pencil, Trash2, Check, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ProgressRing } from "./ProgressRing";
-import { workspaceProgress } from "@/lib/progress";
+import { fetchWorkspaceMastery } from "@/lib/realStats";
 import { deleteWorkspace, renameWorkspace } from "@/lib/api";
 import type { WorkspaceSummary } from "@/types/prism";
 import { cn } from "@/lib/utils";
@@ -29,7 +29,16 @@ export function WorkspaceCard({
 }) {
   const meta = SOURCE[ws.sourceType];
   const Icon = meta.icon;
-  const progress = workspaceProgress(ws.id);
+  const [progress, setProgress] = useState<number | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetchWorkspaceMastery(ws.id).then((pct) => {
+      if (!cancelled) setProgress(pct);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [ws.id]);
 
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(ws.title);
@@ -102,7 +111,7 @@ export function WorkspaceCard({
         >
           <Icon size={20} />
         </div>
-        <ProgressRing value={progress} size={48} />
+        <ProgressRing value={progress ?? 0} size={48} />
       </div>
 
       {editing ? (
@@ -141,7 +150,7 @@ export function WorkspaceCard({
         </h3>
       )}
       <p className="mt-0.5 text-xs text-muted-foreground">
-        {meta.label} · {ws.conceptCount} concepts · {progress}% mastered
+        {meta.label} · {ws.conceptCount} concepts · {progress === null ? "…" : `${progress}%`} mastered
       </p>
 
       <Link href={`/workspace/${ws.id}/overview`} className="mt-4">

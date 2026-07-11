@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Flame, Brain, Target } from "lucide-react";
-import { computeStats } from "@/lib/progress";
+import { fetchRealStats, type RealStats } from "@/lib/realStats";
 import { getProfile } from "@/lib/profile";
 import type { WorkspaceSummary } from "@/types/prism";
 import { cn } from "@/lib/utils";
@@ -18,8 +18,18 @@ interface StatCard {
 }
 
 export function StatsBento({ workspaces }: { workspaces: WorkspaceSummary[] | null }) {
-  const stats = useMemo(() => computeStats(workspaces ?? []), [workspaces]);
-  const loading = workspaces === null;
+  const [stats, setStats] = useState<RealStats | null>(null);
+  useEffect(() => {
+    if (workspaces === null) return;
+    let cancelled = false;
+    fetchRealStats(workspaces).then((s) => {
+      if (!cancelled) setStats(s);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaces]);
+  const loading = workspaces === null || stats === null;
 
   // Real streak from the persistent profile (hydrated client-side).
   const [streak, setStreak] = useState(0);
@@ -37,7 +47,7 @@ export function StatsBento({ workspaces }: { workspaces: WorkspaceSummary[] | nu
     {
       key: "mastered",
       label: "Concepts mastered",
-      value: `${stats.conceptsMastered}`,
+      value: `${stats?.conceptsMastered ?? 0}`,
       hint: "across all workspaces",
       icon: Brain,
       tile: "from-violet-500/20 to-fuchsia-500/20 text-violet-600",
@@ -45,7 +55,7 @@ export function StatsBento({ workspaces }: { workspaces: WorkspaceSummary[] | nu
     {
       key: "accuracy",
       label: "Overall accuracy",
-      value: `${stats.accuracy}%`,
+      value: `${stats?.accuracy ?? 0}%`,
       hint: "in tutor sessions",
       icon: Target,
       tile: "from-emerald-400/20 to-cyan-500/20 text-emerald-600",

@@ -4,16 +4,30 @@ import { useEffect, useState } from "react";
 import { listWorkspaces } from "@/lib/api";
 import type { WorkspaceSummary } from "@/types/prism";
 import { StatsBento } from "@/components/dashboard/StatsBento";
-import { workspaceProgress } from "@/lib/progress";
+import { fetchWorkspaceMastery } from "@/lib/realStats";
 
 export default function AnalyticsPage() {
   const [workspaces, setWorkspaces] = useState<WorkspaceSummary[] | null>(null);
+  const [mastery, setMastery] = useState<Record<string, number>>({});
 
   useEffect(() => {
     listWorkspaces()
       .then(setWorkspaces)
       .catch(() => setWorkspaces([]));
   }, []);
+
+  useEffect(() => {
+    if (!workspaces?.length) return;
+    let cancelled = false;
+    Promise.all(workspaces.map((w) => fetchWorkspaceMastery(w.id).then((pct) => [w.id, pct] as const))).then(
+      (pairs) => {
+        if (!cancelled) setMastery(Object.fromEntries(pairs));
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaces]);
 
   return (
     <div className="mx-auto max-w-6xl px-1 pb-10 sm:px-2">
@@ -36,7 +50,7 @@ export default function AnalyticsPage() {
           ) : (
             <ul className="space-y-4">
               {workspaces.map((w) => {
-                const pct = workspaceProgress(w.id);
+                const pct = mastery[w.id] ?? 0;
                 return (
                   <li key={w.id}>
                     <div className="mb-1.5 flex items-center justify-between text-sm">
