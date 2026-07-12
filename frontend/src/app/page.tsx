@@ -3,25 +3,16 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import {
-  ArrowRight,
-  Sparkles,
-  Lock,
-  Check,
-  Zap,
-  BrainCircuit,
-  ShieldCheck,
-  BookOpen,
-  Play,
-  Trophy,
-} from "lucide-react";
+import { ArrowRight, Lock, Check, BookOpen, Play } from "lucide-react";
 import { enterDemoMode } from "@/lib/demoMode";
 import { Button } from "@/components/ui/button";
 import { MascotLumi } from "@/components/prism/MascotLumi";
 import { FluidBlob } from "@/components/prism/FluidBlob";
 import { HeroPrompt } from "@/components/landing/HeroPrompt";
+import { LiveLesson } from "@/components/landing/LiveLesson";
 import { ProcessShowcase } from "@/components/landing/ProcessShowcase";
 import { WorkspacePreview } from "@/components/landing/WorkspacePreview";
+import { InteractiveBento } from "@/components/landing/InteractiveBento";
 import { PricingSection } from "@/components/landing/PricingSection";
 import { FaqSection } from "@/components/landing/FaqSection";
 import { RANKS } from "@/lib/rank";
@@ -55,51 +46,6 @@ const AGENTIC_POINTS = [
   "Blocks mutate into mini-games — cloze, spot-the-lie, drag-to-reorder",
 ];
 
-const BENTO = [
-  {
-    key: "latency",
-    icon: Zap,
-    title: "Sub-second latency",
-    body: "Tutor replies land in about a second, ingestion in a few — OpenAI's open-weight gpt-oss-120b, served by Fireworks AI on AMD Instinct GPUs.",
-    span: "",
-  },
-  {
-    key: "rag",
-    icon: BrainCircuit,
-    title: "Grounded RAG",
-    body: "Every answer is drawn only from the document you gave Lumi — no hallucinated facts, no outside knowledge sneaking in.",
-    span: "",
-  },
-  {
-    key: "gemma",
-    icon: Sparkles,
-    title: "Gemma 3 27B flashcards",
-    body: "Flashcard generation tries Google DeepMind's Gemma 3 27B first on every request, with an automatic fallback to gpt-oss-120b — a real code path, not a config flag.",
-    span: "",
-  },
-  {
-    key: "ssrf",
-    icon: ShieldCheck,
-    title: "SSRF-guarded web ingestion",
-    body: "Pasting a link resolves and validates the host before fetching — private, loopback, and link-local addresses rejected, re-checked on every redirect hop.",
-    span: "",
-  },
-  {
-    key: "engine",
-    icon: Trophy,
-    title: "A full mastery engine",
-    body: "Streaks, daily quests, confidence checks, teach-it-back prompts, mastery decay, spaced-repetition flashcards, chapter boss battles, and practice exams with KaTeX math and real code rendering.",
-    span: "lg:col-span-2",
-  },
-  {
-    key: "retention",
-    icon: Lock,
-    title: "Zero retention",
-    body: "Your documents teach you — they don't train anyone's model. Delete a workspace and its content goes with it.",
-    span: "",
-  },
-];
-
 /** Explicit stack keywords — the strip under the hero judges skim first. */
 const STACK = [
   { label: "gpt-oss-120b", sub: "OpenAI open-weight tutor" },
@@ -127,7 +73,7 @@ export default function LandingPage() {
       <FluidBlob className="right-[-8%] top-[165vh] h-80 w-80 bg-cyan-300/30" duration={22} delay={2} hueShift />
       <FluidBlob className="left-[10%] top-[230vh] h-72 w-72 bg-fuchsia-300/25" duration={20} delay={1} hueShift />
 
-      <nav className="relative z-10 mx-auto mt-4 flex max-w-6xl items-center justify-between rounded-2xl px-5 py-3 glass sm:mx-auto sm:w-[92%]">
+      <nav className="glass sticky top-3 z-50 mx-auto mt-4 flex max-w-6xl items-center justify-between rounded-2xl border border-white/60 bg-white/55 px-5 py-3 shadow-lg shadow-violet-500/5 backdrop-blur-xl sm:w-[92%]">
         <div className="flex items-center gap-2">
           <MascotLumi size={30} />
           <span className="text-lg font-bold tracking-tight">
@@ -150,102 +96,83 @@ export default function LandingPage() {
         </div>
       </nav>
 
-      {/* ---------- 1. Hero ---------- */}
-      <section className="relative z-10 mx-auto max-w-4xl px-6 pt-24 pb-20 text-center sm:pt-28">
-        {/* Floating mock chat bubble — decorative, bobs infinitely to make the
-            hero feel alive. Hidden on small screens (no room to float). */}
-        <motion.div
-          className="glass absolute right-[4%] top-16 hidden w-56 rounded-2xl p-3 text-left shadow-lg shadow-violet-500/10 lg:block"
-          initial={{ opacity: 0, y: 0 }}
-          animate={{ opacity: 1, y: [0, -14, 0] }}
-          transition={{
-            opacity: { duration: 0.6, delay: 0.4 },
-            y: { duration: 4.5, repeat: Infinity, ease: "easeInOut", delay: 1 },
-          }}
-        >
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-primary">
-            <MascotLumi size={16} /> Lumi
-          </div>
-          <p className="mt-1.5 text-xs text-muted-foreground">
-            Nice — that&apos;s correct! Chapter 2 just unlocked. Ready to keep going?
-          </p>
-          <div className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600">
-            <Check size={10} /> +15 XP
-          </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: "easeOut" }}
-        >
-          <div className="mb-6 inline-flex items-center gap-1.5 rounded-full border border-white/60 bg-white/50 px-3 py-1 text-xs font-medium text-primary backdrop-blur-sm">
-            <Sparkles size={13} /> Agentic learning, grounded in your sources
-          </div>
-          <h1 className="text-balance text-5xl font-bold leading-[1.05] tracking-tight sm:text-6xl">
-            Turn any document into a{" "}
-            <span className="prism-text">guided lesson</span>
-          </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground">
-            Upload a PDF, slide deck, YouTube video, or website link. Lumi builds a study guide
-            and teaches it to you step-by-step — scrolling, highlighting, and quizzing as you go.
-          </p>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.15, ease: "easeOut" }}
-          className="mt-9"
-        >
-          <HeroPrompt />
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.25, ease: "easeOut" }}
-          className="mt-5 flex items-center justify-center gap-3"
-        >
-          <Link href="/sign-up">
-            <Button size="lg" className="gap-2">
-              Start learning <ArrowRight size={18} />
-            </Button>
-          </Link>
-          <Link href="/sign-in">
-            <Button size="lg" variant="outline">
-              Sign in
-            </Button>
-          </Link>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.4 }}
-          className="mt-4"
-        >
-          <button
-            type="button"
-            onClick={startDemo}
-            className="group inline-flex items-center gap-2 text-sm font-medium text-primary transition hover:opacity-80"
+      {/* ---------- 1. Hero — asymmetric split: pitch left, the product
+           playing itself on the right (no centered badge-headline-buttons
+           formula) ---------- */}
+      <section className="relative z-10 mx-auto max-w-6xl px-6 pt-20 pb-16 sm:pt-24">
+        <div className="grid items-center gap-12 lg:grid-cols-[1.05fr_1fr]">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+            className="text-left"
           >
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 transition group-hover:bg-primary/20">
-              <Play size={11} className="ml-0.5" />
-            </span>
-            Or try the interactive demo — no account needed
-          </button>
-        </motion.div>
+            <p className="mb-4 text-sm font-semibold text-primary">
+              Lumi — your agentic AI tutor
+            </p>
+            <h1 className="text-balance text-5xl font-bold leading-[1.04] tracking-tight sm:text-6xl">
+              Your notes just became your{" "}
+              <span className="prism-text">best teacher</span>
+            </h1>
+            <p className="mt-5 max-w-xl text-lg text-muted-foreground">
+              Drop in a PDF, slide deck, YouTube lecture, or link. Lumi turns it into a living,
+              chaptered lesson — scrolling, highlighting, quizzing, and unlocking as you learn.
+            </p>
+
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.15, ease: "easeOut" }}
+              className="mt-8"
+            >
+              <HeroPrompt />
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.25, ease: "easeOut" }}
+              className="mt-5 flex flex-wrap items-center gap-3"
+            >
+              <Link href="/sign-up">
+                <Button size="lg" className="gap-2">
+                  Start learning <ArrowRight size={18} />
+                </Button>
+              </Link>
+              <button
+                type="button"
+                onClick={startDemo}
+                className="group inline-flex items-center gap-2 rounded-full border border-primary/25 bg-white/50 px-5 py-2.5 text-sm font-semibold text-primary backdrop-blur-sm transition hover:border-primary/50 hover:bg-white/70"
+              >
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 transition group-hover:bg-primary/20">
+                  <Play size={10} className="ml-0.5" />
+                </span>
+                Try the demo — no account
+              </button>
+            </motion.div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 24, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.7, delay: 0.2, ease: "easeOut" }}
+          >
+            <LiveLesson />
+          </motion.div>
+        </div>
 
         {/* stack strip — the exact model/compute keywords, above the fold */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.8, delay: 0.55 }}
-          className="mx-auto mt-14 flex max-w-3xl flex-wrap items-center justify-center gap-x-10 gap-y-4"
+          className="mt-16 flex flex-wrap items-center justify-center gap-x-10 gap-y-4"
         >
           {STACK.map((item) => (
-            <div key={item.label} className="text-center">
+            <div
+              key={item.label}
+              className="glass rounded-2xl border border-white/60 px-5 py-3 text-center backdrop-blur-sm"
+            >
               <p className="text-sm font-bold tracking-tight text-foreground/70">{item.label}</p>
               <p className="text-[11px] text-muted-foreground/70">{item.sub}</p>
             </div>
@@ -392,41 +319,18 @@ export default function LandingPage() {
         </motion.div>
       </section>
 
-      {/* ---------- 4. The Engine Room & Safety (heading is a bento cell, not a header row) ---------- */}
+      {/* ---------- 4. The Engine Room & Safety — every card is a working
+           micro-demo, not a description ---------- */}
       <section className="relative z-10 mx-auto max-w-5xl px-6 py-20">
-        <div className="grid gap-4 lg:grid-cols-3" style={{ perspective: 1200 }}>
-          <motion.div
-            {...fadeUp}
-            className="glass flex flex-col justify-center rounded-2xl p-7 lg:row-span-2"
-          >
-            <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
-              Enterprise speed. <span className="prism-text">Zero compromises.</span>
-            </h2>
-            <p className="mt-3 text-sm text-muted-foreground">
-              Powered by Fireworks AI on AMD Instinct GPUs. Guarded by strict SSRF protection and
-              zero-retention architecture.
-            </p>
-          </motion.div>
-
-          {BENTO.map(({ key, icon: Icon, title, body, span }, i) => (
-            <motion.div
-              key={key}
-              initial={{ opacity: 0, y: 24 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-80px" }}
-              transition={{ duration: 0.5, delay: i * 0.08, ease: "easeOut" }}
-              whileHover={{ scale: 1.02, rotateX: 2, rotateY: 2 }}
-              style={{ transformStyle: "preserve-3d" }}
-              className={cn("glass rounded-2xl p-6 text-left", span)}
-            >
-              <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <Icon size={19} />
-              </div>
-              <h3 className="font-semibold">{title}</h3>
-              <p className="mt-1.5 text-sm text-muted-foreground">{body}</p>
-            </motion.div>
-          ))}
-        </div>
+        <motion.div {...fadeUp} className="mx-auto mb-12 max-w-xl text-center">
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+            Enterprise speed. <span className="prism-text">Zero compromises.</span>
+          </h2>
+          <p className="mt-3 text-muted-foreground">
+            Don&apos;t take our word for it — these cards are live. Click around.
+          </p>
+        </motion.div>
+        <InteractiveBento />
       </section>
 
       {/* ---------- Pricing ---------- */}

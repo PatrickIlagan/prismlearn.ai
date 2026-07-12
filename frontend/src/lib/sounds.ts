@@ -66,12 +66,16 @@ function pickVoice(): SpeechSynthesisVoice | null {
   return cachedVoice;
 }
 
-// Voices populate asynchronously in Chrome; refresh the cache when they arrive.
+// Voices populate asynchronously in Chrome; refresh the cache when they
+// arrive, and call getVoices() once eagerly — that first call is what kicks
+// off Chrome's async load, so doing it at module load (not first speak())
+// means voices are usually ready before Lumi's first reply.
 if (typeof window !== "undefined" && "speechSynthesis" in window) {
   window.speechSynthesis.onvoiceschanged = () => {
     cachedVoice = null;
     pickVoice();
   };
+  pickVoice();
 }
 
 /** Native Web Speech API TTS with natural-voice selection (PRD Doc 2 §3.3). */
@@ -87,8 +91,6 @@ export function speak(text: string, { onStart, onEnd }: SpeakCallbacks = {}) {
     .trim();
 
   const utterance = new SpeechSynthesisUtterance(spoken);
-  const voice = pickVoice();
-  if (voice) utterance.voice = voice;
   // Natural cadence: default pitch, a touch slower than 1.0 reads as calmer.
   utterance.rate = 0.98;
   utterance.pitch = 1.0;
@@ -97,7 +99,30 @@ export function speak(text: string, { onStart, onEnd }: SpeakCallbacks = {}) {
     utterance.onend = onEnd;
     utterance.onerror = onEnd;
   }
-  window.speechSynthesis.speak(utterance);
+
+  const voice = pickVoice();
+  if (voice) {
+    utterance.voice = voice;
+    window.speechSynthesis.speak(utterance);
+    return;
+  }
+
+  // Chrome populates getVoices() asynchronously. When speak() fires before
+  // that (instant replies — demo mode's mock tutor, cached reviewers), the
+  // utterance would go out with the robotic platform-default voice, which is
+  // why demo mode "sounded different." Wait briefly for voiceschanged and
+  // speak with the natural voice; fall back to default only if voices truly
+  // never arrive (some browsers never fire the event).
+  let spoke = false;
+  const speakNow = () => {
+    if (spoke) return;
+    spoke = true;
+    const late = pickVoice();
+    if (late) utterance.voice = late;
+    window.speechSynthesis.speak(utterance);
+  };
+  window.speechSynthesis.addEventListener("voiceschanged", speakNow, { once: true });
+  setTimeout(speakNow, 750);
 }
 
 export function stopSpeaking() {
