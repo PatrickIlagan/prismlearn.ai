@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, Crosshair, Gamepad2, ListOrdered, Search, Unlock } from "lucide-react";
 import { isDemoMode } from "@/lib/demoMode";
+import { boldTerms, extractOrderedSteps } from "@/lib/canvas";
 import { useWorkspaceStore } from "@/store/useWorkspaceStore";
 import { cn } from "@/lib/utils";
 
@@ -11,22 +12,25 @@ import { cn } from "@/lib/utils";
  * Demo-mode-only "Judge controls": force-triggers each mini-game type on
  * demand so a reviewer can see the whole game engine in seconds instead of
  * reaching each game organically through tutoring. Renders nothing outside
- * demo mode — a signed-in student never sees it.
+ * demo mode — a signed-in student never sees it. Bottom-LEFT and collapsed by
+ * default: bottom-right overlapped the chat composer in live testing.
  *
- * Cloze and spot-the-lie self-generate their payloads from the block text;
- * reorder gets the curriculum's chapter titles as its steps, and hotspot
- * targets a real node label parsed out of the chapter's Mermaid diagram.
+ * Cloze gets the document's concept pool for its dropdowns; spot-the-lie
+ * corrupts a real sentence client-side; reorder only appears when a chapter
+ * has a genuine numbered step list (the game replaces that block, hiding the
+ * answer); hotspot targets a real node label from a Mermaid diagram.
  */
 
 const EMPTY: never[] = [];
 
 export function JudgePanel() {
   const [demo, setDemo] = useState(false);
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
 
   const chapters = useWorkspaceStore((s) => s.chapters ?? EMPTY);
   const mutateBlockToGame = useWorkspaceStore((s) => s.mutateBlockToGame);
+  const spawnPracticeGames = useWorkspaceStore((s) => s.spawnPracticeGames);
   const unlockAllChapters = useWorkspaceStore((s) => s.unlockAllChapters);
 
   useEffect(() => {
@@ -52,8 +56,14 @@ export function JudgePanel() {
   if (!demo || chapters.length === 0) return null;
 
   const firstAnchor = chapters[0].anchorId;
-  // Strip the "3." numbering — with it, the reorder steps ARE the answer key.
-  const chapterTitles = chapters.map((c) => c.title.replace(/^\s*\d+[.)]\s*/, ""));
+  // Document-wide concept pool for cloze dropdowns (same as practice mode).
+  const conceptPool = chapters.flatMap((c) =>
+    c.blocks.flatMap((b) => (b.kind === "text" ? boldTerms(b.markdown) : [])),
+  );
+  // Reorder only exists where a chapter has a real numbered step list.
+  const orderChapter = chapters.find((c) =>
+    c.blocks.some((b) => b.kind === "text" && extractOrderedSteps(b.markdown).length > 0),
+  );
 
   function flash(message: string) {
     setHint(message);
@@ -65,8 +75,8 @@ export function JudgePanel() {
       label: "Cloze",
       icon: Gamepad2,
       run: () => {
-        mutateBlockToGame(firstAnchor, "cloze");
-        flash("Fill in the blanked-out terms in the highlighted block.");
+        mutateBlockToGame(firstAnchor, "cloze", { choices: conceptPool });
+        flash("Fill each blank from its dropdown of the document's key concepts.");
       },
     },
     {
@@ -74,19 +84,21 @@ export function JudgePanel() {
       icon: Search,
       run: () => {
         mutateBlockToGame(chapters[1]?.anchorId ?? firstAnchor, "spot_the_lie");
-        flash("One sentence in the highlighted block is false — click it.");
+        flash("One sentence in the highlighted block has been altered — click it.");
       },
     },
-    {
-      label: "Reorder",
-      icon: ListOrdered,
-      run: () => {
-        mutateBlockToGame(chapters[2]?.anchorId ?? firstAnchor, "order", {
-          steps: chapterTitles,
-        });
-        flash("Drag the curriculum steps back into order.");
-      },
-    },
+    ...(orderChapter
+      ? [
+          {
+            label: "Reorder",
+            icon: ListOrdered,
+            run: () => {
+              spawnPracticeGames([orderChapter.anchorId]);
+              flash("Drag the steps back into their real order.");
+            },
+          },
+        ]
+      : []),
     ...(hotspotTarget
       ? [
           {
@@ -113,7 +125,7 @@ export function JudgePanel() {
   ];
 
   return (
-    <div className="fixed bottom-16 right-4 z-[9997] w-56">
+    <div className="fixed bottom-4 left-4 z-[9997] hidden w-56 md:block">
       <div className="glass overflow-hidden rounded-2xl border border-violet-200 shadow-lg">
         <button
           type="button"

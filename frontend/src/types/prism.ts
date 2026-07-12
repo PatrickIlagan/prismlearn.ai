@@ -33,6 +33,10 @@ export type UiCommand =
 export interface GamePayload {
   /** cloze: exact words to blank out (defaults to the block's bold terms). */
   blanks?: string[];
+  /** cloze: distractor pool for the answer dropdowns. Frontend-only — practice
+   *  mode fills it with key concepts from across the whole document so a
+   *  concept blank gets concept choices, not stray adjectives. */
+  choices?: string[];
   /** spot_the_lie: the false sentence Lumi injects for the user to catch. */
   lie?: string;
   /** spot_the_lie: where to insert the lie among the real sentences. */

@@ -14,7 +14,7 @@ import type {
   StudyMode,
   TutorResponse,
 } from "@/types/prism";
-import { parseCanvas } from "@/lib/canvas";
+import { boldTerms, extractOrderedSteps, parseCanvas } from "@/lib/canvas";
 import { playDing } from "@/lib/sounds";
 import { addXp as profileAddXp, completeQuest, recordActivity } from "@/lib/profile";
 import { boostConcept } from "@/lib/mastery";
@@ -200,13 +200,15 @@ interface WorkspaceState {
   /** Reverts every still-active game block to plain text (completed ones are
    *  already gone). Used when Practice mode is toggled off. */
   clearBlockGames: () => void;
-  /** Practice mode's batch spawner: all games land in ONE state update with a
-   *  single scroll to the first one. Calling mutateBlockToGame in a loop
-   *  causes one re-render + one queued scroll-and-glow animation per chapter,
-   *  which both lags and thrashes the viewport. */
-  spawnPracticeGames: (
-    requests: { anchorId: string; gameType: BlockMode; payload?: GamePayload }[],
-  ) => void;
+  /** Practice mode's batch spawner: plans one game per given chapter and
+   *  lands them all in ONE state update with a single scroll to the first.
+   *  (Calling mutateBlockToGame in a loop causes one re-render + one queued
+   *  scroll-and-glow animation per chapter — lag + viewport thrash.)
+   *  Planning rules: a chapter whose block contains a real numbered step list
+   *  gets an order game ON that block (the game replaces the list, so the
+   *  answer isn't visible); otherwise cloze and spot-the-lie alternate, with
+   *  cloze handed a document-wide concept pool for its answer dropdowns. */
+  spawnPracticeGames: (anchorIds: string[]) => void;
 
   // --- Feature 1: ELI5 reading-level slider ---
   /** 0 Academic | 1 Standard | 2 ELI5 — the slider's current position. */
@@ -392,22 +394,42 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
   clearBlockGames: () => set({ blockGames: {} }),
 
-  spawnPracticeGames: (requests) => {
+  spawnPracticeGames: (anchorIds) => {
     const { chapters, blockGames } = get();
+    // Document-wide concept pool: bold terms from every chapter, so a cloze
+    // blank on a concept gets sibling concepts as its dropdown distractors.
+    const conceptPool = chapters.flatMap((c) =>
+      c.blocks.flatMap((b) => (b.kind === "text" ? boldTerms(b.markdown) : [])),
+    );
     const additions: Record<string, BlockGameState> = {};
-    for (const req of requests) {
-      const chapter = chapters.find((c) => c.anchorId === req.anchorId);
+    let alt = 0;
+    for (const anchorId of anchorIds) {
+      const chapter = chapters.find((c) => c.anchorId === anchorId);
       if (!chapter) continue;
+      const free = (id: string) => !blockGames[id] && !additions[id];
+      const listBlock = chapter.blocks.find(
+        (b) => b.kind === "text" && free(b.id) && extractOrderedSteps(b.markdown).length > 0,
+      );
+      if (listBlock) {
+        additions[listBlock.id] = {
+          mode: "order",
+          payload: { steps: extractOrderedSteps(listBlock.markdown) },
+        };
+        continue;
+      }
       const block = chapter.blocks.find(
-        (b) =>
-          b.kind === "text" && b.plain.length > 40 && !blockGames[b.id] && !additions[b.id],
+        (b) => b.kind === "text" && b.plain.length > 40 && free(b.id),
       );
       if (!block) continue;
-      additions[block.id] = { mode: req.gameType, payload: req.payload };
+      const mode: BlockMode = alt++ % 2 === 0 ? "cloze" : "spot_the_lie";
+      additions[block.id] = {
+        mode,
+        payload: mode === "cloze" ? { choices: conceptPool } : undefined,
+      };
     }
     if (Object.keys(additions).length === 0) return;
     set((s) => ({ blockGames: { ...s.blockGames, ...additions } }));
-    const first = requests[0]?.anchorId;
+    const first = anchorIds[0];
     if (first) setTimeout(() => get().requestScrollTo(first, "purple"), 200);
   },
 

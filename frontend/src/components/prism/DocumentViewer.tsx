@@ -8,7 +8,7 @@ import { Slider } from "@/components/ui/slider";
 import { COMPLEXITY_LABELS, type ComplexityLevel } from "@/lib/textComplexity";
 import { MermaidDiagram } from "./MermaidDiagram";
 import { InteractiveBlock } from "./InteractiveBlock";
-import type { BlockGameState, BlockMode, CanvasChapter } from "@/types/prism";
+import type { BlockGameState, CanvasChapter } from "@/types/prism";
 import { cn } from "@/lib/utils";
 
 /**
@@ -161,21 +161,12 @@ function ComplexityToolbar() {
 
 // ── Practice mode: turn the document into a game gauntlet on demand ─────────
 // The tutor still triggers games organically mid-lesson; this is the student-
-// initiated version — one game per unlocked chapter, type rotated, all through
-// the same game-completion path (XP and chapter mastery included). Exiting
-// reverts any un-played game blocks back to plain text.
-//
-// Deliberately NO hotspot here: that game's framing is "tap the node that
-// answers Lumi's question," which only makes sense when Lumi (or the judge
-// panel, which shows its own hint) actually posed one. Self-serve practice has
-// no question, so a hotspot would just be "guess the node" — confirmed
-// confusing in live testing.
-const PRACTICE_ROTATION: BlockMode[] = ["cloze", "spot_the_lie", "order"];
-
-/** Chapter titles come numbered ("3. Meiosis") — as reorder steps that IS the
- *  answer key, so strip the numbering and let the content do the work. */
-const stripNumbering = (title: string) => title.replace(/^\s*\d+[.)]\s*/, "");
-
+// initiated version — one game per unlocked chapter, all through the same
+// game-completion path (XP and chapter mastery included). Exiting reverts any
+// un-played game blocks back to plain text. Which game each chapter gets is
+// decided in the store (spawnPracticeGames): order only where the content has
+// a real numbered step list, otherwise cloze/spot-the-lie; never hotspot,
+// whose "answers Lumi's question" framing needs an actual question.
 function PracticeToggle() {
   const chapters = useWorkspaceStore((s) => s.chapters);
   const unlockedAnchors = useWorkspaceStore((s) => s.unlockedAnchors);
@@ -188,20 +179,9 @@ function PracticeToggle() {
   const active = on && activeGameCount > 0;
 
   function startPractice() {
-    const requests = chapters
-      .filter((ch) => unlockedAnchors.includes(ch.anchorId))
-      .map((ch, i) => {
-        const type = PRACTICE_ROTATION[i % PRACTICE_ROTATION.length];
-        return {
-          anchorId: ch.anchorId,
-          gameType: type,
-          payload:
-            type === "order"
-              ? { steps: chapters.map((c) => stripNumbering(c.title)) }
-              : undefined,
-        };
-      });
-    spawnPracticeGames(requests);
+    spawnPracticeGames(
+      chapters.filter((ch) => unlockedAnchors.includes(ch.anchorId)).map((ch) => ch.anchorId),
+    );
     setOn(true);
   }
 

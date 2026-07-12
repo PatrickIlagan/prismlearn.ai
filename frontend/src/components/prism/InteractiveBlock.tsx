@@ -218,13 +218,20 @@ function ClozeBlock({
     );
     return primary.length ? primary : usableBlanks(fallbackBlanks(block.plain));
   }, [payload, block.markdown, block.plain]);
-  // Choices per blank: the other blanks make natural distractors, topped up
-  // with the block's remaining distinctive words. Typing exact terms was too
-  // hard in live testing — a dropdown keeps it a recall check, not a spelling
-  // test.
+  // Choices per blank, best pool first: payload.choices (practice mode passes
+  // the document's key concepts, so a concept blank gets concept distractors),
+  // then the block's own terms, then distinctive words. Typing exact terms was
+  // too hard in live testing — a dropdown keeps it a recall check, not a
+  // spelling test.
   const choicePool = useMemo(
-    () => usableBlanks([...blanks, ...boldTerms(block.markdown), ...fallbackBlanks(block.plain)]),
-    [blanks, block.markdown, block.plain],
+    () =>
+      usableBlanks([
+        ...(payload?.choices ?? []),
+        ...blanks,
+        ...boldTerms(block.markdown),
+        ...fallbackBlanks(block.plain),
+      ]),
+    [payload?.choices, blanks, block.markdown, block.plain],
   );
   const parts = useMemo(() => buildClozeParts(block.plain, blanks), [block.plain, blanks]);
   const total = parts.filter((p) => p.type === "blank").length;
@@ -255,6 +262,7 @@ function ClozeBlock({
             <ClozeSelect
               key={i}
               answer={p.answer}
+              index={p.index}
               pool={choicePool}
               disabled={solved}
               onChange={(v) => update(p.index, v)}
@@ -268,11 +276,13 @@ function ClozeBlock({
 
 function ClozeSelect({
   answer,
+  index,
   pool,
   disabled,
   onChange,
 }: {
   answer: string;
+  index: number;
   pool: string[];
   disabled: boolean;
   onChange: (v: string) => void;
@@ -280,9 +290,14 @@ function ClozeSelect({
   const [val, setVal] = useState("");
   const correct = norm(val) === norm(answer);
   const options = useMemo(() => {
-    const distractors = pool.filter((p) => norm(p) !== norm(answer));
-    return seededShuffle([answer, ...distractors.slice(0, 3)], answer);
-  }, [answer, pool]);
+    // Seed by blank position too — repeated answers ("cell" ×4) would
+    // otherwise produce four identical dropdowns.
+    const distractors = seededShuffle(
+      pool.filter((p) => norm(p) !== norm(answer)),
+      `${answer}:${index}`,
+    ).slice(0, 3);
+    return seededShuffle([answer, ...distractors], `${answer}:${index}:order`);
+  }, [answer, index, pool]);
 
   return (
     <select
@@ -314,22 +329,52 @@ function ClozeSelect({
 }
 
 // ── spot the lie ──────────────────────────────────────────────────────────────
-// Fallback lies for when the trigger didn't supply one (practice mode). A pool
-// with varied openings, picked by block id — a single static "In fact, …"
-// sentence was instantly recognizable after one game in live testing.
-const LIE_POOL = [
-  "Experts agree this concept has no practical importance whatsoever.",
-  "None of these details actually matter for understanding the topic.",
-  "This works completely differently every single time it happens.",
-  "Recent studies have fully disproven the ideas described here.",
-  "Everything described here applies only in extremely rare edge cases.",
-  "The effect described here has never been observed outside of theory.",
+// When the trigger didn't supply a lie (practice mode), we don't inject a
+// generic third-person sentence ("Everything described here…" reads as
+// commentary about the paragraph, not part of it — a dead giveaway in live
+// testing). Instead we corrupt one of the block's OWN sentences in place with
+// a meaning-flipping swap, so the lie is written in the document's voice and
+// spotting it requires actually knowing the content.
+const LIE_SWAPS: [RegExp, string][] = [
+  [/\bidentical\b/i, "unrelated"],
+  [/\balways\b/i, "never"],
+  [/\bnever\b/i, "always"],
+  [/\bincreases?\b/i, "decreases"],
+  [/\bdecreases?\b/i, "increases"],
+  [/\bmore\b/i, "less"],
+  [/\bfaster\b/i, "slower"],
+  [/\bbefore\b/i, "after"],
+  [/\ball\b/i, "no"],
+  [/\btwo\b/i, "seven"],
+  [/\bproduces?\b/i, "eliminates"],
+  [/\bstores?\b/i, "discards"],
+  [/\brequires?\b/i, "forbids"],
+  [/\bcan\b(?!not)/i, "cannot"],
+  [/\bis\b(?! not)/i, "is not"],
+  [/\bare\b(?! not)/i, "are not"],
 ];
 
 function hashString(s: string): number {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
   return Math.abs(h);
+}
+
+/** Find a sentence a swap applies to (rotating the starting sentence by seed
+ *  so different blocks corrupt different spots) and flip its meaning. Swaps
+ *  are ordered most-specific first; the generic is/are negations at the end
+ *  guarantee nearly every real paragraph yields a corruption. */
+function corruptSentence(
+  sentences: string[],
+  seed: number,
+): { idx: number; lie: string } | null {
+  for (const [re, repl] of LIE_SWAPS) {
+    for (let k = 0; k < sentences.length; k++) {
+      const idx = (seed + k) % sentences.length;
+      if (re.test(sentences[idx])) return { idx, lie: sentences[idx].replace(re, repl) };
+    }
+  }
+  return null;
 }
 
 function SpotTheLieBlock({
@@ -343,18 +388,33 @@ function SpotTheLieBlock({
   onSolved: () => void;
   solved: boolean;
 }) {
-  const lie = payload?.lie ?? LIE_POOL[hashString(block.id) % LIE_POOL.length];
   const sentences = useMemo(() => {
     const real = splitSentences(block.plain);
-    // Insertion point varies per block too — always-the-middle was a tell.
-    const at = Math.min(
-      payload?.lie_index ?? hashString(`${block.id}-at`) % (real.length + 1),
-      real.length,
-    );
-    const withLie = [...real];
-    withLie.splice(at, 0, lie);
-    return withLie.map((text, i) => ({ text, isLie: text === lie, i }));
-  }, [block.plain, block.id, lie, payload?.lie_index]);
+    if (payload?.lie) {
+      // Tutor-authored lie: insert it where the model said.
+      const at = Math.min(payload.lie_index ?? Math.floor(real.length / 2), real.length);
+      const withLie = [...real];
+      withLie.splice(at, 0, payload.lie);
+      return withLie.map((text, i) => ({ text, isLie: i === at, i }));
+    }
+    // No authored lie (practice mode): corrupt one real sentence in place.
+    const corrupted = corruptSentence(real, hashString(block.id));
+    if (corrupted) {
+      return real.map((text, i) => ({
+        text: i === corrupted.idx ? corrupted.lie : text,
+        isLie: i === corrupted.idx,
+        i,
+      }));
+    }
+    // Nothing swappable (rare) — flag the last sentence as a doubled version
+    // of itself, which at least stays in the paragraph's own voice.
+    const lastIdx = real.length - 1;
+    return real.map((text, i) => ({
+      text: i === lastIdx ? `${text} This has since been proven false.` : text,
+      isLie: i === lastIdx,
+      i,
+    }));
+  }, [block.plain, block.id, payload?.lie, payload?.lie_index]);
 
   const [wrongPick, setWrongPick] = useState<number | null>(null);
 

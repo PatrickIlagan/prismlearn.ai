@@ -130,3 +130,20 @@ export function splitSentences(text: string): string[] {
     .map((s) => s.trim())
     .filter(Boolean);
 }
+
+/** Extract a block's numbered-list items as reorder-game steps: the leading
+ *  number is stripped (it IS the answer key) and each item is trimmed to its
+ *  first clause so the drag cards stay short. Returns [] unless the block has
+ *  a real ordered list — reorder is only a meaningful game on genuinely
+ *  sequential content, not on arbitrary prose or the chapter list (which the
+ *  sidebar displays, making it copyable). */
+export function extractOrderedSteps(markdown: string): string[] {
+  const items = Array.from(markdown.matchAll(/^\s*\d+[.)]\s+(.+)$/gm), (m) =>
+    m[1]
+      .replace(/\*\*/g, "")
+      .split(/\s+[–—-]\s+/)[0]
+      .trim(),
+  ).filter(Boolean);
+  const unique = Array.from(new Set(items));
+  return unique.length >= 3 ? unique : [];
+}

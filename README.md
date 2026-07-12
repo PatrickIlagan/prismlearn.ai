@@ -104,6 +104,19 @@ and the zero-token demo seam ([`frontend/src/lib/api.ts`](frontend/src/lib/api.t
 
 ---
 
+## Track 3 (Unicorn) pre-screening — at a glance
+
+| Screener check | Where to find it |
+|----------------|------------------|
+| **AMD / Fireworks / compute usage** | Badges + the **"AMD compute usage"** paragraph at the very top: 100% of generation runs on `gpt-oss-120b` via **Fireworks AI on AMD Instinct™ GPUs**. Stated again, unauthenticated, in the live site's landing footer. Client: [`backend/app/services/fireworks.py`](backend/app/services/fireworks.py) (OpenAI SDK → Fireworks base URL). |
+| **Clear README** | This file — what it is (§1), architecture diagram (§3), feature status (§5). |
+| **Runnable project** | Setup in §6: `cd frontend && npm install && npm run dev` runs the whole UI on mock data with **zero keys** (`http://localhost:3000`); full live-AI path and `docker compose up` also documented. |
+| **Original work** | Built for this hackathon; the agentic in-document game engine, demo seam, and reviewer pipeline are all bespoke. Personal note: [`documentation/08_AuthorsNote.md`](documentation/08_AuthorsNote.md). |
+| **Easy-to-find implementation** | Repo map (§4); the code-location list directly above; the agentic loop walked step-by-step in §3. |
+| **External services documented** | Fireworks AI (inference), Supabase (Postgres + RLS), Clerk (auth) — all in the tech stack (§2) with exact env vars in §6 and [`backend/.env.example`](backend/.env.example). |
+
+---
+
 ## 1. What it is
 
 PrismLearning.AI follows a **NotebookLM-style closed-loop** model: every AI response is
@@ -212,6 +225,18 @@ Legend: ✅ built & verified · 🟡 built, credential-gated (untestable without
 - ✅ 3-pane resizable glassmorphic workspace (sidebar accordion · document · Lumi chat)
 - ✅ `DocumentViewer` — markdown + anchored spans + interactive Mermaid diagrams
 - ✅ **Agentic UI pipeline** — scroll-to-concept, purple/mint glow, stepper, flashcard spawn, dopamine ding
+- ✅ **In-document mini-games** — the signature interaction: a block of the reviewer itself
+  *mutates* into a game rather than the tutor quizzing you in a side panel. Four types
+  (`InteractiveBlock.tsx` + `MermaidDiagram.tsx` for hotspot): **cloze** (fill blanks via
+  dropdowns of the document's key concepts), **spot-the-lie** (one real sentence is
+  corrupted in place with a meaning-flip — in the document's own voice), **reorder** (drag a
+  chapter's numbered step list back into sequence — only offered where such a list exists),
+  and **diagram hotspot** (click the right node in a Mermaid diagram). Reached three ways:
+  Lumi triggers them organically mid-lesson, the student-facing **Practice** toggle in the
+  document toolbar turns every unlocked chapter into a game at once, and (demo mode only) a
+  bottom-left **Judge controls** panel force-triggers any one. All share one
+  `mutateBlockToGame`/`completeBlockGame` path, so XP, level-ups, and chapter mastery count
+  identically however a game was reached.
 - ✅ Lumi chat with the DataCamp-style progress stepper, **voice input** (Web Speech API mic)
 - ✅ Adaptive reading-level slider — live ELI5/technical rewrite of the current chapter
 - ✅ Learn / Review study modes, set per document at upload or flipped later
