@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Lock, GraduationCap, Baby } from "lucide-react";
+import { Lock, GraduationCap, Baby, Gamepad2 } from "lucide-react";
 import { useWorkspaceStore } from "@/store/useWorkspaceStore";
 import { Slider } from "@/components/ui/slider";
 import { COMPLEXITY_LABELS, type ComplexityLevel } from "@/lib/textComplexity";
 import { MermaidDiagram } from "./MermaidDiagram";
 import { InteractiveBlock } from "./InteractiveBlock";
-import type { BlockGameState, CanvasChapter } from "@/types/prism";
+import type { BlockGameState, BlockMode, CanvasChapter } from "@/types/prism";
 import { cn } from "@/lib/utils";
 
 /**
@@ -146,13 +146,88 @@ function ComplexityToolbar() {
         <Icon size={14} />
         {COMPLEXITY_LABELS[textComplexity]}
       </span>
-      {pendingCount > 0 && (
-        <span className="ml-auto flex shrink-0 items-center gap-1.5 text-[11px] text-muted-foreground">
-          <span className="h-3 w-3 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
-          Rewriting…
-        </span>
-      )}
+      <div className="ml-auto flex shrink-0 items-center gap-3">
+        {pendingCount > 0 && (
+          <span className="flex shrink-0 items-center gap-1.5 text-[11px] text-muted-foreground">
+            <span className="h-3 w-3 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
+            Rewriting…
+          </span>
+        )}
+        <PracticeToggle />
+      </div>
     </div>
+  );
+}
+
+// ── Practice mode: turn the document into a game gauntlet on demand ─────────
+// The tutor still triggers games organically mid-lesson; this is the student-
+// initiated version — one game per unlocked chapter, type rotated (hotspot
+// where the chapter has a diagram), all through the same mutateBlockToGame /
+// completeBlockGame path (XP and chapter mastery included). Exiting reverts
+// any un-played game blocks back to plain text.
+const PRACTICE_ROTATION: BlockMode[] = ["cloze", "spot_the_lie", "order"];
+
+function PracticeToggle() {
+  const chapters = useWorkspaceStore((s) => s.chapters);
+  const unlockedAnchors = useWorkspaceStore((s) => s.unlockedAnchors);
+  const activeGameCount = useWorkspaceStore((s) => Object.keys(s.blockGames).length);
+  const mutateBlockToGame = useWorkspaceStore((s) => s.mutateBlockToGame);
+  const clearBlockGames = useWorkspaceStore((s) => s.clearBlockGames);
+  const [on, setOn] = useState(false);
+
+  // Solving every practice game ends the session naturally.
+  const active = on && activeGameCount > 0;
+
+  function startPractice() {
+    let i = 0;
+    chapters.forEach((ch) => {
+      if (!unlockedAnchors.includes(ch.anchorId)) return;
+      const mermaid = ch.blocks.find((b) => b.kind === "mermaid");
+      if (mermaid) {
+        const labels = Array.from(mermaid.markdown.matchAll(/\[([^\][]+)\]/g), (m) =>
+          m[1].trim(),
+        );
+        if (labels.length) {
+          mutateBlockToGame(ch.anchorId, "hotspot", { target: labels[1] ?? labels[0] });
+          return;
+        }
+      }
+      const type = PRACTICE_ROTATION[i++ % PRACTICE_ROTATION.length];
+      mutateBlockToGame(
+        ch.anchorId,
+        type,
+        type === "order" ? { steps: chapters.map((c) => c.title) } : undefined,
+      );
+    });
+    setOn(true);
+  }
+
+  function exitPractice() {
+    clearBlockGames();
+    setOn(false);
+  }
+
+  if (chapters.length === 0) return null;
+
+  return (
+    <button
+      type="button"
+      onClick={active ? exitPractice : startPractice}
+      title={
+        active
+          ? "Revert remaining games back to reading"
+          : "Turn every unlocked chapter into a mini-game"
+      }
+      className={cn(
+        "flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition",
+        active
+          ? "bg-primary text-white shadow-md shadow-violet-500/25"
+          : "bg-primary/10 text-primary hover:bg-primary/20",
+      )}
+    >
+      <Gamepad2 size={13} />
+      {active ? "Exit practice" : "Practice"}
+    </button>
   );
 }
 

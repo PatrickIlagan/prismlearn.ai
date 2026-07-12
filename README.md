@@ -71,7 +71,9 @@ Two ways to try it, both on the live site:
    sentence is false — click it), **Reorder** (drag the curriculum back into sequence),
    **Hotspot** (click the named organelle in the live Mermaid diagram), and **Unlock all**
    (lifts the fog of war). Completing any of them pays out XP and can level you up —
-   same code path a real student hits.
+   same code path a real student hits. There's also a student-facing version: the
+   **Practice** toggle in the document toolbar turns every unlocked chapter into a
+   mini-game gauntlet at once (and "Exit practice" reverts un-played blocks to reading).
 5. The floating badge's **Exit** returns you to the landing page.
 
 **Part B — the real thing, live AI (≈3 min):**

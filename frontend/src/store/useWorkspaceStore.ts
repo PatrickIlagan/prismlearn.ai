@@ -197,6 +197,9 @@ interface WorkspaceState {
   unlockAllChapters: () => void;
   mutateBlockToGame: (anchorId: string, gameType: BlockMode, payload?: GamePayload) => void;
   completeBlockGame: (blockId: string) => void;
+  /** Reverts every still-active game block to plain text (completed ones are
+   *  already gone). Used when Practice mode is toggled off. */
+  clearBlockGames: () => void;
 
   // --- Feature 1: ELI5 reading-level slider ---
   /** 0 Academic | 1 Standard | 2 ELI5 — the slider's current position. */
@@ -379,6 +382,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     }));
     setTimeout(() => get().requestScrollTo(anchorId, "purple"), 200);
   },
+
+  clearBlockGames: () => set({ blockGames: {} }),
 
   completeBlockGame: (blockId) => {
     const { chapters, completedChapters, completedBlocks } = get();
