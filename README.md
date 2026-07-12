@@ -50,6 +50,51 @@ Two ways to try it, both on the live site:
 
 ---
 
+## Judging? Here's the 5-minute walkthrough
+
+**Part A — instant demo, no account (≈2 min):**
+
+1. Open [the live site](https://prismlearn-ai-steel.vercel.app). The landing page already
+   demos the product: the hero plays a live lesson on loop, and every card in the
+   "Enterprise speed" bento is a working micro-demo — flip the Gemma flashcard, click
+   **Answer correctly** until you level up, watch the SSRF scanner block `169.254.169.254`.
+2. Click **"Try the demo — no account"**. You land on a real dashboard with sample
+   workspaces (this path makes zero backend/AI calls, so it's instant).
+3. Open **Biology 101 → Resume Tutor**. This is the signature screen: chapter rail left,
+   the living document center, Lumi right. Say *"let's start"* — watch Lumi **scroll and
+   highlight the document itself** (the Agentic JSON pipeline: the model returns UI
+   commands, not just text), advance the stepper, and award XP on a correct answer.
+   Notice later chapters are **blurred behind fog-of-war** until you earn them.
+4. The floating badge's **Exit** returns you to the landing page.
+
+**Part B — the real thing, live AI (≈3 min):**
+
+5. **Sign up** (free, no card). From the dashboard, **upload any PDF or paste a link** —
+   real `gpt-oss-120b` on Fireworks AI (running on AMD Instinct™ GPUs) builds a chaptered
+   reviewer with Mermaid diagrams in a few seconds, persisted to your account.
+6. In the tutor, answer a couple of questions — blocks mutate into **mini-games** (cloze,
+   spot-the-lie, drag-to-reorder, diagram hotspots); mastering a chapter's first game
+   triggers a **boss battle**. Try the mic (voice input), the ELI5 slider, and
+   **✨ Generate Flashcards** in the sidebar (this is the call that tries **Gemma 3 27B
+   first**, then falls back to gpt-oss-120b — `run_flashcard_generation` in
+   [`backend/app/services/fireworks.py`](backend/app/services/fireworks.py)).
+7. Check **Dashboard → Analytics** for real per-concept mastery, and **Settings → AI
+   Models** for the full model lineup incl. the Gemma 4 / AMD Developer Cloud Enterprise
+   toggle.
+
+*One caveat: the backend rides Render's free tier. If your very first live-AI action after
+a quiet period hangs for ~30s, that's the container waking up — a banner will say so and
+the app retries automatically; everything after is sub-second.*
+
+Where the hackathon-relevant code lives: Gemma-first flashcards
+([`fireworks.py`](backend/app/services/fireworks.py)), the Gemma 4 on AMD runbook
+([`documentation/07_AMDGemmaDeployment.md`](documentation/07_AMDGemmaDeployment.md)), the
+agentic tutor contract ([`documentation/03_SystemPrompts.md`](documentation/03_SystemPrompts.md)),
+and the zero-token demo seam ([`frontend/src/lib/api.ts`](frontend/src/lib/api.ts) +
+[`frontend/src/lib/demoMode.ts`](frontend/src/lib/demoMode.ts)).
+
+---
+
 ## 1. What it is
 
 PrismLearning.AI follows a **NotebookLM-style closed-loop** model: every AI response is
