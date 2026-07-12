@@ -7,7 +7,7 @@ import { useWakeupStore } from "@/store/useWakeupStore";
 /** How long the waking banner stays up once shown, even if the request
  *  resolves sooner. A banner that blinks in and out for a fraction of a
  *  second reads as a glitch; holding it briefly reads as information. */
-const MIN_VISIBLE_MS = 5000;
+const MIN_VISIBLE_MS = 8000;
 
 /** Global overlay driven by fetchWithRetry (lib/api.ts). Render's free-tier
  *  backend can take up to ~30-60s to wake from a cold sleep — without this,

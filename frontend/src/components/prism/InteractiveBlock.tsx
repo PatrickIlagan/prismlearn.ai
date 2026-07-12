@@ -136,6 +136,46 @@ function ReadBlock({ block }: { block: CanvasBlock }) {
 // ── cloze (fill the blank) ────────────────────────────────────────────────────
 type ClozePart = { type: "text"; value: string } | { type: "blank"; answer: string; index: number };
 
+// A blank must be a term, not a passage — live docs surfaced blocks whose only
+// bold span was a full sentence, producing one giant context-free blank.
+const MAX_BLANK_CHARS = 36;
+const MAX_BLANK_WORDS = 4;
+
+function usableBlanks(candidates: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const c of candidates) {
+    const t = c.trim();
+    if (!t || t.length > MAX_BLANK_CHARS || t.split(/\s+/).length > MAX_BLANK_WORDS) continue;
+    const key = norm(t);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(t);
+  }
+  return out;
+}
+
+/** When a block has no usable bold terms, blank its most distinctive words
+ *  instead of giving up (or worse, blanking the whole block). */
+function fallbackBlanks(plain: string): string[] {
+  const words = Array.from(new Set(plain.match(/[A-Za-z][A-Za-z-]{6,}/g) ?? []));
+  return words.sort((a, b) => b.length - a.length).slice(0, 2);
+}
+
+/** Deterministic shuffle (FNV-ish hash walk) so each blank's options keep a
+ *  stable order across re-renders instead of jumping around. */
+function seededShuffle<T>(arr: T[], seed: string): T[] {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) h = Math.imul(h ^ seed.charCodeAt(i), 16777619);
+  const out = [...arr];
+  for (let i = out.length - 1; i > 0; i--) {
+    h = Math.imul(h ^ (h >>> 13), 0x5bd1e995);
+    const j = Math.abs(h) % (i + 1);
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
 function buildClozeParts(text: string, blanks: string[]): ClozePart[] {
   const parts: ClozePart[] = [];
   let remaining = text;
@@ -172,9 +212,19 @@ function ClozeBlock({
   onSolved: () => void;
   solved: boolean;
 }) {
-  const blanks = useMemo(
-    () => (payload?.blanks?.length ? payload.blanks : boldTerms(block.markdown)),
-    [payload, block.markdown],
+  const blanks = useMemo(() => {
+    const primary = usableBlanks(
+      payload?.blanks?.length ? payload.blanks : boldTerms(block.markdown),
+    );
+    return primary.length ? primary : usableBlanks(fallbackBlanks(block.plain));
+  }, [payload, block.markdown, block.plain]);
+  // Choices per blank: the other blanks make natural distractors, topped up
+  // with the block's remaining distinctive words. Typing exact terms was too
+  // hard in live testing — a dropdown keeps it a recall check, not a spelling
+  // test.
+  const choicePool = useMemo(
+    () => usableBlanks([...blanks, ...boldTerms(block.markdown), ...fallbackBlanks(block.plain)]),
+    [blanks, block.markdown, block.plain],
   );
   const parts = useMemo(() => buildClozeParts(block.plain, blanks), [block.plain, blanks]);
   const total = parts.filter((p) => p.type === "blank").length;
@@ -202,9 +252,10 @@ function ClozeBlock({
           p.type === "text" ? (
             <span key={i}>{p.value}</span>
           ) : (
-            <ClozeInput
+            <ClozeSelect
               key={i}
               answer={p.answer}
+              pool={choicePool}
               disabled={solved}
               onChange={(v) => update(p.index, v)}
             />
@@ -215,40 +266,72 @@ function ClozeBlock({
   );
 }
 
-function ClozeInput({
+function ClozeSelect({
   answer,
+  pool,
   disabled,
   onChange,
 }: {
   answer: string;
+  pool: string[];
   disabled: boolean;
   onChange: (v: string) => void;
 }) {
   const [val, setVal] = useState("");
   const correct = norm(val) === norm(answer);
+  const options = useMemo(() => {
+    const distractors = pool.filter((p) => norm(p) !== norm(answer));
+    return seededShuffle([answer, ...distractors.slice(0, 3)], answer);
+  }, [answer, pool]);
+
   return (
-    <input
+    <select
       value={val}
       disabled={disabled}
       onChange={(e) => {
         setVal(e.target.value);
         onChange(e.target.value);
       }}
-      placeholder="…"
-      style={{ width: `${Math.max(answer.length, 4) * 0.72 + 1.5}em` }}
       className={cn(
-        "mx-0.5 inline-block rounded-md border-b-2 bg-white/70 px-1.5 py-0.5 text-center text-base outline-none transition-colors",
+        "mx-0.5 inline-block max-w-[220px] cursor-pointer rounded-md border-b-2 bg-white/70 px-1.5 py-0.5 text-center text-base outline-none transition-colors",
         val.length === 0
-          ? "border-violet-400"
+          ? "border-violet-400 text-muted-foreground"
           : correct
             ? "border-emerald-500 text-emerald-700"
             : "border-amber-400",
       )}
-    />
+    >
+      <option value="" disabled>
+        choose…
+      </option>
+      {options.map((o) => (
+        <option key={o} value={o}>
+          {o}
+        </option>
+      ))}
+    </select>
   );
 }
 
 // ── spot the lie ──────────────────────────────────────────────────────────────
+// Fallback lies for when the trigger didn't supply one (practice mode). A pool
+// with varied openings, picked by block id — a single static "In fact, …"
+// sentence was instantly recognizable after one game in live testing.
+const LIE_POOL = [
+  "Experts agree this concept has no practical importance whatsoever.",
+  "None of these details actually matter for understanding the topic.",
+  "This works completely differently every single time it happens.",
+  "Recent studies have fully disproven the ideas described here.",
+  "Everything described here applies only in extremely rare edge cases.",
+  "The effect described here has never been observed outside of theory.",
+];
+
+function hashString(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return Math.abs(h);
+}
+
 function SpotTheLieBlock({
   block,
   payload,
@@ -260,14 +343,18 @@ function SpotTheLieBlock({
   onSolved: () => void;
   solved: boolean;
 }) {
-  const lie = payload?.lie ?? "In fact, this process happens entirely at random with no real structure.";
+  const lie = payload?.lie ?? LIE_POOL[hashString(block.id) % LIE_POOL.length];
   const sentences = useMemo(() => {
     const real = splitSentences(block.plain);
-    const at = Math.min(payload?.lie_index ?? Math.floor(real.length / 2), real.length);
+    // Insertion point varies per block too — always-the-middle was a tell.
+    const at = Math.min(
+      payload?.lie_index ?? hashString(`${block.id}-at`) % (real.length + 1),
+      real.length,
+    );
     const withLie = [...real];
     withLie.splice(at, 0, lie);
     return withLie.map((text, i) => ({ text, isLie: text === lie, i }));
-  }, [block.plain, lie, payload?.lie_index]);
+  }, [block.plain, block.id, lie, payload?.lie_index]);
 
   const [wrongPick, setWrongPick] = useState<number | null>(null);
 

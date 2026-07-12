@@ -172,6 +172,10 @@ function ComplexityToolbar() {
 // confusing in live testing.
 const PRACTICE_ROTATION: BlockMode[] = ["cloze", "spot_the_lie", "order"];
 
+/** Chapter titles come numbered ("3. Meiosis") — as reorder steps that IS the
+ *  answer key, so strip the numbering and let the content do the work. */
+const stripNumbering = (title: string) => title.replace(/^\s*\d+[.)]\s*/, "");
+
 function PracticeToggle() {
   const chapters = useWorkspaceStore((s) => s.chapters);
   const unlockedAnchors = useWorkspaceStore((s) => s.unlockedAnchors);
@@ -191,7 +195,10 @@ function PracticeToggle() {
         return {
           anchorId: ch.anchorId,
           gameType: type,
-          payload: type === "order" ? { steps: chapters.map((c) => c.title) } : undefined,
+          payload:
+            type === "order"
+              ? { steps: chapters.map((c) => stripNumbering(c.title)) }
+              : undefined,
         };
       });
     spawnPracticeGames(requests);

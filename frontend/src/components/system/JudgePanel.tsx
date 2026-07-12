@@ -52,7 +52,8 @@ export function JudgePanel() {
   if (!demo || chapters.length === 0) return null;
 
   const firstAnchor = chapters[0].anchorId;
-  const chapterTitles = chapters.map((c) => c.title);
+  // Strip the "3." numbering — with it, the reorder steps ARE the answer key.
+  const chapterTitles = chapters.map((c) => c.title.replace(/^\s*\d+[.)]\s*/, ""));
 
   function flash(message: string) {
     setHint(message);
