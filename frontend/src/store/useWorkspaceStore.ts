@@ -34,7 +34,61 @@ const MIN_SIMPLIFY_CHARS = 15;
  * it unlocks, so it's already cached by the time the student scrolls to
  * it). Only sends blocks not already cached at this level and not already
  * in flight — cheap to call repeatedly, it naturally no-ops once warm.
+ *
+ * Blocks are sent in SMALL CHUNKS, not one big request. A single batched
+ * model call was the root of two live bugs: on a cold start the one call
+ * failed silently (ELI5 "did nothing"), and a large batch made the model
+ * truncate its JSON so only some blocks came back ("applied to some"). Small
+ * chunks run concurrently, cache independently as each resolves, retry once
+ * on failure, and cap the blast radius of any single truncation.
  */
+const SIMPLIFY_CHUNK_SIZE = 3;
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function simplifyOneChunk(
+  chunk: CanvasBlock[],
+  level: ComplexityLevel,
+  workspaceId: string,
+  set: (fn: (s: WorkspaceState) => Partial<WorkspaceState>) => void,
+): Promise<void> {
+  set((s) => ({
+    simplifyingBlockIds: {
+      ...s.simplifyingBlockIds,
+      ...Object.fromEntries(chunk.map((b) => [b.id, true])),
+    },
+  }));
+  try {
+    let results: { id: string; text: string }[] = [];
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        results = await simplifyBlocks(
+          workspaceId,
+          chunk.map((b) => ({ id: b.id, text: b.plain })),
+          level === 1 ? "standard" : "eli5",
+        );
+        break;
+      } catch (err) {
+        if (attempt === 1) throw err;
+        await sleep(1200); // ride out a cold-start blip before giving up
+      }
+    }
+    set((s) => {
+      const complexity = { ...s.blockComplexity };
+      for (const r of results) complexity[r.id] = { level, text: r.text };
+      return { blockComplexity: complexity };
+    });
+  } catch {
+    // Non-fatal — a block with no cache entry at this level just falls back
+    // to the original text (see InteractiveBlock's ReadBlock).
+  } finally {
+    set((s) => {
+      const pending = { ...s.simplifyingBlockIds };
+      for (const b of chunk) delete pending[b.id];
+      return { simplifyingBlockIds: pending };
+    });
+  }
+}
+
 async function simplifyChapterBlocks(
   blocks: CanvasBlock[],
   level: ComplexityLevel,
@@ -53,34 +107,11 @@ async function simplifyChapterBlocks(
   );
   if (toSimplify.length === 0) return;
 
-  set((s) => ({
-    simplifyingBlockIds: {
-      ...s.simplifyingBlockIds,
-      ...Object.fromEntries(toSimplify.map((b) => [b.id, true])),
-    },
-  }));
-
-  try {
-    const results = await simplifyBlocks(
-      workspaceId,
-      toSimplify.map((b) => ({ id: b.id, text: b.plain })),
-      level === 1 ? "standard" : "eli5",
-    );
-    set((s) => {
-      const complexity = { ...s.blockComplexity };
-      for (const r of results) complexity[r.id] = { level, text: r.text };
-      return { blockComplexity: complexity };
-    });
-  } catch {
-    // Non-fatal — a block with no cache entry at this level just falls back
-    // to the original text (see InteractiveBlock's ReadBlock).
-  } finally {
-    set((s) => {
-      const pending = { ...s.simplifyingBlockIds };
-      for (const b of toSimplify) delete pending[b.id];
-      return { simplifyingBlockIds: pending };
-    });
+  const chunks: CanvasBlock[][] = [];
+  for (let i = 0; i < toSimplify.length; i += SIMPLIFY_CHUNK_SIZE) {
+    chunks.push(toSimplify.slice(i, i + SIMPLIFY_CHUNK_SIZE));
   }
+  await Promise.all(chunks.map((chunk) => simplifyOneChunk(chunk, level, workspaceId, set)));
 }
 
 /**

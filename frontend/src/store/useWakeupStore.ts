@@ -25,3 +25,25 @@ export const useWakeupStore = create<WakeupState>((set) => ({
   clearWaking: () => set((s) => ({ wakingCount: Math.max(0, s.wakingCount - 1) })),
   setFailed: (failed) => set({ failed, wakingCount: 0 }),
 }));
+
+// ── One-shot arming ─────────────────────────────────────────────────────────
+// The cold-start banner is only worth showing at ONE moment: the first
+// authenticated backend load right after signing in / up, when Render's
+// free-tier container may still be waking. Left ungated it fired on every
+// slow fetch anywhere in the app. So the auth pages "arm" it on mount, and
+// the first fetchWithRetry to reach the backend consumes the arm — every
+// later load stays silent. sessionStorage (not the in-memory store) so the
+// flag survives the full-page redirect Clerk does after auth.
+const WAKE_ARM_KEY = "prism_wake_armed";
+
+export function armWakeup(): void {
+  if (typeof sessionStorage !== "undefined") sessionStorage.setItem(WAKE_ARM_KEY, "1");
+}
+
+export function disarmWakeup(): void {
+  if (typeof sessionStorage !== "undefined") sessionStorage.removeItem(WAKE_ARM_KEY);
+}
+
+export function isWakeupArmed(): boolean {
+  return typeof sessionStorage !== "undefined" && sessionStorage.getItem(WAKE_ARM_KEY) === "1";
+}

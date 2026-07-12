@@ -1,9 +1,11 @@
 "use client";
 
+import { useEffect } from "react";
 import { ClerkLoaded, ClerkLoading, SignIn, SignUp } from "@clerk/nextjs";
 import { motion } from "framer-motion";
 import { MascotLumi } from "@/components/prism/MascotLumi";
 import { FluidBlob } from "@/components/prism/FluidBlob";
+import { armWakeup } from "@/store/useWakeupStore";
 
 /**
  * Glassmorphic wrapper around Clerk's prebuilt <SignIn>/<SignUp>.
@@ -71,6 +73,13 @@ const clerkAppearance = {
 
 export function AuthCard({ mode }: { mode: "sign-in" | "sign-up" }) {
   const isSignUp = mode === "sign-up";
+
+  // Arm the cold-start banner for the one moment it's worth showing: the first
+  // authenticated backend load after this sign-in/up completes. The first such
+  // fetch consumes the arm, so it never fires on later navigations.
+  useEffect(() => {
+    armWakeup();
+  }, []);
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10">

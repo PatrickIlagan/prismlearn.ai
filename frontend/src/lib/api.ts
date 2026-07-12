@@ -9,7 +9,7 @@ import type {
   WorkspaceSummary,
 } from "@/types/prism";
 import { MOCK_INGEST, MOCK_QUIZ, MOCK_TUTOR_TURNS, MOCK_WORKSPACES } from "@/lib/mockData";
-import { useWakeupStore } from "@/store/useWakeupStore";
+import { useWakeupStore, isWakeupArmed, disarmWakeup } from "@/store/useWakeupStore";
 import { isDemoMode } from "@/lib/demoMode";
 
 /**
@@ -50,28 +50,37 @@ const WAKING_THRESHOLD_MS = 2500;
 
 async function fetchWithRetry(url: string, init: RequestInit, attempts = 6): Promise<Response> {
   const { markWaking, clearWaking, setFailed } = useWakeupStore.getState();
+  // Only the first authenticated load after sign-in/up is allowed to surface
+  // the banner (the auth pages arm it). Retries still happen regardless — only
+  // the user-facing "waking up" UI is gated, so normal slow loads stay quiet.
+  const armed = isWakeupArmed();
   let markedWaking = false;
-  const wakingTimer = setTimeout(() => {
-    markedWaking = true;
-    markWaking();
-  }, WAKING_THRESHOLD_MS);
+  const wakingTimer = armed
+    ? setTimeout(() => {
+        markedWaking = true;
+        markWaking();
+      }, WAKING_THRESHOLD_MS)
+    : undefined;
 
   try {
     let lastError: unknown;
     for (let i = 0; i < attempts; i++) {
       try {
         const res = await fetch(url, init);
-        if (res.ok || (res.status < 500 && res.status !== 0)) return res;
+        if (res.ok || (res.status < 500 && res.status !== 0)) {
+          if (armed && res.ok) disarmWakeup(); // consume: the backend is warm now
+          return res;
+        }
         lastError = new Error(`HTTP ${res.status}`);
       } catch (err) {
         lastError = err;
       }
       if (i < attempts - 1) await delay(Math.min(2000 * (i + 1), 8000));
     }
-    setFailed(true);
+    if (armed) setFailed(true);
     throw lastError instanceof Error ? lastError : new Error("Request failed after retries");
   } finally {
-    clearTimeout(wakingTimer);
+    if (wakingTimer) clearTimeout(wakingTimer);
     if (markedWaking) clearWaking();
   }
 }
@@ -657,10 +666,41 @@ export interface SimplifyBlockInput {
   text: string;
 }
 
-/** Real model call, batched (every block needing a rewrite goes in one
- *  request, not one round trip per paragraph). Mock mode returns blocks
- *  unchanged rather than faking a rewrite — showing correct-but-unsimplified
- *  text beats showing something that looks simplified but might be wrong. */
+// Client-side reading-level transform used ONLY in mock/demo mode (no backend
+// to call). A real deployment gets a genuine model rewrite; this is a cheap,
+// deterministic approximation so the slider visibly does something in the demo
+// rather than appearing broken. Standard strips markdown emphasis; ELI5 also
+// swaps a dictionary of heavy words for plain ones and adds a friendly lead-in.
+const ELI5_SWAPS: [RegExp, string][] = [
+  [/\butilize[sd]?\b/gi, "use"],
+  [/\bsubsequently\b/gi, "then"],
+  [/\bfacilitate[sd]?\b/gi, "help"],
+  [/\bfundamental\b/gi, "basic"],
+  [/\bstructural\b/gi, "building"],
+  [/\bfunctional\b/gi, "working"],
+  [/\bcoordinates?\b/gi, "runs"],
+  [/\bgenerate[sd]?\b/gi, "make"],
+  [/\bcomponents?\b/gi, "parts"],
+  [/\bapproximately\b/gi, "about"],
+  [/\bnumerous\b/gi, "many"],
+  [/\bdemonstrate[sd]?\b/gi, "show"],
+];
+
+function mockSimplify(text: string, level: "standard" | "eli5"): string {
+  let out = text.replace(/\*\*(.+?)\*\*/g, "$1").replace(/\*(.+?)\*/g, "$1");
+  if (level === "eli5") {
+    for (const [re, repl] of ELI5_SWAPS) out = out.replace(re, repl);
+    const first = out.split(/(?<=[.!?])\s+/)[0] ?? out;
+    out = `In simple terms: ${first.charAt(0).toLowerCase()}${first.slice(1)}${
+      out.length > first.length ? ` ${out.slice(first.length).trim()}` : ""
+    }`;
+  }
+  return out;
+}
+
+/** Real model call, batched (a small chunk of blocks per request — see
+ *  simplifyChapterBlocks). Mock mode does a lightweight deterministic
+ *  transform (mockSimplify) so the slider is demonstrable with no backend. */
 export async function simplifyBlocks(
   workspaceId: string,
   blocks: SimplifyBlockInput[],
@@ -668,8 +708,8 @@ export async function simplifyBlocks(
 ): Promise<SimplifyBlockInput[]> {
   if (blocks.length === 0) return [];
   if (isMockMode()) {
-    await delay(500);
-    return blocks;
+    await delay(450);
+    return blocks.map((b) => ({ id: b.id, text: mockSimplify(b.text, level) }));
   }
   const res = await fetch(`${API_URL}/workspaces/${workspaceId}/simplify`, {
     method: "POST",
