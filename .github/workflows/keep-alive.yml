@@ -15,4 +15,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ping backend health endpoint
-        run: curl -sf --max-time 30 https://prismlearn-backend.onrender.com/health
+        run: curl -sf --max-time 90 https://prismlearn-backend.onrender.com/health
