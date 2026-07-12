@@ -10,7 +10,7 @@ const FAQS = [
   },
   {
     q: "Do I need an account to try it?",
-    a: "No — hit \"try the interactive demo\" above and you're inside the full product with sample workspaces in one click. No sign-up, no credit card, and nothing you do in the demo is saved.",
+    a: "No — hit \"try the demo\" above and you're inside the product with sample workspaces in one click, no sign-up, no credit card. The demo runs on sample data and nothing is saved. The full app is live too: sign up free to upload your own documents, keep your progress, streaks, and mastery across sessions.",
   },
   {
     q: "What can I upload?",

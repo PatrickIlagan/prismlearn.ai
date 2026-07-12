@@ -23,8 +23,19 @@ export function DemoBadge() {
     <div className="fixed bottom-4 left-1/2 z-[9998] flex -translate-x-1/2 items-center gap-2.5 rounded-full border border-violet-200 bg-white/90 py-1.5 pl-4 pr-2 shadow-lg backdrop-blur">
       <FlaskConical size={14} className="shrink-0 text-primary" />
       <span className="whitespace-nowrap text-xs font-medium text-foreground/80">
-        Demo mode — sample data, nothing is saved
+        Demo — sample data. The real app is live:
       </span>
+      <button
+        type="button"
+        onClick={() => {
+          exitDemoMode();
+          setDemo(false);
+          router.push("/sign-up");
+        }}
+        className="whitespace-nowrap rounded-full bg-primary px-2.5 py-1 text-xs font-semibold text-white shadow-sm transition hover:opacity-90"
+      >
+        Sign up free
+      </button>
       <button
         type="button"
         onClick={() => {
@@ -33,6 +44,7 @@ export function DemoBadge() {
           router.push("/");
         }}
         className="flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary transition hover:bg-primary/20"
+        aria-label="Exit demo"
       >
         <X size={12} />
         Exit

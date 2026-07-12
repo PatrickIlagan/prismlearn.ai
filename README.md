@@ -35,8 +35,18 @@ Model Provider) that flips tutoring itself to **Google DeepMind's Gemma 4**, sel
 See [`documentation/07_AMDGemmaDeployment.md`](documentation/07_AMDGemmaDeployment.md) for
 the full breakdown of every Gemma integration point and its exact on/off switch.
 
-**Live demo:** [prismlearn-ai-steel.vercel.app](https://prismlearn-ai-steel.vercel.app) ·
+**Live site:** [prismlearn-ai-steel.vercel.app](https://prismlearn-ai-steel.vercel.app) ·
 backend at [prismlearn-backend.onrender.com](https://prismlearn-backend.onrender.com)
+
+Two ways to try it, both on the live site:
+
+- **Full product** — sign up free (Clerk auth, no credit card): upload your own PDFs, slide
+  decks, YouTube lectures, or links, and real `gpt-oss-120b` inference on Fireworks AI
+  teaches them to you, with progress, streaks, and mastery persisted to your account.
+- **One-click demo** — the "try the demo" button on the landing page drops you into the
+  full UI with sample workspaces, no account needed. It runs entirely on built-in sample
+  data (zero backend/AI calls), so it's instant and always up — but it's a sandbox: the
+  real, working app is the sign-up path above.
 
 ---
 
@@ -163,6 +173,11 @@ Legend: ✅ built & verified · 🟡 built, credential-gated (untestable without
 - ✅ Settings — study mode, TTS toggle, and an **AI Models** card listing all three models
   in play (gpt-oss-120b / Gemma 3 27B / Gemma 4) plus the Gemma 4 Enterprise toggle demo
 - ✅ Live dashboard grid (created workspaces appear first)
+- ✅ **One-click demo mode** — a `prism_demo` session cookie routes every API call to the
+  built-in sample-data layer (zero backend/AI calls, verified by network capture) and lets
+  signed-out visitors past auth; floating badge with Exit / Sign-up. The landing page itself
+  self-demos: an auto-playing live lesson in the hero + an interactive feature bento
+  (streaming-latency counter, flip-able Gemma flashcard, SSRF scanner, clickable XP bar)
 - ✅ Mobile single-pane view with bottom nav
 - ⬜ Onboarding spotlight tours · TTS pulse polish
 

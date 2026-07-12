@@ -363,26 +363,37 @@ function RetentionCard({ delay }: { delay: number }) {
   }, [deleted]);
 
   return (
-    <motion.div {...cardIn(delay)} className={card}>
-      <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-        <Trash2 size={19} />
-      </div>
-      <h3 className="font-semibold">Delete means delete</h3>
-      <div className="mt-3 min-h-[86px] rounded-xl border border-white/60 bg-white/50 p-3">
-        <AnimatePresence mode="wait" initial={false}>
+    <motion.div {...cardIn(delay)} className={cn(card, "lg:col-span-3")}>
+      <div className="grid items-center gap-6 sm:grid-cols-[1fr_320px]">
+        <div>
+          <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <Trash2 size={19} />
+          </div>
+          <h3 className="font-semibold">Delete means delete</h3>
+          <p className="mt-1.5 max-w-lg text-sm text-muted-foreground">
+            Your documents teach you — they don&apos;t train anyone&apos;s model. Raw files never
+            touch a storage bucket, inference is zero-retention, and removing a workspace takes
+            its content with it. Try the button.
+          </p>
+          <p className="mt-2.5 flex items-center gap-1 text-[11px] text-muted-foreground/70">
+            <RotateCcw size={10} /> resets in a moment — it&apos;s just a demo
+          </p>
+        </div>
+        <div className="min-h-[110px] rounded-xl border border-white/60 bg-white/50 p-3.5">
           {deleted ? (
             <motion.div
               key="gone"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="flex h-[62px] flex-col items-center justify-center gap-1 text-emerald-600"
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="flex h-[86px] flex-col items-center justify-center gap-1.5 text-emerald-600"
             >
-              <Check size={18} />
-              <span className="text-[11px] font-semibold">Nothing retained. Not even for training.</span>
+              <Check size={20} />
+              <span className="text-[11px] font-semibold">
+                Nothing retained. Not even for training.
+              </span>
             </motion.div>
           ) : (
-            <motion.div key="doc" exit={{ opacity: 0 }} className="space-y-1.5">
+            <motion.div key="doc" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-1.5">
               {[100, 92, 78, 60].map((w, i) => (
                 <motion.div
                   key={w}
@@ -396,17 +407,14 @@ function RetentionCard({ delay }: { delay: number }) {
               <button
                 type="button"
                 onClick={() => setDeleted(true)}
-                className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-rose-500/10 px-2.5 py-1 text-[11px] font-semibold text-rose-600 transition hover:bg-rose-500/20"
+                className="mt-2.5 inline-flex items-center gap-1.5 rounded-full bg-rose-500/10 px-2.5 py-1 text-[11px] font-semibold text-rose-600 transition hover:bg-rose-500/20"
               >
                 <Trash2 size={11} /> Delete workspace
               </button>
             </motion.div>
           )}
-        </AnimatePresence>
+        </div>
       </div>
-      <p className="mt-2.5 flex items-center gap-1 text-[11px] text-muted-foreground">
-        <RotateCcw size={10} /> resets in a moment — it&apos;s just a demo
-      </p>
     </motion.div>
   );
 }
