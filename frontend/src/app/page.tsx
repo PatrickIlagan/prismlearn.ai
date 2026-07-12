@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   ArrowRight,
@@ -11,11 +12,18 @@ import {
   BrainCircuit,
   ShieldCheck,
   BookOpen,
+  Play,
+  Trophy,
 } from "lucide-react";
+import { enterDemoMode } from "@/lib/demoMode";
 import { Button } from "@/components/ui/button";
 import { MascotLumi } from "@/components/prism/MascotLumi";
 import { FluidBlob } from "@/components/prism/FluidBlob";
 import { HeroPrompt } from "@/components/landing/HeroPrompt";
+import { ProcessShowcase } from "@/components/landing/ProcessShowcase";
+import { WorkspacePreview } from "@/components/landing/WorkspacePreview";
+import { PricingSection } from "@/components/landing/PricingSection";
+import { FaqSection } from "@/components/landing/FaqSection";
 import { RANKS } from "@/lib/rank";
 import { cn } from "@/lib/utils";
 
@@ -52,8 +60,8 @@ const BENTO = [
     key: "latency",
     icon: Zap,
     title: "Sub-second latency",
-    body: "Tutor replies land in about a second, ingestion in a few — all served by Fireworks AI, running on AMD Instinct GPUs. No local generation, no other provider.",
-    span: "lg:col-span-2",
+    body: "Tutor replies land in about a second, ingestion in a few — OpenAI's open-weight gpt-oss-120b, served by Fireworks AI on AMD Instinct GPUs.",
+    span: "",
   },
   {
     key: "rag",
@@ -63,15 +71,51 @@ const BENTO = [
     span: "",
   },
   {
+    key: "gemma",
+    icon: Sparkles,
+    title: "Gemma 3 27B flashcards",
+    body: "Flashcard generation tries Google DeepMind's Gemma 3 27B first on every request, with an automatic fallback to gpt-oss-120b — a real code path, not a config flag.",
+    span: "",
+  },
+  {
     key: "ssrf",
     icon: ShieldCheck,
     title: "SSRF-guarded web ingestion",
-    body: "Pasting a website link resolves and validates the host before fetching — private, loopback, and link-local addresses are rejected, re-checked on every redirect hop, not just the original URL.",
+    body: "Pasting a link resolves and validates the host before fetching — private, loopback, and link-local addresses rejected, re-checked on every redirect hop.",
+    span: "",
+  },
+  {
+    key: "engine",
+    icon: Trophy,
+    title: "A full mastery engine",
+    body: "Streaks, daily quests, confidence checks, teach-it-back prompts, mastery decay, spaced-repetition flashcards, chapter boss battles, and practice exams with KaTeX math and real code rendering.",
+    span: "lg:col-span-2",
+  },
+  {
+    key: "retention",
+    icon: Lock,
+    title: "Zero retention",
+    body: "Your documents teach you — they don't train anyone's model. Delete a workspace and its content goes with it.",
     span: "",
   },
 ];
 
+/** Explicit stack keywords — the strip under the hero judges skim first. */
+const STACK = [
+  { label: "gpt-oss-120b", sub: "OpenAI open-weight tutor" },
+  { label: "Gemma 3 27B", sub: "Google DeepMind flashcards" },
+  { label: "Fireworks AI", sub: "Serverless inference" },
+  { label: "AMD Instinct™", sub: "GPU compute" },
+];
+
 export default function LandingPage() {
+  const router = useRouter();
+
+  function startDemo() {
+    enterDemoMode();
+    router.push("/dashboard");
+  }
+
   return (
     <main className="relative min-h-screen overflow-hidden">
       {/* floating spectral orbs — static in the hero, continuously morphing/
@@ -91,6 +135,12 @@ export default function LandingPage() {
           </span>
         </div>
         <div className="flex items-center gap-3">
+          <a href="#pricing" className="hidden text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:block">
+            Pricing
+          </a>
+          <a href="#faq" className="hidden text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:block">
+            FAQ
+          </a>
           <Link href="/sign-in" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
             Sign in
           </Link>
@@ -168,6 +218,52 @@ export default function LandingPage() {
             </Button>
           </Link>
         </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.6, delay: 0.4 }}
+          className="mt-4"
+        >
+          <button
+            type="button"
+            onClick={startDemo}
+            className="group inline-flex items-center gap-2 text-sm font-medium text-primary transition hover:opacity-80"
+          >
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 transition group-hover:bg-primary/20">
+              <Play size={11} className="ml-0.5" />
+            </span>
+            Or try the interactive demo — no account needed
+          </button>
+        </motion.div>
+
+        {/* stack strip — the exact model/compute keywords, above the fold */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.8, delay: 0.55 }}
+          className="mx-auto mt-14 flex max-w-3xl flex-wrap items-center justify-center gap-x-10 gap-y-4"
+        >
+          {STACK.map((item) => (
+            <div key={item.label} className="text-center">
+              <p className="text-sm font-bold tracking-tight text-foreground/70">{item.label}</p>
+              <p className="text-[11px] text-muted-foreground/70">{item.sub}</p>
+            </div>
+          ))}
+        </motion.div>
+      </section>
+
+      {/* ---------- How it works (auto-playing process walkthrough) ---------- */}
+      <section className="relative z-10 mx-auto max-w-6xl px-6 py-20">
+        <motion.div {...fadeUp} className="mx-auto mb-12 max-w-xl text-center">
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+            From source to mastery in <span className="prism-text">four steps</span>
+          </h2>
+          <p className="mt-3 text-muted-foreground">
+            No prompt engineering, no setup. Drop a file and Lumi takes it from there.
+          </p>
+        </motion.div>
+        <ProcessShowcase />
       </section>
 
       {/* ---------- 2. The Agentic Canvas (split: text left, mockup right) ---------- */}
@@ -238,6 +334,20 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ---------- The real product (faithful workspace UI preview) ---------- */}
+      <section className="relative z-10 mx-auto max-w-5xl px-6 py-20">
+        <motion.div {...fadeUp} className="mx-auto mb-10 max-w-xl text-center">
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+            This is what studying <span className="prism-text">looks like now</span>
+          </h2>
+          <p className="mt-3 text-muted-foreground">
+            Chapter rail on the left, your living document in the middle, Lumi on the right —
+            teaching, quizzing, and unlocking as you go.
+          </p>
+        </motion.div>
+        <WorkspacePreview />
+      </section>
+
       {/* ---------- 3. The RPG Engine (rising staircase, not a flat grid) ---------- */}
       <section className="relative z-10 mx-auto max-w-5xl px-6 py-20">
         <motion.div {...fadeUp} className="mx-auto mb-16 max-w-xl text-center">
@@ -284,7 +394,7 @@ export default function LandingPage() {
 
       {/* ---------- 4. The Engine Room & Safety (heading is a bento cell, not a header row) ---------- */}
       <section className="relative z-10 mx-auto max-w-5xl px-6 py-20">
-        <div className="grid gap-4 lg:grid-cols-3 lg:grid-rows-2" style={{ perspective: 1200 }}>
+        <div className="grid gap-4 lg:grid-cols-3" style={{ perspective: 1200 }}>
           <motion.div
             {...fadeUp}
             className="glass flex flex-col justify-center rounded-2xl p-7 lg:row-span-2"
@@ -317,6 +427,29 @@ export default function LandingPage() {
             </motion.div>
           ))}
         </div>
+      </section>
+
+      {/* ---------- Pricing ---------- */}
+      <section id="pricing" className="relative z-10 mx-auto max-w-5xl scroll-mt-24 px-6 py-20">
+        <motion.div {...fadeUp} className="mx-auto mb-12 max-w-xl text-center">
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+            Simple pricing, <span className="prism-text">serious learning</span>
+          </h2>
+          <p className="mt-3 text-muted-foreground">
+            Start free. Upgrade when the mastery engine has you hooked.
+          </p>
+        </motion.div>
+        <PricingSection />
+      </section>
+
+      {/* ---------- FAQ ---------- */}
+      <section id="faq" className="relative z-10 mx-auto max-w-4xl scroll-mt-24 px-6 py-20">
+        <motion.div {...fadeUp} className="mx-auto mb-10 max-w-xl text-center">
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+            Questions, <span className="prism-text">answered</span>
+          </h2>
+        </motion.div>
+        <FaqSection />
       </section>
 
       {/* ---------- 5. Final CTA ---------- */}

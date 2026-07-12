@@ -10,6 +10,7 @@ import type {
 } from "@/types/prism";
 import { MOCK_INGEST, MOCK_QUIZ, MOCK_TUTOR_TURNS, MOCK_WORKSPACES } from "@/lib/mockData";
 import { useWakeupStore } from "@/store/useWakeupStore";
+import { isDemoMode } from "@/lib/demoMode";
 
 /**
  * Single seam between the frontend and FastAPI.
@@ -18,8 +19,15 @@ import { useWakeupStore } from "@/store/useWakeupStore";
  * NEXT_PUBLIC_USE_MOCKS=false (with the FastAPI container running) to hit the
  * real ingestion + tutor endpoints. The component layer is identical either way.
  */
-const USE_MOCKS = process.env.NEXT_PUBLIC_USE_MOCKS !== "false";
+const ENV_MOCKS = process.env.NEXT_PUBLIC_USE_MOCKS !== "false";
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+
+// Mock mode is the env flag OR the visitor-activated demo cookie ("Try the
+// demo" on the landing page). Checked per-call rather than once at module
+// load so entering/exiting demo mode takes effect without a page reload.
+function isMockMode(): boolean {
+  return ENV_MOCKS || isDemoMode();
+}
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -200,7 +208,7 @@ export async function ingestFile(
   opts: IngestOptions = {},
 ): Promise<IngestResult> {
   const { studyFocus = "comprehensive", mode = "learn", workspaceId } = opts;
-  if (USE_MOCKS) {
+  if (isMockMode()) {
     await delay(1200);
     const result = mockIngestResult(
       file.name.toLowerCase().endsWith(".pptx") ? "pptx" : "pdf",
@@ -240,7 +248,7 @@ export async function ingestYoutube(
   opts: IngestOptions = {},
 ): Promise<IngestResult> {
   const { studyFocus = "comprehensive", mode = "learn", workspaceId } = opts;
-  if (USE_MOCKS) {
+  if (isMockMode()) {
     await delay(1200);
     const result = mockIngestResult("youtube", mode);
     if (workspaceId) result.workspace_id = workspaceId;
@@ -282,7 +290,7 @@ export async function ingestUrl(
   opts: IngestOptions = {},
 ): Promise<IngestResult> {
   const { studyFocus = "comprehensive", mode = "learn", workspaceId } = opts;
-  if (USE_MOCKS) {
+  if (isMockMode()) {
     await delay(1200);
     let host = "";
     try {
@@ -323,7 +331,7 @@ export async function ingestUrl(
 
 // --- Workspace listing (dashboard grid) --------------------------------------
 export async function listWorkspaces(): Promise<WorkspaceSummary[]> {
-  if (USE_MOCKS) {
+  if (isMockMode()) {
     await delay(200);
     // Workspaces created this session appear first, then the demo samples.
     return [...readLocalWorkspaces(), ...MOCK_WORKSPACES];
@@ -350,7 +358,7 @@ export async function listWorkspaces(): Promise<WorkspaceSummary[]> {
 
 // --- Documents ---------------------------------------------------------------
 export async function listDocuments(workspaceId: string): Promise<DocumentSummary[]> {
-  if (USE_MOCKS) {
+  if (isMockMode()) {
     await delay(150);
     // Mock mode has no server doc list; synthesize a single primary document.
     return [
@@ -391,7 +399,7 @@ export async function setDocumentMode(
   documentId: string,
   mode: SessionMode,
 ): Promise<void> {
-  if (USE_MOCKS) {
+  if (isMockMode()) {
     await delay(120);
     return;
   }
@@ -411,7 +419,7 @@ export async function updateDocumentContent(
   documentId: string,
   patch: { title?: string; markdownContent?: string },
 ): Promise<DocumentSummary> {
-  if (USE_MOCKS) {
+  if (isMockMode()) {
     await delay(150);
     return {
       id: documentId,
@@ -459,7 +467,7 @@ export async function updateDocumentContent(
 }
 
 export async function deleteDocument(workspaceId: string, documentId: string): Promise<void> {
-  if (USE_MOCKS) {
+  if (isMockMode()) {
     await delay(150);
     return;
   }
@@ -473,7 +481,7 @@ export async function deleteDocument(workspaceId: string, documentId: string): P
 }
 
 export async function renameWorkspace(workspaceId: string, title: string): Promise<void> {
-  if (USE_MOCKS) {
+  if (isMockMode()) {
     await delay(150);
     return;
   }
@@ -486,7 +494,7 @@ export async function renameWorkspace(workspaceId: string, title: string): Promi
 }
 
 export async function deleteWorkspace(workspaceId: string): Promise<void> {
-  if (USE_MOCKS) {
+  if (isMockMode()) {
     await delay(150);
     return;
   }
@@ -504,7 +512,7 @@ export async function fetchReviewer(
   workspaceId: string,
   documentId?: string,
 ): Promise<IngestPayload> {
-  if (USE_MOCKS) {
+  if (isMockMode()) {
     await delay(400);
     return readCachedReviewer(documentId ?? workspaceId) ?? MOCK_INGEST;
   }
@@ -527,7 +535,7 @@ export async function sendTutorMessage(
   studentMessage: string,
   ctx: TutorContext,
 ): Promise<TutorResponse> {
-  if (USE_MOCKS) {
+  if (isMockMode()) {
     await delay(700);
     // Walk the canned lesson turn-by-turn. recentHistory is capped for real
     // requests, so use a dedicated counter that resets when a fresh session
@@ -564,7 +572,7 @@ export async function generateQuiz(
   reviewer?: IngestPayload,
   documentId?: string,
 ): Promise<Quiz> {
-  if (USE_MOCKS) {
+  if (isMockMode()) {
     await delay(900);
     return MOCK_QUIZ;
   }
@@ -593,7 +601,7 @@ function fromRecord(r: { id: string; front: string; back: string; anchor_id?: st
 export async function listFlashcards(workspaceId: string): Promise<
   { id: string; front: string; back: string; anchorId?: string }[]
 > {
-  if (USE_MOCKS) return [];
+  if (isMockMode()) return [];
   const res = await fetch(`${API_URL}/workspaces/${workspaceId}/flashcards`, {
     headers: await authHeaders(),
   });
@@ -614,7 +622,7 @@ export async function generateFlashcards(
   config: FlashcardGenConfig = {},
   documentId?: string,
 ): Promise<{ id: string; front: string; back: string; anchorId?: string }[]> {
-  if (USE_MOCKS) {
+  if (isMockMode()) {
     await delay(900);
     return MOCK_INGEST.table_of_contents.slice(0, config.count ?? 8).map((c, i) => ({
       id: `mock_card_${i}`,
@@ -659,7 +667,7 @@ export async function simplifyBlocks(
   level: "standard" | "eli5",
 ): Promise<SimplifyBlockInput[]> {
   if (blocks.length === 0) return [];
-  if (USE_MOCKS) {
+  if (isMockMode()) {
     await delay(500);
     return blocks;
   }
