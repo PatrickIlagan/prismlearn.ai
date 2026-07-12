@@ -94,6 +94,7 @@ export function JudgePanel() {
             run: () => {
               mutateBlockToGame(hotspotTarget.anchorId, "hotspot", {
                 target: hotspotTarget.label,
+                hint: `Find and tap "${hotspotTarget.label}"`,
               });
               flash(`Click "${hotspotTarget.label}" in the diagram.`);
             },

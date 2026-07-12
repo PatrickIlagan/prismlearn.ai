@@ -161,17 +161,22 @@ function ComplexityToolbar() {
 
 // ── Practice mode: turn the document into a game gauntlet on demand ─────────
 // The tutor still triggers games organically mid-lesson; this is the student-
-// initiated version — one game per unlocked chapter, type rotated (hotspot
-// where the chapter has a diagram), all through the same mutateBlockToGame /
-// completeBlockGame path (XP and chapter mastery included). Exiting reverts
-// any un-played game blocks back to plain text.
+// initiated version — one game per unlocked chapter, type rotated, all through
+// the same game-completion path (XP and chapter mastery included). Exiting
+// reverts any un-played game blocks back to plain text.
+//
+// Deliberately NO hotspot here: that game's framing is "tap the node that
+// answers Lumi's question," which only makes sense when Lumi (or the judge
+// panel, which shows its own hint) actually posed one. Self-serve practice has
+// no question, so a hotspot would just be "guess the node" — confirmed
+// confusing in live testing.
 const PRACTICE_ROTATION: BlockMode[] = ["cloze", "spot_the_lie", "order"];
 
 function PracticeToggle() {
   const chapters = useWorkspaceStore((s) => s.chapters);
   const unlockedAnchors = useWorkspaceStore((s) => s.unlockedAnchors);
   const activeGameCount = useWorkspaceStore((s) => Object.keys(s.blockGames).length);
-  const mutateBlockToGame = useWorkspaceStore((s) => s.mutateBlockToGame);
+  const spawnPracticeGames = useWorkspaceStore((s) => s.spawnPracticeGames);
   const clearBlockGames = useWorkspaceStore((s) => s.clearBlockGames);
   const [on, setOn] = useState(false);
 
@@ -179,26 +184,17 @@ function PracticeToggle() {
   const active = on && activeGameCount > 0;
 
   function startPractice() {
-    let i = 0;
-    chapters.forEach((ch) => {
-      if (!unlockedAnchors.includes(ch.anchorId)) return;
-      const mermaid = ch.blocks.find((b) => b.kind === "mermaid");
-      if (mermaid) {
-        const labels = Array.from(mermaid.markdown.matchAll(/\[([^\][]+)\]/g), (m) =>
-          m[1].trim(),
-        );
-        if (labels.length) {
-          mutateBlockToGame(ch.anchorId, "hotspot", { target: labels[1] ?? labels[0] });
-          return;
-        }
-      }
-      const type = PRACTICE_ROTATION[i++ % PRACTICE_ROTATION.length];
-      mutateBlockToGame(
-        ch.anchorId,
-        type,
-        type === "order" ? { steps: chapters.map((c) => c.title) } : undefined,
-      );
-    });
+    const requests = chapters
+      .filter((ch) => unlockedAnchors.includes(ch.anchorId))
+      .map((ch, i) => {
+        const type = PRACTICE_ROTATION[i % PRACTICE_ROTATION.length];
+        return {
+          anchorId: ch.anchorId,
+          gameType: type,
+          payload: type === "order" ? { steps: chapters.map((c) => c.title) } : undefined,
+        };
+      });
+    spawnPracticeGames(requests);
     setOn(true);
   }
 
@@ -265,7 +261,11 @@ function ChapterSection({
             if (block.kind === "mermaid") {
               const hotspot =
                 game?.mode === "hotspot" && game.payload?.target
-                  ? { target: game.payload.target, onSolved: () => completeBlockGame(block.id) }
+                  ? {
+                      target: game.payload.target,
+                      hint: game.payload.hint,
+                      onSolved: () => completeBlockGame(block.id),
+                    }
                   : undefined;
               return (
                 <div key={block.id} data-block-id={block.id}>

@@ -1,21 +1,41 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { Loader2, RefreshCw, TriangleAlert } from "lucide-react";
 import { useWakeupStore } from "@/store/useWakeupStore";
+
+/** How long the waking banner stays up once shown, even if the request
+ *  resolves sooner. A banner that blinks in and out for a fraction of a
+ *  second reads as a glitch; holding it briefly reads as information. */
+const MIN_VISIBLE_MS = 5000;
 
 /** Global overlay driven by fetchWithRetry (lib/api.ts). Render's free-tier
  *  backend can take up to ~30-60s to wake from a cold sleep — without this,
  *  that window just looks like a frozen page and people refresh mid-retry,
  *  which restarts the wait instead of shortening it. */
 export function WakeupBanner() {
-  const waking = useWakeupStore((s) => s.wakingCount > 0);
+  const wakingNow = useWakeupStore((s) => s.wakingCount > 0);
   const failed = useWakeupStore((s) => s.failed);
+  const [waking, setWaking] = useState(false);
+  const shownAt = useRef(0);
+
+  useEffect(() => {
+    if (wakingNow) {
+      if (!waking) shownAt.current = Date.now();
+      setWaking(true);
+      return;
+    }
+    if (!waking) return;
+    const remaining = Math.max(0, MIN_VISIBLE_MS - (Date.now() - shownAt.current));
+    const t = setTimeout(() => setWaking(false), remaining);
+    return () => clearTimeout(t);
+  }, [wakingNow, waking]);
 
   if (!waking && !failed) return null;
 
   return (
     <div className="fixed inset-x-0 top-0 z-[9999] flex justify-center px-4 pt-4">
-      {waking && (
+      {waking && !failed && (
         <div className="w-full max-w-md overflow-hidden rounded-2xl border border-amber-200 bg-amber-50/95 shadow-lg backdrop-blur">
           <div className="flex items-center gap-3 px-5 py-3">
             <Loader2 className="h-5 w-5 shrink-0 animate-spin text-amber-600" />

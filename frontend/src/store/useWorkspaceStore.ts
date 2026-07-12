@@ -200,6 +200,13 @@ interface WorkspaceState {
   /** Reverts every still-active game block to plain text (completed ones are
    *  already gone). Used when Practice mode is toggled off. */
   clearBlockGames: () => void;
+  /** Practice mode's batch spawner: all games land in ONE state update with a
+   *  single scroll to the first one. Calling mutateBlockToGame in a loop
+   *  causes one re-render + one queued scroll-and-glow animation per chapter,
+   *  which both lags and thrashes the viewport. */
+  spawnPracticeGames: (
+    requests: { anchorId: string; gameType: BlockMode; payload?: GamePayload }[],
+  ) => void;
 
   // --- Feature 1: ELI5 reading-level slider ---
   /** 0 Academic | 1 Standard | 2 ELI5 — the slider's current position. */
@@ -384,6 +391,25 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
 
   clearBlockGames: () => set({ blockGames: {} }),
+
+  spawnPracticeGames: (requests) => {
+    const { chapters, blockGames } = get();
+    const additions: Record<string, BlockGameState> = {};
+    for (const req of requests) {
+      const chapter = chapters.find((c) => c.anchorId === req.anchorId);
+      if (!chapter) continue;
+      const block = chapter.blocks.find(
+        (b) =>
+          b.kind === "text" && b.plain.length > 40 && !blockGames[b.id] && !additions[b.id],
+      );
+      if (!block) continue;
+      additions[block.id] = { mode: req.gameType, payload: req.payload };
+    }
+    if (Object.keys(additions).length === 0) return;
+    set((s) => ({ blockGames: { ...s.blockGames, ...additions } }));
+    const first = requests[0]?.anchorId;
+    if (first) setTimeout(() => get().requestScrollTo(first, "purple"), 200);
+  },
 
   completeBlockGame: (blockId) => {
     const { chapters, completedChapters, completedBlocks } = get();

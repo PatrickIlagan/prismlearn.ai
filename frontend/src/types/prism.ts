@@ -41,6 +41,10 @@ export interface GamePayload {
   steps?: string[];
   /** hotspot: the diagram node label the student must click. */
   target?: string;
+  /** hotspot: instruction shown above the diagram. Frontend-only — set when
+   *  the trigger didn't come with a Lumi question (e.g. the judge panel), so
+   *  the default "answers Lumi's question" framing would point at nothing. */
+  hint?: string;
 }
 
 export interface UiAction {

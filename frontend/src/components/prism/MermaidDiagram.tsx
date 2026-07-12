@@ -10,6 +10,10 @@ const norm = (s: string) => s.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
 interface Hotspot {
   /** The node label the student must click. */
   target: string;
+  /** Instruction shown above the diagram. Falls back to the "answers Lumi's
+   *  question" framing, which assumes the tutor actually asked one — pass a
+   *  hint for triggers that come without a chat question (judge panel). */
+  hint?: string;
   onSolved: () => void;
 }
 
@@ -74,7 +78,7 @@ export function MermaidDiagram({ code, hotspot }: { code: string; hotspot?: Hots
     <div>
       {hotspot && !solved && (
         <p className="mb-1 text-center text-[11px] font-semibold uppercase tracking-wide text-primary">
-          🎯 Tap the node that answers Lumi&apos;s question
+          🎯 {hotspot.hint ?? "Tap the node that answers Lumi's question"}
         </p>
       )}
       <div ref={containerRef} className="my-2 flex justify-center overflow-x-auto" />
