@@ -65,20 +65,27 @@ Two ways to try it, both on the live site:
    highlight the document itself** (the Agentic JSON pipeline: the model returns UI
    commands, not just text), advance the stepper, and award XP on a correct answer.
    Notice later chapters are **blurred behind fog-of-war** until you earn them.
-4. The floating badge's **Exit** returns you to the landing page.
+4. Spot the **"Judge controls"** panel (bottom-right, demo mode only). It force-triggers
+   every mini-game instantly, right inside the document, so you don't have to earn each
+   one through the lesson: **Cloze** (fill the blanked terms), **Spot the lie** (one
+   sentence is false — click it), **Reorder** (drag the curriculum back into sequence),
+   **Hotspot** (click the named organelle in the live Mermaid diagram), and **Unlock all**
+   (lifts the fog of war). Completing any of them pays out XP and can level you up —
+   same code path a real student hits.
+5. The floating badge's **Exit** returns you to the landing page.
 
 **Part B — the real thing, live AI (≈3 min):**
 
-5. **Sign up** (free, no card). From the dashboard, **upload any PDF or paste a link** —
+6. **Sign up** (free, no card). From the dashboard, **upload any PDF or paste a link** —
    real `gpt-oss-120b` on Fireworks AI (running on AMD Instinct™ GPUs) builds a chaptered
    reviewer with Mermaid diagrams in a few seconds, persisted to your account.
-6. In the tutor, answer a couple of questions — blocks mutate into **mini-games** (cloze,
+7. In the tutor, answer a couple of questions — blocks mutate into **mini-games** (cloze,
    spot-the-lie, drag-to-reorder, diagram hotspots); mastering a chapter's first game
    triggers a **boss battle**. Try the mic (voice input), the ELI5 slider, and
    **✨ Generate Flashcards** in the sidebar (this is the call that tries **Gemma 3 27B
    first**, then falls back to gpt-oss-120b — `run_flashcard_generation` in
    [`backend/app/services/fireworks.py`](backend/app/services/fireworks.py)).
-7. Check **Dashboard → Analytics** for real per-concept mastery, and **Settings → AI
+8. Check **Dashboard → Analytics** for real per-concept mastery, and **Settings → AI
    Models** for the full model lineup incl. the Gemma 4 / AMD Developer Cloud Enterprise
    toggle.
 

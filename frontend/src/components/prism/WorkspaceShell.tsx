@@ -16,6 +16,7 @@ import { InteractiveQuizModal } from "./InteractiveQuizModal";
 import { FlashcardSwiper } from "./FlashcardSwiper";
 import { LevelUpBurst } from "./LevelUpBurst";
 import { BossBattlePrompt } from "./BossBattlePrompt";
+import { JudgePanel } from "@/components/system/JudgePanel";
 import { cn } from "@/lib/utils";
 
 const { Group, Panel, Separator } = ResizablePanels;
@@ -140,6 +141,8 @@ export function WorkspaceShell({
       <LevelUpBurst />
       {/* Chapter-scoped Practice Exam offer, right after the burst */}
       <BossBattlePrompt workspaceId={workspaceId} />
+      {/* Demo-mode-only judge controls: force-trigger any mini-game */}
+      <JudgePanel />
 
       {/* ---------- Desktop: resizable 3-pane ---------- */}
       <div className="hidden h-full p-3 md:block">
