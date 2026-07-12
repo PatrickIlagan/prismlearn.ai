@@ -8,7 +8,7 @@ import { useWakeupStore } from "@/store/useWakeupStore";
  *  that window just looks like a frozen page and people refresh mid-retry,
  *  which restarts the wait instead of shortening it. */
 export function WakeupBanner() {
-  const waking = useWakeupStore((s) => s.waking);
+  const waking = useWakeupStore((s) => s.wakingCount > 0);
   const failed = useWakeupStore((s) => s.failed);
 
   if (!waking && !failed) return null;
@@ -16,12 +16,17 @@ export function WakeupBanner() {
   return (
     <div className="fixed inset-x-0 top-0 z-[9999] flex justify-center px-4 pt-4">
       {waking && (
-        <div className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50/95 px-5 py-3 shadow-lg backdrop-blur">
-          <Loader2 className="h-5 w-5 shrink-0 animate-spin text-amber-600" />
-          <p className="text-sm font-medium text-amber-900">
-            Waking up the server — first load after a while can take up to a minute. No
-            need to refresh, this will load on its own.
-          </p>
+        <div className="w-full max-w-md overflow-hidden rounded-2xl border border-amber-200 bg-amber-50/95 shadow-lg backdrop-blur">
+          <div className="flex items-center gap-3 px-5 py-3">
+            <Loader2 className="h-5 w-5 shrink-0 animate-spin text-amber-600" />
+            <p className="text-sm font-medium text-amber-900">
+              Waking up the server — first load after a while can take up to a minute. No
+              need to refresh, this will load on its own.
+            </p>
+          </div>
+          <div className="h-1 w-full overflow-hidden bg-amber-200/60">
+            <div className="wakeup-progress-bar h-full w-1/3 rounded-full bg-amber-500" />
+          </div>
         </div>
       )}
       {failed && (
@@ -40,6 +45,19 @@ export function WakeupBanner() {
           </button>
         </div>
       )}
+      <style jsx>{`
+        .wakeup-progress-bar {
+          animation: wakeup-progress 1.4s ease-in-out infinite;
+        }
+        @keyframes wakeup-progress {
+          0% {
+            transform: translateX(-100%);
+          }
+          100% {
+            transform: translateX(300%);
+          }
+        }
+      `}</style>
     </div>
   );
 }

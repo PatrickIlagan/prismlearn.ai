@@ -33,28 +33,39 @@ const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
  * backend ever sleeping at all; this is the fallback for the window before
  * that first ping lands, or any other transient 5xx/restart.
  */
+// How long a request can run before we assume it's a cold start, not normal
+// latency, and show the waking banner. A warm backend responds in well under
+// this; a sleeping one often doesn't fail fast — it just holds the
+// connection open for 20-40s while the container boots, so triggering on
+// elapsed time (not on failure) is what actually catches that case.
+const WAKING_THRESHOLD_MS = 2500;
+
 async function fetchWithRetry(url: string, init: RequestInit, attempts = 6): Promise<Response> {
-  const { setWaking, setFailed } = useWakeupStore.getState();
-  let lastError: unknown;
-  for (let i = 0; i < attempts; i++) {
-    try {
-      const res = await fetch(url, init);
-      if (res.ok || (res.status < 500 && res.status !== 0)) {
-        if (i > 0) setWaking(false);
-        return res;
+  const { markWaking, clearWaking, setFailed } = useWakeupStore.getState();
+  let markedWaking = false;
+  const wakingTimer = setTimeout(() => {
+    markedWaking = true;
+    markWaking();
+  }, WAKING_THRESHOLD_MS);
+
+  try {
+    let lastError: unknown;
+    for (let i = 0; i < attempts; i++) {
+      try {
+        const res = await fetch(url, init);
+        if (res.ok || (res.status < 500 && res.status !== 0)) return res;
+        lastError = new Error(`HTTP ${res.status}`);
+      } catch (err) {
+        lastError = err;
       }
-      lastError = new Error(`HTTP ${res.status}`);
-    } catch (err) {
-      lastError = err;
+      if (i < attempts - 1) await delay(Math.min(2000 * (i + 1), 8000));
     }
-    // First failure alone is common noise (one bad connection); only surface
-    // the "waking up" banner once a second attempt is needed, so a healthy
-    // backend never flashes it for a single transient blip.
-    if (i === 0) setWaking(true);
-    if (i < attempts - 1) await delay(Math.min(2000 * (i + 1), 8000));
+    setFailed(true);
+    throw lastError instanceof Error ? lastError : new Error("Request failed after retries");
+  } finally {
+    clearTimeout(wakingTimer);
+    if (markedWaking) clearWaking();
   }
-  setFailed(true);
-  throw lastError instanceof Error ? lastError : new Error("Request failed after retries");
 }
 
 // Mock-mode lesson cursor (advances through MOCK_TUTOR_TURNS per session).
