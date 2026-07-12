@@ -9,6 +9,7 @@ import type {
   WorkspaceSummary,
 } from "@/types/prism";
 import { MOCK_INGEST, MOCK_QUIZ, MOCK_TUTOR_TURNS, MOCK_WORKSPACES } from "@/lib/mockData";
+import { useWakeupStore } from "@/store/useWakeupStore";
 
 /**
  * Single seam between the frontend and FastAPI.
@@ -33,17 +34,26 @@ const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
  * that first ping lands, or any other transient 5xx/restart.
  */
 async function fetchWithRetry(url: string, init: RequestInit, attempts = 6): Promise<Response> {
+  const { setWaking, setFailed } = useWakeupStore.getState();
   let lastError: unknown;
   for (let i = 0; i < attempts; i++) {
     try {
       const res = await fetch(url, init);
-      if (res.ok || (res.status < 500 && res.status !== 0)) return res;
+      if (res.ok || (res.status < 500 && res.status !== 0)) {
+        if (i > 0) setWaking(false);
+        return res;
+      }
       lastError = new Error(`HTTP ${res.status}`);
     } catch (err) {
       lastError = err;
     }
+    // First failure alone is common noise (one bad connection); only surface
+    // the "waking up" banner once a second attempt is needed, so a healthy
+    // backend never flashes it for a single transient blip.
+    if (i === 0) setWaking(true);
     if (i < attempts - 1) await delay(Math.min(2000 * (i + 1), 8000));
   }
+  setFailed(true);
   throw lastError instanceof Error ? lastError : new Error("Request failed after retries");
 }
 
