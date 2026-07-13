@@ -2,7 +2,7 @@ import { interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { Scene } from "../Scene";
 import { COLOR, INK } from "../theme";
 
-export const DURATION = 156; // 10 beats @ 115bpm
+export const DURATION = 125; // 8 beats @ 115bpm
 
 /** The problem statement — two quick pain lines, then the positioning
  *  punchline: "Not just a flashcard generator." */

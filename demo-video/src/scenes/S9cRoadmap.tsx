@@ -3,7 +3,7 @@ import { Scene } from "../Scene";
 import { GlassCard } from "../components";
 import { COLOR, INK } from "../theme";
 
-export const DURATION = 156; // 10 beats @ 115bpm
+export const DURATION = 94; // 6 beats @ 115bpm
 
 const ITEMS = [
   {

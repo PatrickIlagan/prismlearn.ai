@@ -11,11 +11,13 @@ import { S1bProblem, DURATION as D1b } from "./scenes/S1bProblem";
 import { S2PoweredBy, DURATION as D2 } from "./scenes/S2PoweredBy";
 import { S3Ingest, DURATION as D3 } from "./scenes/S3Ingest";
 import { S4TutorChat, DURATION as D4 } from "./scenes/S4TutorChat";
+import { S4bAgentic, DURATION as D4b } from "./scenes/S4bAgentic";
 import { S5Adaptive, DURATION as D5 } from "./scenes/S5Adaptive";
 import { S6Quiz, DURATION as D6 } from "./scenes/S6Quiz";
 import { S7Flashcards, DURATION as D7 } from "./scenes/S7Flashcards";
 import { S8Gamification, DURATION as D8 } from "./scenes/S8Gamification";
 import { S8bBossBattle, DURATION as D8b } from "./scenes/S8bBossBattle";
+import { S8cCertificate, DURATION as D8c } from "./scenes/S8cCertificate";
 import { S9Dashboard, DURATION as D9 } from "./scenes/S9Dashboard";
 import { S9bPricing, DURATION as D9b } from "./scenes/S9bPricing";
 import { S9cRoadmap, DURATION as D9c } from "./scenes/S9cRoadmap";
@@ -97,7 +99,13 @@ const clock = (): MakeTransition => (key) =>
  * the total is still exactly 1800. The transition straddles the beat rather
  * than delaying it.
  *
- * Beats: 6,10,10,8,10,8,10,8,6,8,8,9,10,4 = 115.
+ * Beats: 6,8,8,8,8,10,7,8,8,6,8,6,7,7,6,4 = 115.
+ *
+ * S4bAgentic (the "Lumi drives the document, not a chatbot" fog-of-war shot)
+ * and S8cCertificate (the shareable-mastery payoff) were added by shaving a
+ * couple of beats off the longer talking-head scenes — every trimmed scene
+ * still finishes its own entrance animation and just holds its final frame a
+ * hair less, so nothing visible was lost.
  */
 const SCENES: Beat[] = [
   { Component: S1LogoIntro, duration: D1, transition: dissolveIn() },
@@ -105,12 +113,14 @@ const SCENES: Beat[] = [
   { Component: S2PoweredBy, duration: D2, transition: reveal("from-left") },
   { Component: S3Ingest, duration: D3, transition: push("from-right") },
   { Component: S4TutorChat, duration: D4, transition: reveal("from-bottom") },
-  { Component: S5Adaptive, duration: D5, transition: push("from-left") },
+  { Component: S4bAgentic, duration: D4b, transition: push("from-left") },
+  { Component: S5Adaptive, duration: D5, transition: reveal("from-left") },
   { Component: S6Quiz, duration: D6, transition: dissolveIn() },
   { Component: S7Flashcards, duration: D7, transition: push("from-bottom") },
   { Component: S8Gamification, duration: D8, transition: reveal("from-right") },
   { Component: S8bBossBattle, duration: D8b, transition: push("from-left") },
-  { Component: S9Dashboard, duration: D9, transition: clock() },
+  { Component: S8cCertificate, duration: D8c, transition: clock() },
+  { Component: S9Dashboard, duration: D9, transition: reveal("from-bottom") },
   { Component: S9bPricing, duration: D9b, transition: push("from-right") },
   { Component: S9cRoadmap, duration: D9c, transition: dissolveIn() },
   { Component: S10Closing, duration: D10 },

@@ -3,7 +3,7 @@ import { Scene } from "../Scene";
 import { Caption, GlassCard } from "../components";
 import { COLOR, INK } from "../theme";
 
-export const DURATION = 125; // 8 beats @ 115bpm
+export const DURATION = 110; // 7 beats @ 115bpm
 
 const LEVELS = ["Academic", "Standard", "ELI5"];
 

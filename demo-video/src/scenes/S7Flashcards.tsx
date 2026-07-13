@@ -3,7 +3,7 @@ import { Scene } from "../Scene";
 import { Caption, GlassCard } from "../components";
 import { COLOR, INK } from "../theme";
 
-export const DURATION = 126; // 8 beats @ 115bpm
+export const DURATION = 125; // 8 beats @ 115bpm
 
 export function S7Flashcards() {
   const frame = useCurrentFrame();
