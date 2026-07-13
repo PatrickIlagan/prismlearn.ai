@@ -48,41 +48,69 @@ const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 // elapsed time (not on failure) is what actually catches that case.
 const WAKING_THRESHOLD_MS = 2500;
 
-async function fetchWithRetry(url: string, init: RequestInit, attempts = 6): Promise<Response> {
-  const { markWaking, clearWaking, setFailed } = useWakeupStore.getState();
-  // Only the first authenticated load after sign-in/up is allowed to surface
-  // the banner (the auth pages arm it). Retries still happen regardless — only
-  // the user-facing "waking up" UI is gated, so normal slow loads stay quiet.
-  const armed = isWakeupArmed();
-  let markedWaking = false;
-  const wakingTimer = armed
+// Render's free tier can spin the backend down again mid-session while the
+// user reads. We remember when the backend last answered successfully
+// (sessionStorage, so full-page reloads keep it); if it's been quiet longer
+// than this, the next request is "likely cold" and allowed to show the
+// banner. Fresh sessions (no success yet) and the post-auth arm from the
+// sign-in/up pages count as cold too. A warm backend never shows anything —
+// the request just finishes before the threshold timer fires.
+const IDLE_COLD_MS = 60_000;
+const LAST_OK_KEY = "prism_last_backend_ok";
+
+function recordBackendOk(): void {
+  if (typeof sessionStorage !== "undefined")
+    sessionStorage.setItem(LAST_OK_KEY, String(Date.now()));
+  disarmWakeup();
+}
+
+function likelyCold(): boolean {
+  if (isWakeupArmed()) return true;
+  if (typeof sessionStorage === "undefined") return false;
+  const last = Number(sessionStorage.getItem(LAST_OK_KEY) ?? 0);
+  return Date.now() - last > IDLE_COLD_MS;
+}
+
+/** Every backend call goes through this: plain fetch plus the cold-start
+ *  banner instrumentation. The banner only appears when the request is BOTH
+ *  slow (past the threshold) AND likely cold (see above) — so tutor messages,
+ *  quiz generation, uploads, everything can wake the banner after an idle
+ *  spell, while ordinary activity right after a successful call stays quiet. */
+async function trackedFetch(url: string, init?: RequestInit): Promise<Response> {
+  const { markWaking, clearWaking } = useWakeupStore.getState();
+  let marked = false;
+  const timer = likelyCold()
     ? setTimeout(() => {
-        markedWaking = true;
+        marked = true;
         markWaking();
       }, WAKING_THRESHOLD_MS)
     : undefined;
-
   try {
-    let lastError: unknown;
-    for (let i = 0; i < attempts; i++) {
-      try {
-        const res = await fetch(url, init);
-        if (res.ok || (res.status < 500 && res.status !== 0)) {
-          if (armed && res.ok) disarmWakeup(); // consume: the backend is warm now
-          return res;
-        }
-        lastError = new Error(`HTTP ${res.status}`);
-      } catch (err) {
-        lastError = err;
-      }
-      if (i < attempts - 1) await delay(Math.min(2000 * (i + 1), 8000));
-    }
-    if (armed) setFailed(true);
-    throw lastError instanceof Error ? lastError : new Error("Request failed after retries");
+    const res = await fetch(url, init);
+    if (res.ok) recordBackendOk();
+    return res;
   } finally {
-    if (wakingTimer) clearTimeout(wakingTimer);
-    if (markedWaking) clearWaking();
+    if (timer) clearTimeout(timer);
+    if (marked) clearWaking();
   }
+}
+
+async function fetchWithRetry(url: string, init: RequestInit, attempts = 6): Promise<Response> {
+  const { setFailed } = useWakeupStore.getState();
+  const coldAtStart = likelyCold();
+  let lastError: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const res = await trackedFetch(url, init);
+      if (res.ok || (res.status < 500 && res.status !== 0)) return res;
+      lastError = new Error(`HTTP ${res.status}`);
+    } catch (err) {
+      lastError = err;
+    }
+    if (i < attempts - 1) await delay(Math.min(2000 * (i + 1), 8000));
+  }
+  if (coldAtStart) setFailed(true);
+  throw lastError instanceof Error ? lastError : new Error("Request failed after retries");
 }
 
 // Mock-mode lesson cursor (advances through MOCK_TUTOR_TURNS per session).
@@ -240,7 +268,7 @@ export async function ingestFile(
   form.append("study_focus", studyFocus);
   form.append("mode", mode);
   if (workspaceId) form.append("workspace_id", workspaceId);
-  const res = await fetch(`${API_URL}/ingest/file`, {
+  const res = await trackedFetch(`${API_URL}/ingest/file`, {
     method: "POST",
     headers: await authHeaders(),
     body: form,
@@ -272,7 +300,7 @@ export async function ingestYoutube(
     });
     return result;
   }
-  const res = await fetch(`${API_URL}/ingest/youtube`, {
+  const res = await trackedFetch(`${API_URL}/ingest/youtube`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify({
@@ -321,7 +349,7 @@ export async function ingestUrl(
     });
     return result;
   }
-  const res = await fetch(`${API_URL}/ingest/url`, {
+  const res = await trackedFetch(`${API_URL}/ingest/url`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify({
@@ -381,7 +409,7 @@ export async function listDocuments(workspaceId: string): Promise<DocumentSummar
       },
     ];
   }
-  const res = await fetch(`${API_URL}/workspaces/${workspaceId}/documents`, {
+  const res = await trackedFetch(`${API_URL}/workspaces/${workspaceId}/documents`, {
     headers: await authHeaders(),
   });
   if (!res.ok) throw new Error(await extractError(res, "Failed to load documents"));
@@ -412,7 +440,7 @@ export async function setDocumentMode(
     await delay(120);
     return;
   }
-  const res = await fetch(`${API_URL}/workspaces/${workspaceId}/documents/${documentId}`, {
+  const res = await trackedFetch(`${API_URL}/workspaces/${workspaceId}/documents/${documentId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify({ mode }),
@@ -439,7 +467,7 @@ export async function updateDocumentContent(
       createdAt: new Date().toISOString(),
     };
   }
-  const res = await fetch(
+  const res = await trackedFetch(
     `${API_URL}/workspaces/${workspaceId}/documents/${documentId}/content`,
     {
       method: "PATCH",
@@ -480,7 +508,7 @@ export async function deleteDocument(workspaceId: string, documentId: string): P
     await delay(150);
     return;
   }
-  const res = await fetch(`${API_URL}/workspaces/${workspaceId}/documents/${documentId}`, {
+  const res = await trackedFetch(`${API_URL}/workspaces/${workspaceId}/documents/${documentId}`, {
     method: "DELETE",
     headers: await authHeaders(),
   });
@@ -494,7 +522,7 @@ export async function renameWorkspace(workspaceId: string, title: string): Promi
     await delay(150);
     return;
   }
-  const res = await fetch(`${API_URL}/workspaces/${workspaceId}`, {
+  const res = await trackedFetch(`${API_URL}/workspaces/${workspaceId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify({ title }),
@@ -507,7 +535,7 @@ export async function deleteWorkspace(workspaceId: string): Promise<void> {
     await delay(150);
     return;
   }
-  const res = await fetch(`${API_URL}/workspaces/${workspaceId}`, {
+  const res = await trackedFetch(`${API_URL}/workspaces/${workspaceId}`, {
     method: "DELETE",
     headers: await authHeaders(),
   });
@@ -554,7 +582,7 @@ export async function sendTutorMessage(
     mockTurnIndex += 1;
     return turn;
   }
-  const res = await fetch(`${API_URL}/workspaces/${workspaceId}/tutor`, {
+  const res = await trackedFetch(`${API_URL}/workspaces/${workspaceId}/tutor`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify({
@@ -585,7 +613,7 @@ export async function generateQuiz(
     await delay(900);
     return MOCK_QUIZ;
   }
-  const res = await fetch(`${API_URL}/workspaces/${workspaceId}/quiz`, {
+  const res = await trackedFetch(`${API_URL}/workspaces/${workspaceId}/quiz`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify({ ...config, reviewer, document_id: documentId }),
@@ -611,7 +639,7 @@ export async function listFlashcards(workspaceId: string): Promise<
   { id: string; front: string; back: string; anchorId?: string }[]
 > {
   if (isMockMode()) return [];
-  const res = await fetch(`${API_URL}/workspaces/${workspaceId}/flashcards`, {
+  const res = await trackedFetch(`${API_URL}/workspaces/${workspaceId}/flashcards`, {
     headers: await authHeaders(),
   });
   if (!res.ok) throw new Error(await extractError(res, "Failed to load flashcards"));
@@ -640,7 +668,7 @@ export async function generateFlashcards(
       anchorId: c.anchor_id,
     }));
   }
-  const res = await fetch(`${API_URL}/workspaces/${workspaceId}/flashcards/generate`, {
+  const res = await trackedFetch(`${API_URL}/workspaces/${workspaceId}/flashcards/generate`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify({
@@ -711,7 +739,7 @@ export async function simplifyBlocks(
     await delay(450);
     return blocks.map((b) => ({ id: b.id, text: mockSimplify(b.text, level) }));
   }
-  const res = await fetch(`${API_URL}/workspaces/${workspaceId}/simplify`, {
+  const res = await trackedFetch(`${API_URL}/workspaces/${workspaceId}/simplify`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify({ blocks, level }),
