@@ -108,15 +108,17 @@ export default function LandingPage() {
             className="text-left"
           >
             <p className="mb-4 text-sm font-semibold text-primary">
-              Lumi — your agentic AI tutor
+              Not a chatbot. An agentic AI tutor.
             </p>
             <h1 className="text-balance text-5xl font-bold leading-[1.04] tracking-tight sm:text-6xl">
-              Your notes just became your{" "}
-              <span className="prism-text">best teacher</span>
+              Lumi doesn&apos;t just chat —{" "}
+              <span className="prism-text">it drives the document</span>
             </h1>
             <p className="mt-5 max-w-xl text-lg text-muted-foreground">
-              Drop in a PDF, slide deck, YouTube lecture, or link. Lumi turns it into a living,
-              chaptered lesson — scrolling, highlighting, quizzing, and unlocking as you learn.
+              Drop in a PDF, slide deck, or lecture. Lumi turns it into a living lesson and then
+              <span className="font-medium text-foreground/80"> operates it for you</span> —
+              scrolling to each concept, glowing what you&apos;ve mastered, unlocking chapters,
+              and turning paragraphs into games as you learn.
             </p>
 
             <motion.div

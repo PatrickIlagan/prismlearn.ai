@@ -10,7 +10,8 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
   title: "PrismLearning.AI",
-  description: "Your AI-powered study workspace — upload, learn, and master anything with Lumi.",
+  description:
+    "Not another study chatbot. Lumi is an agentic AI tutor that drives your document itself — scrolling, highlighting, unlocking chapters, and turning paragraphs into games as you learn.",
 };
 
 export default function RootLayout({

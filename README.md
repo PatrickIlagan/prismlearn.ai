@@ -5,9 +5,17 @@
 [![Inference: Fireworks AI](https://img.shields.io/badge/Inference-Fireworks%20AI-6C2EB9?style=for-the-badge)](https://fireworks.ai)
 [![Model: gpt-oss-120b](https://img.shields.io/badge/Model-gpt--oss--120b-412991?style=for-the-badge&logo=openai&logoColor=white)](https://fireworks.ai/models/fireworks/gpt-oss-120b)
 
-> An enterprise-grade, source-grounded EdTech application. Upload a PDF, PowerPoint, or
-> YouTube video and PrismLearning.AI turns it into an interactive study workspace with an
-> agentic AI tutor ("Lumi"), auto-generated reviewers, quizzes, and printable flashcards.
+> **Lumi doesn't chat next to your document — Lumi drives it.** Most "AI study tools" are a
+> chatbot in a sidebar bolted onto some flashcards. PrismLearning.AI is the opposite: the AI
+> **never renders raw text to the user.** Every response comes back as strict JSON that the
+> frontend executes as *actions on the page* — scrolling the document to a concept, glowing
+> it mint when you get it right, lifting the fog-of-war off the next chapter, mutating a
+> paragraph into a mini-game, advancing your mastery. **The document is the interface, and
+> an agentic AI tutor is the one operating it.**
+>
+> Upload a PDF, slide deck, or YouTube video and PrismLearning.AI turns it into a living,
+> chaptered lesson that Lumi teaches you step by step — quizzes, spaced-repetition
+> flashcards, boss battles, and mastery tracking are the *supporting cast*, not the point.
 >
 > Built for the **AMD Developer Hackathon** (AMD × Fireworks AI) — Track 3: Unicorn (Open
 > Innovation).
@@ -119,16 +127,28 @@ and the zero-token demo seam ([`frontend/src/lib/api.ts`](frontend/src/lib/api.t
 
 ---
 
-## 1. What it is
+## 1. What it is — and what makes it *not* a chatbot
 
-PrismLearning.AI follows a **NotebookLM-style closed-loop** model: every AI response is
-grounded **only** in the documents inside a given workspace. The signature feature is the
-**Agentic JSON Pipeline** — the AI never renders raw text to the user. Instead it returns
-strict JSON, and the frontend parses that JSON to *manipulate the UI directly*: scrolling
-the document, glowing a concept purple/mint, advancing a progress stepper, spawning a
-flashcard, and playing feedback sounds.
+Ask "how is this different from ChatGPT with a PDF, or Quizlet with an AI button?" and the
+answer is the **Agentic JSON Pipeline**. Lumi **never renders raw text to the user.** Every
+turn comes back as strict, schema-validated JSON, and the frontend's Zustand reducer fans
+that JSON out into *direct manipulations of the page*:
 
-There are three AI "modes", each a strict JSON contract:
+- **scrolls** the document to the concept being taught (`scroll_and_highlight`)
+- **glows** that concept mint when you answer correctly, or shakes it on a miss
+- **lifts the fog of war** off the next chapter once you've proven mastery (`unlock_chapter`)
+- **mutates a paragraph you're reading into a mini-game** — cloze, spot-the-lie, drag-to-order,
+  or a clickable diagram hotspot (`trigger_cloze` / `trigger_hotspot` / …)
+- **advances the mastery stepper** and spawns spaced-repetition flashcards
+
+So the loop isn't "user types → AI replies with a paragraph." It's **"user acts → Lumi
+evaluates → Lumi reshapes the document in front of them."** That is the product. Everything
+else — quizzes, flashcards, boss battles, analytics — is scaffolding around a tutor that
+*operates the interface* rather than talking beside it. Responses stay **grounded only** in
+the uploaded document (NotebookLM-style closed loop), so there's no hallucinated outside
+knowledge sneaking in.
+
+Three AI "modes", each a strict JSON contract:
 
 | Mode | Trigger | Output |
 |------|---------|--------|

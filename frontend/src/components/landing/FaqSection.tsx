@@ -17,8 +17,8 @@ const FAQS = [
     a: "PDFs, PowerPoint decks, YouTube lectures (via transcript), and website links. Lumi turns any of them into a chaptered study guide with key concepts and a quiz bank.",
   },
   {
-    q: "How is this different from just asking ChatGPT?",
-    a: "Lumi is grounded only in the document you upload — no outside knowledge sneaking in, no hallucinated facts. And instead of a chat window, the document itself is the interface: chapters stay fogged until you prove mastery, blocks mutate into mini-games, and boss battles gate your progress.",
+    q: "How is this different from ChatGPT with a PDF, or Quizlet with an AI button?",
+    a: "Those are a chat box beside your material. Lumi never hands you a wall of text — every response is a structured action that operates the document itself: it scrolls to the concept it's teaching, glows it when you get it right, lifts the fog off the next chapter once you've earned it, and mutates the paragraph you're reading into a mini-game. The document is the interface and the AI is driving it. It's also grounded only in what you uploaded, so no outside facts sneak in.",
   },
   {
     q: "Is my data used to train models?",
