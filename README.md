@@ -44,7 +44,14 @@ See [`documentation/07_AMDGemmaDeployment.md`](documentation/07_AMDGemmaDeployme
 the full breakdown of every Gemma integration point and its exact on/off switch.
 
 **Live site:** [prismlearn-ai-steel.vercel.app](https://prismlearn-ai-steel.vercel.app) ·
-backend at [prismlearn-backend.onrender.com](https://prismlearn-backend.onrender.com)
+backend API docs [prismlearn-backend.onrender.com/docs](https://prismlearn-backend.onrender.com/docs) ·
+[60-second demo video](demo-video/) ·
+[pitch deck](demo-content/pitch-deck/PrismLearning-Pitch-Deck.pdf)
+
+> **In one line:** an agentic, source-grounded AI tutor that restructures PDFs, slide decks,
+> and video into adaptive curricula — orchestrating Socratic instruction, confidence-calibrated
+> assessment, and spaced-repetition retention across a multi-model (gpt-oss-120b + Gemma)
+> architecture served on AMD Instinct™ GPUs.
 
 Two ways to try it, both on the live site:
 
@@ -322,6 +329,22 @@ Legend: ✅ built & verified · 🟡 built, credential-gated (untestable without
   configured, a valid bearer token is *required* — the `X-User-Id` dev header is only ever
   trusted when Clerk isn't configured at all, never as a fallback alongside it (this used
   to be a real auth-bypass gap; fixed and verified against a live deployment — see §8)
+
+### Known limitations — disclosed, not hidden
+
+- **Gamification (XP / streak / mastery) persists to browser `localStorage`, not the
+  backend** — progress doesn't yet follow you across devices. The backend API and database
+  for this are fully built and tested (`/gamification/*` above); only the frontend swap is
+  pending.
+- **The Gemma 4 Enterprise path** (Settings → AI Model Provider) is a real, tested code
+  path against a self-hosted vLLM deployment, but **gated off by default** — it needs a
+  dedicated AMD Developer Cloud GPU instance we haven't provisioned for this demo.
+- **YouTube ingestion needs a residential proxy in production** (Google blocks transcript
+  requests from cloud-hosted IPs) — works locally, not yet configured on the live
+  deployment. See `YOUTUBE_PROXY_*` in `backend/.env.example`.
+
+*Built solo over this hackathon by a first-year BSIT student — first real SaaS project,
+with a live deployment, a 60-second demo video, and documented architecture.*
 
 ---
 
