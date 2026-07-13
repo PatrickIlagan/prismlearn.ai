@@ -9,6 +9,7 @@ import { PremiumDropzone } from "./PremiumDropzone";
 import { WorkspaceGrid } from "./WorkspaceGrid";
 import { DailyQuests } from "./DailyQuests";
 import { ProfileCard } from "./ProfileCard";
+import { StudyNextCard } from "./StudyNextCard";
 
 export function DashboardHome() {
   const { user } = useUser();
@@ -37,6 +38,7 @@ export function DashboardHome() {
         </p>
       </header>
 
+      <StudyNextCard workspaces={workspaces} />
       <ProfileCard />
       <StatsBento workspaces={workspaces} />
 

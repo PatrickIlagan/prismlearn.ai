@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronDown, Crosshair, Gamepad2, ListOrdered, Search, Unlock } from "lucide-react";
+import { ChevronDown, Crosshair, Gamepad2, ListOrdered, RotateCcw, Search, Unlock } from "lucide-react";
 import { isDemoMode } from "@/lib/demoMode";
 import { boldTerms, extractOrderedSteps } from "@/lib/canvas";
 import { useWorkspaceStore } from "@/store/useWorkspaceStore";
@@ -32,10 +32,38 @@ export function JudgePanel() {
   const mutateBlockToGame = useWorkspaceStore((s) => s.mutateBlockToGame);
   const spawnPracticeGames = useWorkspaceStore((s) => s.spawnPracticeGames);
   const unlockAllChapters = useWorkspaceStore((s) => s.unlockAllChapters);
+  const telemetry = useWorkspaceStore((s) => s.tutorTelemetry);
 
   useEffect(() => {
     setDemo(isDemoMode());
   }, []);
+
+  /** Wipe every piece of demo progress — chat sessions, mastery boosts, SRS
+   *  schedule, XP/streak profile, diagnostic flags — then reload fresh. Demo
+   *  visitors are anonymous, so only the anon-scoped keys are touched. */
+  function resetDemo() {
+    try {
+      for (let i = sessionStorage.length - 1; i >= 0; i--) {
+        const key = sessionStorage.key(i);
+        if (key?.startsWith("prism_session_") || key?.startsWith("prism_reviewer_")) {
+          sessionStorage.removeItem(key);
+        }
+      }
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i);
+        if (
+          key?.endsWith("_anon") ||
+          key?.startsWith("prism_diag_done_") ||
+          key === "prism_workspaces"
+        ) {
+          localStorage.removeItem(key);
+        }
+      }
+    } catch {
+      /* storage unavailable — reload still resets in-memory state */
+    }
+    window.location.reload();
+  }
 
   // The chapter whose Mermaid diagram powers the hotspot game, plus a real
   // node label from it (2nd label if possible — the root node is too easy).
@@ -164,6 +192,67 @@ export function JudgePanel() {
                     {label}
                   </button>
                 ))}
+
+                {/* Response telemetry — measured client-side per tutor turn */}
+                <div className="mt-1.5 space-y-0.5 rounded-lg bg-white/40 px-2.5 py-2 text-[10px] leading-relaxed text-muted-foreground">
+                  <p className="font-semibold uppercase tracking-wide text-foreground/60">
+                    Inference telemetry
+                  </p>
+                  <p>
+                    Model:{" "}
+                    <span className="font-medium text-foreground/80">
+                      {telemetry?.live ? "gpt-oss-120b" : "sample data (no AI call)"}
+                    </span>
+                  </p>
+                  <p>
+                    Serving:{" "}
+                    <span className="font-medium text-foreground/80">
+                      {telemetry?.live ? "Fireworks AI · AMD Instinct™" : "built-in demo fixtures"}
+                    </span>
+                  </p>
+                  {telemetry ? (
+                    <>
+                      <p>
+                        Latency:{" "}
+                        <span className="font-medium text-foreground/80">
+                          {telemetry.latencyMs} ms
+                        </span>{" "}
+                        · {telemetry.live ? "live" : "sample"}
+                      </p>
+                      <p>
+                        UI action:{" "}
+                        <span className="font-medium text-foreground/80">{telemetry.command}</span>
+                      </p>
+                      {telemetry.anchorId && (
+                        <p>
+                          Cited anchor:{" "}
+                          <span className="font-medium text-foreground/80">
+                            {telemetry.anchorId}
+                          </span>
+                        </p>
+                      )}
+                      {telemetry.isCorrect !== null && (
+                        <p>
+                          Evaluation:{" "}
+                          <span className="font-medium text-foreground/80">
+                            {telemetry.isCorrect ? "correct → mastery up" : "incorrect → strike"}
+                          </span>
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="italic">Send Lumi a message to capture a turn.</p>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={resetDemo}
+                  className="flex w-full items-center gap-2 rounded-lg bg-rose-500/10 px-2.5 py-1.5 text-left text-xs font-semibold text-rose-600 transition hover:bg-rose-500/20"
+                >
+                  <RotateCcw size={13} className="shrink-0" />
+                  Reset demo state
+                </button>
               </div>
             </motion.div>
           )}

@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Gamepad2, Send, Volume2, VolumeX, Mic, MicOff } from "lucide-react";
+import { BookOpen, Gamepad2, Send, Volume2, VolumeX, Mic, MicOff } from "lucide-react";
 import { useWorkspaceStore } from "@/store/useWorkspaceStore";
-import { sendTutorMessage } from "@/lib/api";
+import { sendTutorMessage, isLiveBackend } from "@/lib/api";
 import { speak, stopSpeaking } from "@/lib/sounds";
 import { useVoiceInput } from "@/lib/useVoiceInput";
 import { MascotLumi } from "./MascotLumi";
@@ -78,6 +78,7 @@ export function LumiChatUI({ workspaceId }: { workspaceId: string }) {
     setSendError(null);
     setTutorThinking(true);
     try {
+      const t0 = performance.now();
       const res = await sendTutorMessage(workspaceId, text, {
         reviewer: ingest,
         currentStep: step.currentStep,
@@ -88,6 +89,16 @@ export function LumiChatUI({ workspaceId }: { workspaceId: string }) {
         documentId: activeDocumentId ?? undefined,
         textComplexity,
         recentHistory,
+      });
+      // Judge-panel telemetry: measured here (no extra request), labeled
+      // live vs sample-data honestly via the same seam api.ts routes through.
+      useWorkspaceStore.getState().setTutorTelemetry({
+        latencyMs: Math.round(performance.now() - t0),
+        live: isLiveBackend(),
+        command: res.ui_action?.command ?? "none",
+        anchorId: res.ui_action?.target_anchor_id ?? null,
+        isCorrect: res.evaluation?.is_correct ?? null,
+        at: Date.now(),
       });
       applyTutorResponse(res);
       lastFailedRef.current = null;
@@ -128,6 +139,42 @@ export function LumiChatUI({ workspaceId }: { workspaceId: string }) {
     if (target) mutateBlockToGame(target, "cloze");
   }
   const canPractice = chapters.length > 0 && unlockedAnchors.length > 0;
+
+  // Preset Lumi actions — structured prompts through the exact same send path
+  // a typed message uses (so evaluation/mastery/UI actions all still apply).
+  // "Teach it back" pre-fills the composer instead of sending, since the
+  // student needs to write their own explanation after it.
+  const PRESETS: { label: string; prompt: string }[] = [
+    { label: "Explain more simply", prompt: "Can you explain that more simply?" },
+    { label: "Give an example", prompt: "Can you give me a concrete example of that?" },
+    { label: "Use an analogy", prompt: "Can you explain that with an analogy?" },
+    { label: "Show step by step", prompt: "Can you walk me through that step by step?" },
+  ];
+  const lastMessage = messages[messages.length - 1];
+  const showPresets = lastMessage?.role === "lumi" && !isThinking;
+
+  function teachItBack() {
+    setInput("Let me teach it back to you. In my own words: ");
+    document.querySelector<HTMLTextAreaElement>("textarea")?.focus();
+  }
+
+  // Citation preview for the latest tutor turn: whichever passage Lumi just
+  // acted on (scrolled/highlighted). Excerpt comes straight from the loaded
+  // reviewer — no extra request.
+  const telemetry = useWorkspaceStore((s) => s.tutorTelemetry);
+  const requestScrollTo = useWorkspaceStore((s) => s.requestScrollTo);
+  const [citationOpen, setCitationOpen] = useState(false);
+  const citation = (() => {
+    if (!telemetry?.anchorId || lastMessage?.role !== "lumi") return null;
+    const ch = chapters.find((c) => c.anchorId === telemetry.anchorId);
+    if (!ch) return null;
+    const excerptBlock = ch.blocks.find((b) => b.kind === "text" && b.plain.length > 30);
+    return {
+      anchorId: ch.anchorId,
+      title: ch.title,
+      excerpt: excerptBlock ? `${excerptBlock.plain.slice(0, 220)}…` : null,
+    };
+  })();
 
   // Feature 2 — Voice-to-Voice: transcribe speech into the input live, and
   // auto-send once the student stops talking (or they click the mic again).
@@ -248,6 +295,63 @@ export function LumiChatUI({ workspaceId }: { workspaceId: string }) {
           </div>
         )}
       </div>
+
+      {/* Citation preview — the passage Lumi's latest turn acted on */}
+      {citation && (
+        <div className="border-t border-white/40 px-3 pt-2">
+          <button
+            type="button"
+            onClick={() => setCitationOpen((o) => !o)}
+            className="flex w-full items-center gap-1.5 rounded-lg px-2 py-1 text-left text-[11px] font-medium text-muted-foreground transition hover:bg-muted/60 hover:text-foreground"
+          >
+            <BookOpen size={11} className="shrink-0 text-primary/70" />
+            Source: {citation.title}
+            <span className="ml-auto text-[10px] opacity-60">{citationOpen ? "hide" : "preview"}</span>
+          </button>
+          {citationOpen && (
+            <div className="mt-1 rounded-lg border border-white/60 bg-white/50 p-2.5">
+              {citation.excerpt && (
+                <p className="text-[11px] italic leading-relaxed text-foreground/70">
+                  “{citation.excerpt}”
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  requestScrollTo(citation.anchorId, "purple");
+                  setCitationOpen(false);
+                }}
+                className="mt-1.5 text-[11px] font-semibold text-primary underline-offset-2 hover:underline"
+              >
+                Open in document →
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Preset Lumi actions */}
+      {showPresets && (
+        <div className="flex flex-wrap gap-1.5 px-3 pt-2">
+          {PRESETS.map((p) => (
+            <button
+              key={p.label}
+              type="button"
+              onClick={() => sendMessage(p.prompt)}
+              className="rounded-full border border-white/60 bg-white/45 px-2.5 py-1 text-[11px] font-medium text-foreground/70 backdrop-blur-sm transition hover:border-primary/40 hover:text-primary"
+            >
+              {p.label}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={teachItBack}
+            className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary transition hover:bg-primary/20"
+          >
+            🎓 Teach it back
+          </button>
+        </div>
+      )}
 
       {/* Composer */}
       <div className="border-t border-white/40 p-3">

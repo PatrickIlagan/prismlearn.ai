@@ -231,6 +231,19 @@ interface WorkspaceState {
   /** Reverts every still-active game block to plain text (completed ones are
    *  already gone). Used when Practice mode is toggled off. */
   clearBlockGames: () => void;
+
+  /** Telemetry for the most recent tutor turn — measured client-side at the
+   *  call site (no extra requests). Surfaced by the demo-mode Judge panel so
+   *  reviewers can see model/provider/latency/UI-command per response. */
+  tutorTelemetry: {
+    latencyMs: number;
+    live: boolean; // false = mock/demo sample data, clearly labeled in the UI
+    command: string;
+    anchorId: string | null;
+    isCorrect: boolean | null;
+    at: number;
+  } | null;
+  setTutorTelemetry: (t: WorkspaceState["tutorTelemetry"]) => void;
   /** Practice mode's batch spawner: plans one game per given chapter and
    *  lands them all in ONE state update with a single scroll to the first.
    *  (Calling mutateBlockToGame in a loop causes one re-render + one queued
@@ -424,6 +437,9 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
 
   clearBlockGames: () => set({ blockGames: {} }),
+
+  tutorTelemetry: null,
+  setTutorTelemetry: (t) => set({ tutorTelemetry: t }),
 
   spawnPracticeGames: (anchorIds) => {
     const { chapters, blockGames } = get();

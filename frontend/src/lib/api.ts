@@ -29,6 +29,12 @@ function isMockMode(): boolean {
   return ENV_MOCKS || isDemoMode();
 }
 
+/** Whether calls are currently hitting the real backend (vs the sample-data
+ *  mock layer) — used to label responses honestly in the Judge panel. */
+export function isLiveBackend(): boolean {
+  return !isMockMode();
+}
+
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**

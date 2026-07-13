@@ -19,6 +19,7 @@ import {
 import { fetchReviewer, listDocuments, listWorkspaces, renameWorkspace } from "@/lib/api";
 import { useWorkspaceStore } from "@/store/useWorkspaceStore";
 import { chapterMastery, needsReview, overallMastery } from "@/lib/mastery";
+import { scopedKey } from "@/lib/userScope";
 import type { DocumentSummary, IngestPayload, WorkspaceSummary } from "@/types/prism";
 import { ProgressRing } from "@/components/dashboard/ProgressRing";
 import { ChapterRadar } from "./ChapterRadar";
@@ -264,6 +265,17 @@ export function WorkspaceLobby({ workspaceId }: { workspaceId: string }) {
           </div>
         </div>
 
+        {/* Welcome-back recap — built entirely from stored session/mastery/SRS
+            data, no AI request. Only shows when a previous session exists. */}
+        <WelcomeBackRecap
+          docId={activeDoc?.id ?? null}
+          toc={toc}
+          weakCount={weak.length}
+          tutorHref={`/workspace/${workspaceId}${docQuery}`}
+          reviewHref={`/workspace/${workspaceId}/review${docQuery}`}
+          examHref={`/workspace/${workspaceId}/exam${docQuery}`}
+        />
+
         {/* Documents in this workspace — visible list, not a dropdown */}
         <div className="mt-6">
           <WorkspaceDocuments
@@ -296,39 +308,51 @@ export function WorkspaceLobby({ workspaceId }: { workspaceId: string }) {
           <div className="glass rounded-2xl p-5">
             <div className="mb-3 flex items-center gap-2">
               <AlertTriangle size={16} className="text-amber-500" />
-              <h2 className="text-sm font-semibold">Needs review</h2>
+              <h2 className="text-sm font-semibold">Weak concepts</h2>
             </div>
-            {weak.length === 0 ? (
+            {chapters.length === 0 ? (
               <p className="py-6 text-center text-sm text-muted-foreground">
-                Nothing flagged yet — you&apos;re on top of it! 🎉
+                No concepts tracked yet.
               </p>
             ) : (
               <ul className="space-y-2">
-                {weak.map((c, i) => (
-                  <motion.li
-                    key={c.anchorId}
-                    initial={{ opacity: 0, x: -8 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.05 }}
-                    className="flex items-center justify-between rounded-xl border border-white/50 bg-white/40 px-3 py-2.5 backdrop-blur-sm"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{c.title}</p>
-                      <p className="text-xs text-muted-foreground">{c.strength}% mastered</p>
-                    </div>
-                    <span
-                      className={cn(
-                        "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold",
-                        c.strikes >= 3
-                          ? "bg-red-100 text-red-600"
-                          : "bg-amber-100 text-amber-600",
-                      )}
-                    >
-                      {c.strikes} {c.strikes === 1 ? "strike" : "strikes"}
-                    </span>
-                  </motion.li>
-                ))}
+                {[...chapters]
+                  .sort((a, b) => a.strength - b.strength)
+                  .slice(0, 6)
+                  .map((c, i) => {
+                    const label = masteryLabel(c.strength);
+                    return (
+                      <motion.li
+                        key={c.anchorId}
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.05 }}
+                        className="flex items-center justify-between gap-2 rounded-xl border border-white/50 bg-white/40 px-3 py-2.5 backdrop-blur-sm"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">{c.title}</p>
+                          <p className="text-xs text-muted-foreground">{c.strength}% mastered</p>
+                        </div>
+                        <span
+                          className={cn(
+                            "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                            label.tint,
+                          )}
+                        >
+                          {label.text}
+                        </span>
+                      </motion.li>
+                    );
+                  })}
               </ul>
+            )}
+            {chapters.some((c) => c.strength < 70) && (
+              <button
+                onClick={() => router.push(`/workspace/${workspaceId}/review${docQuery}`)}
+                className="mt-3 w-full rounded-xl bg-primary/10 py-2 text-xs font-semibold text-primary transition hover:bg-primary/20"
+              >
+                Review the weakest →
+              </button>
             )}
           </div>
 
@@ -433,5 +457,111 @@ function CenteredMessage({ children }: { children: React.ReactNode }) {
     <div className="flex h-screen flex-col items-center justify-center text-center text-muted-foreground">
       {children}
     </div>
+  );
+}
+
+/** Label thresholds for the Weak Concepts list — simple, deterministic. */
+function masteryLabel(strength: number): { text: string; tint: string } {
+  if (strength >= 90) return { text: "Mastered", tint: "bg-emerald-100 text-emerald-700" };
+  if (strength >= 70) return { text: "Nearly mastered", tint: "bg-teal-100 text-teal-700" };
+  if (strength >= 40) return { text: "Practice", tint: "bg-amber-100 text-amber-700" };
+  return { text: "Review", tint: "bg-rose-100 text-rose-600" };
+}
+
+/** Welcome-back recap: shown only when a saved tutoring session exists for
+ *  the active document. Everything here is read from sessionStorage /
+ *  localStorage — constructing it costs zero AI calls. */
+function WelcomeBackRecap({
+  docId,
+  toc,
+  weakCount,
+  tutorHref,
+  reviewHref,
+  examHref,
+}: {
+  docId: string | null;
+  toc: { anchor_id: string; title: string }[];
+  weakCount: number;
+  tutorHref: string;
+  reviewHref: string;
+  examHref: string;
+}) {
+  const router = useRouter();
+  const [recap, setRecap] = useState<{ lastChapter: string | null; dueCards: number } | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (!docId || typeof window === "undefined") {
+      setRecap(null);
+      return;
+    }
+    try {
+      const saved = JSON.parse(
+        sessionStorage.getItem(`prism_session_${docId}`) || "null",
+      ) as { messages?: unknown[]; completedChapters?: string[] } | null;
+      if (!saved || (saved.messages?.length ?? 0) === 0) {
+        setRecap(null);
+        return;
+      }
+      const lastAnchor = saved.completedChapters?.[saved.completedChapters.length - 1];
+      const lastChapter = toc.find((t) => t.anchor_id === lastAnchor)?.title ?? null;
+      // Due cards: cards with an SRS record whose due date has passed.
+      let dueCards = 0;
+      try {
+        const srs = JSON.parse(
+          localStorage.getItem(scopedKey("prism_srs")) || "{}",
+        ) as Record<string, { dueAt: string }>;
+        dueCards = Object.values(srs).filter((c) => Date.parse(c.dueAt) <= Date.now()).length;
+      } catch {
+        /* srs unavailable */
+      }
+      setRecap({ lastChapter, dueCards });
+    } catch {
+      setRecap(null);
+    }
+  }, [docId, toc]);
+
+  if (!recap) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
+      className="glass mt-6 rounded-2xl p-5"
+    >
+      <h2 className="text-sm font-semibold">Welcome back 👋</h2>
+      <p className="mt-1 text-xs text-muted-foreground">
+        {recap.lastChapter
+          ? `Last completed: ${recap.lastChapter}.`
+          : "Your lesson is mid-chapter."}{" "}
+        {weakCount > 0 && `${weakCount} concept${weakCount > 1 ? "s" : ""} could use review.`}{" "}
+        {recap.dueCards > 0 &&
+          `${recap.dueCards} flashcard${recap.dueCards > 1 ? "s are" : " is"} due.`}
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          onClick={() => router.push(tutorHref)}
+          className="rounded-full bg-primary px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:opacity-90"
+        >
+          Continue learning
+        </button>
+        {weakCount > 0 && (
+          <button
+            onClick={() => router.push(reviewHref)}
+            className="rounded-full bg-primary/10 px-3.5 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/20"
+          >
+            Review weak concepts
+          </button>
+        )}
+        <button
+          onClick={() => router.push(examHref)}
+          className="rounded-full bg-primary/10 px-3.5 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/20"
+        >
+          Quick recall test
+        </button>
+      </div>
+    </motion.div>
   );
 }

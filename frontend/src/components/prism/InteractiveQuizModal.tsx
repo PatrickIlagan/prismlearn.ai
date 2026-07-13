@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, X, Sparkles, RotateCcw, Download, Meh, ThumbsUp } from "lucide-react";
+import { Check, X, Sparkles, RotateCcw, Download, Meh, ThumbsUp, Target } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -72,6 +72,10 @@ export function InteractiveQuizModal() {
   // confidence level for — grading (and reveal) is deferred until they do.
   const [pendingAnswer, setPendingAnswer] = useState<string | null>(null);
   const [confidence, setConfidence] = useState<"confident" | "unsure" | null>(null);
+  // Questions answered incorrectly this run — powers "Review mistakes only"
+  // (a deterministic replay of exactly these questions, no new AI call).
+  const [missed, setMissed] = useState<QuizQuestion[]>([]);
+  const [isMistakeReview, setIsMistakeReview] = useState(false);
   const xpAwardedRef = useRef(false);
 
   function reset() {
@@ -85,7 +89,26 @@ export function InteractiveQuizModal() {
     setError(null);
     setPendingAnswer(null);
     setConfidence(null);
+    setMissed([]);
+    setIsMistakeReview(false);
     xpAwardedRef.current = false;
+  }
+
+  /** Replay only the questions missed this run — same questions, fresh state. */
+  function startMistakeReview() {
+    if (!quiz || missed.length === 0) return;
+    setQuiz({ ...quiz, title: "Mistake review", questions: missed });
+    setMissed([]);
+    setIsMistakeReview(true);
+    setIndex(0);
+    setGiven("");
+    setRevealed(false);
+    setScore(0);
+    setSkipped(0);
+    setPendingAnswer(null);
+    setConfidence(null);
+    xpAwardedRef.current = false;
+    setPhase("active");
   }
 
   // XP payout once per quiz, when results are shown — mirrors the Practice
@@ -147,6 +170,8 @@ export function InteractiveQuizModal() {
         setScore((s) => s + 1);
         playDing();
         if (current.anchor_id) boostConcept(current.anchor_id, 10);
+      } else {
+        setMissed((m) => (m.some((q) => q.id === current.id) ? m : [...m, current]));
       }
       return;
     }
@@ -158,6 +183,8 @@ export function InteractiveQuizModal() {
       setScore((s) => s + 1);
       playDing();
       if (current.anchor_id) boostConcept(current.anchor_id, 10);
+    } else {
+      setMissed((m) => (m.some((q) => q.id === current.id) ? m : [...m, current]));
     }
   }
 
@@ -190,6 +217,7 @@ export function InteractiveQuizModal() {
     setScore((s) => s + 1);
     playDing();
     if (current.anchor_id) boostConcept(current.anchor_id, 10);
+    setMissed((m) => m.filter((q) => q.id !== current.id));
     setGiven(current.answer);
   }
 
@@ -361,7 +389,27 @@ export function InteractiveQuizModal() {
                     `Answer: ${current.answer}`
                   )}
                 </p>
-                {current.explanation && <p className="mt-1 opacity-80">{current.explanation}</p>}
+                {/* Why was this wrong? — contrasts the student's pick with the
+                    correct answer; the explanation (authored at quiz-generation
+                    time, no extra AI call) covers why the correct one is right. */}
+                {!isCorrect(current, given) &&
+                  given &&
+                  !given.startsWith("self:") &&
+                  current.type !== "short_answer" && (
+                    <p className="mt-1.5 text-xs opacity-90">
+                      <span className="font-semibold">Why not “{given}”:</span> the source
+                      doesn&apos;t support it here — this passage points to{" "}
+                      <span className="font-semibold">“{current.answer}”</span> instead.
+                    </p>
+                  )}
+                {current.explanation && (
+                  <p className="mt-1 opacity-80">
+                    {!isCorrect(current, given) && (
+                      <span className="font-semibold">Why “{current.answer}” is right: </span>
+                    )}
+                    {current.explanation}
+                  </p>
+                )}
                 {confidence && (
                   <p className="mt-1.5 text-xs italic opacity-70">
                     {confidenceInsight(confidence, isCorrect(current, given))}
@@ -383,7 +431,7 @@ export function InteractiveQuizModal() {
                     }}
                     className="mt-2 text-xs font-medium text-primary underline-offset-2 hover:underline"
                   >
-                    Review this concept →
+                    Review in source — jump to the passage →
                   </button>
                 )}
               </motion.div>
@@ -427,7 +475,18 @@ export function InteractiveQuizModal() {
                 {skipped} question{skipped > 1 ? "s" : ""} skipped
               </p>
             )}
+            {isMistakeReview && missed.length === 0 && (
+              <p className="text-xs font-medium text-emerald-600">
+                Every mistake cleared — nice recovery.
+              </p>
+            )}
             <div className="mt-2 flex flex-wrap justify-center gap-2">
+              {missed.length > 0 && (
+                <Button className="gap-2" onClick={startMistakeReview}>
+                  <Target size={15} /> Review {missed.length} mistake
+                  {missed.length > 1 ? "s" : ""} only
+                </Button>
+              )}
               <Button
                 variant="outline"
                 className="gap-2"
@@ -438,7 +497,9 @@ export function InteractiveQuizModal() {
               <Button variant="outline" className="gap-2" onClick={reset}>
                 <RotateCcw size={15} /> New Quiz
               </Button>
-              <Button onClick={close}>Done</Button>
+              <Button variant={missed.length > 0 ? "outline" : "default"} onClick={close}>
+                Done
+              </Button>
             </div>
           </div>
         )}
