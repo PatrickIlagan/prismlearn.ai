@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, X, Sparkles, RotateCcw, Download, Meh, ThumbsUp, Target } from "lucide-react";
+import { Bookmark, Check, X, Sparkles, RotateCcw, Download, Meh, ThumbsUp, Target } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -17,6 +17,7 @@ import { playDing } from "@/lib/sounds";
 import { boostConcept } from "@/lib/mastery";
 import { addXp as profileAddXp, completeQuest, recordActivity } from "@/lib/profile";
 import { gradeMath, gradeCode } from "@/lib/quizGrading";
+import { toggleSaved, isSaved } from "@/lib/savedItems";
 import { RichMarkdown } from "./RichMarkdown";
 import type { Quiz, QuizQuestion } from "@/types/prism";
 import { cn } from "@/lib/utils";
@@ -423,17 +424,20 @@ export function InteractiveQuizModal() {
                     Actually right (different format) — mark correct
                   </button>
                 )}
-                {current.anchor_id && (
-                  <button
-                    onClick={() => {
-                      requestScrollTo(current.anchor_id!, "purple");
-                      close();
-                    }}
-                    className="mt-2 text-xs font-medium text-primary underline-offset-2 hover:underline"
-                  >
-                    Review in source — jump to the passage →
-                  </button>
-                )}
+                <div className="mt-2 flex items-center gap-3">
+                  {current.anchor_id && (
+                    <button
+                      onClick={() => {
+                        requestScrollTo(current.anchor_id!, "purple");
+                        close();
+                      }}
+                      className="text-xs font-medium text-primary underline-offset-2 hover:underline"
+                    >
+                      Review in source — jump to the passage →
+                    </button>
+                  )}
+                  <SaveQuestionButton question={current} />
+                </div>
               </motion.div>
             )}
 
@@ -505,6 +509,36 @@ export function InteractiveQuizModal() {
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** Save-for-Review bookmark on a revealed answer — pure localStorage. */
+function SaveQuestionButton({ question }: { question: QuizQuestion }) {
+  const [saved, setSaved] = useState(() => isSaved(`q_${question.id}`));
+  const workspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
+  return (
+    <button
+      onClick={() =>
+        setSaved(
+          toggleSaved({
+            id: `q_${question.id}`,
+            type: "question",
+            title: question.prompt,
+            body: `Answer: ${question.answer}${question.explanation ? ` — ${question.explanation}` : ""}`,
+            workspaceId: workspaceId ?? undefined,
+            anchorId: question.anchor_id ?? undefined,
+          }),
+        )
+      }
+      className={cn(
+        "ml-auto inline-flex items-center gap-1 text-xs font-medium underline-offset-2 hover:underline",
+        saved ? "text-primary" : "text-muted-foreground",
+      )}
+      aria-pressed={saved}
+    >
+      <Bookmark size={12} className={saved ? "fill-current" : undefined} />
+      {saved ? "Saved" : "Save for review"}
+    </button>
   );
 }
 

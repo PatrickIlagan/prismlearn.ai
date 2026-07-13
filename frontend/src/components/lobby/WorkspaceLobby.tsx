@@ -20,6 +20,7 @@ import { fetchReviewer, listDocuments, listWorkspaces, renameWorkspace } from "@
 import { useWorkspaceStore } from "@/store/useWorkspaceStore";
 import { chapterMastery, needsReview, overallMastery } from "@/lib/mastery";
 import { scopedKey } from "@/lib/userScope";
+import { estimateStudyMinutes, studyTimeLabel } from "@/lib/studyTime";
 import type { DocumentSummary, IngestPayload, WorkspaceSummary } from "@/types/prism";
 import { ProgressRing } from "@/components/dashboard/ProgressRing";
 import { ChapterRadar } from "./ChapterRadar";
@@ -179,6 +180,24 @@ export function WorkspaceLobby({ workspaceId }: { workspaceId: string }) {
   const weak = useMemo(() => needsReview(toc), [toc, masteryKey]);
   const title = summary?.title ?? "Workspace";
 
+  // Deterministic time-remaining estimate: word count of not-yet-completed
+  // chapters at study pace + per-chapter interaction overhead. No AI.
+  const minutesLeft = useMemo(() => {
+    if (!reviewer?.markdown_content) return null;
+    let completed: string[] = [];
+    if (activeDoc && typeof window !== "undefined") {
+      try {
+        const saved = JSON.parse(
+          sessionStorage.getItem(`prism_session_${activeDoc.id}`) || "{}",
+        ) as { completedChapters?: string[] };
+        completed = saved.completedChapters ?? [];
+      } catch {
+        /* fresh session */
+      }
+    }
+    return estimateStudyMinutes(reviewer, completed);
+  }, [reviewer, activeDoc]);
+
   if (status === "loading") {
     return <CenteredMessage>Loading your lobby…</CenteredMessage>;
   }
@@ -241,7 +260,9 @@ export function WorkspaceLobby({ workspaceId }: { workspaceId: string }) {
               </h1>
             )}
             <p className="mt-1 text-sm text-muted-foreground">
-              {toc.length} chapters · pick up where you left off.
+              {toc.length} chapters
+              {minutesLeft !== null && ` · ${studyTimeLabel(minutesLeft).toLowerCase()}`} · pick
+              up where you left off.
             </p>
             <div className="mt-4 flex gap-5">
               <MiniStat icon={Flame} tint="text-orange-500" label="Concepts" value={`${toc.length}`} />

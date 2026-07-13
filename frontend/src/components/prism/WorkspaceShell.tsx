@@ -17,6 +17,7 @@ import { FlashcardSwiper } from "./FlashcardSwiper";
 import { LevelUpBurst } from "./LevelUpBurst";
 import { BossBattlePrompt } from "./BossBattlePrompt";
 import { JudgePanel } from "@/components/system/JudgePanel";
+import { CompletionSummary } from "./CompletionSummary";
 import { cn } from "@/lib/utils";
 
 const { Group, Panel, Separator } = ResizablePanels;
@@ -143,6 +144,8 @@ export function WorkspaceShell({
       <BossBattlePrompt workspaceId={workspaceId} />
       {/* Demo-mode-only judge controls: force-trigger any mini-game */}
       <JudgePanel />
+      {/* One-time celebration when the final chapter is mastered */}
+      <CompletionSummary workspaceId={workspaceId} />
 
       {/* ---------- Desktop: resizable 3-pane ---------- */}
       <div className="hidden h-full p-3 md:block">

@@ -101,6 +101,8 @@ export interface ProfileSummary {
   xpIntoLevel: number;
   xpPerLevel: number;
   streak: number;
+  /** YYYY-MM-DD of the last recorded activity ("" if never). */
+  lastActive: string;
   quests: DailyQuest[];
   questsDone: number;
 }
@@ -115,7 +117,15 @@ export function getProfile(): ProfileSummary {
     xpIntoLevel: data.xp % XP_PER_LEVEL,
     xpPerLevel: XP_PER_LEVEL,
     streak: data.streak,
+    lastActive: data.lastActive,
     quests,
     questsDone: quests.filter((q) => q.done).length,
   };
+}
+
+/** Days since the last recorded activity (Infinity if never active). */
+export function daysSinceActive(): number {
+  const { lastActive } = getProfile();
+  if (!lastActive) return Infinity;
+  return daysBetween(lastActive, today());
 }

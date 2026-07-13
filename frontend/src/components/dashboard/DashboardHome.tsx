@@ -10,6 +10,28 @@ import { WorkspaceGrid } from "./WorkspaceGrid";
 import { DailyQuests } from "./DailyQuests";
 import { ProfileCard } from "./ProfileCard";
 import { StudyNextCard } from "./StudyNextCard";
+import { StreakNudge } from "./StreakNudge";
+import Link from "next/link";
+import { Bookmark } from "lucide-react";
+import { savedCount } from "@/lib/savedItems";
+
+/** Link to the unified saved-items page, with a live count (client-only —
+ *  rendered after mount so the server markup never mismatches). */
+function SavedLink() {
+  const [count, setCount] = useState<number | null>(null);
+  useEffect(() => {
+    setCount(savedCount());
+  }, []);
+  if (!count) return null;
+  return (
+    <Link
+      href="/dashboard/saved"
+      className="inline-flex items-center gap-1 text-xs font-medium text-primary underline-offset-2 hover:underline"
+    >
+      <Bookmark size={12} /> Saved for review ({count})
+    </Link>
+  );
+}
 
 export function DashboardHome() {
   const { user } = useUser();
@@ -38,6 +60,7 @@ export function DashboardHome() {
         </p>
       </header>
 
+      <StreakNudge />
       <StudyNextCard workspaces={workspaces} />
       <ProfileCard />
       <StatsBento workspaces={workspaces} />
@@ -50,6 +73,7 @@ export function DashboardHome() {
       <section className="mt-8">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-foreground/80">Recent workspaces</h2>
+          <SavedLink />
         </div>
         <WorkspaceGrid workspaces={workspaces} onWorkspacesChange={setWorkspaces} />
       </section>

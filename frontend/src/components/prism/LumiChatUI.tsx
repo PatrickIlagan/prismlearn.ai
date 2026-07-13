@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { BookOpen, Gamepad2, Send, Volume2, VolumeX, Mic, MicOff } from "lucide-react";
+import { BookOpen, Bookmark, Gamepad2, Send, Volume2, VolumeX, Mic, MicOff } from "lucide-react";
+import { toggleSaved, isSaved } from "@/lib/savedItems";
 import { useWorkspaceStore } from "@/store/useWorkspaceStore";
 import { sendTutorMessage, isLiveBackend } from "@/lib/api";
 import { speak, stopSpeaking } from "@/lib/sounds";
@@ -12,6 +13,43 @@ import { RichMarkdown } from "./RichMarkdown";
 import { StepProgressStepper } from "./StepProgressStepper";
 import { XpBadge } from "./XpBadge";
 import { cn } from "@/lib/utils";
+
+/** Bookmark on each Lumi explanation (Save-for-Review, pure localStorage). */
+function SaveLumiButton({
+  messageId,
+  text,
+  workspaceId,
+}: {
+  messageId: string;
+  text: string;
+  workspaceId: string;
+}) {
+  const [saved, setSaved] = useState(() => isSaved(`m_${messageId}`));
+  return (
+    <button
+      onClick={() =>
+        setSaved(
+          toggleSaved({
+            id: `m_${messageId}`,
+            type: "lumi",
+            title: text.length > 90 ? `${text.slice(0, 90)}…` : text,
+            body: text.length > 90 ? text.slice(90, 480) : "",
+            workspaceId,
+          }),
+        )
+      }
+      className={cn(
+        "mt-1 inline-flex items-center gap-1 text-[10px] font-medium transition",
+        saved ? "text-primary" : "text-muted-foreground/50 hover:text-muted-foreground",
+      )}
+      aria-pressed={saved}
+      title={saved ? "Remove from saved" : "Save this explanation for review"}
+    >
+      <Bookmark size={10} className={saved ? "fill-current" : undefined} />
+      {saved ? "Saved" : "Save"}
+    </button>
+  );
+}
 
 export function LumiChatUI({ workspaceId }: { workspaceId: string }) {
   const messages = useWorkspaceStore((s) => s.messages);
@@ -270,11 +308,14 @@ export function LumiChatUI({ workspaceId }: { workspaceId: string }) {
                 {m.role === "student" ? (
                   m.text
                 ) : (
-                  <RichMarkdown
-                    text={m.text}
-                    size="base"
-                    className="prose-p:my-1.5 prose-p:first:mt-0 prose-p:last:mb-0 prose-strong:text-foreground"
-                  />
+                  <>
+                    <RichMarkdown
+                      text={m.text}
+                      size="base"
+                      className="prose-p:my-1.5 prose-p:first:mt-0 prose-p:last:mb-0 prose-strong:text-foreground"
+                    />
+                    <SaveLumiButton messageId={m.id} text={m.text} workspaceId={workspaceId} />
+                  </>
                 )}
               </div>
             </motion.div>

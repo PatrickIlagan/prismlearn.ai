@@ -13,6 +13,10 @@ import {
   BarChart3,
   Settings,
   UploadCloud,
+  Play,
+  Swords,
+  AlertTriangle,
+  Bookmark,
 } from "lucide-react";
 import { listWorkspaces } from "@/lib/api";
 import type { WorkspaceSummary } from "@/types/prism";
@@ -74,6 +78,47 @@ export function CommandPalette({
             <Command.Empty className="py-8 text-center text-sm text-muted-foreground">
               No results found.
             </Command.Empty>
+
+            {/* Actions on the most recent workspace — deterministic routing,
+                so every entry works in demo mode too. */}
+            {workspaces[0] && (
+              <Command.Group
+                heading="Actions"
+                className="px-1 pb-1 pt-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground [&_[cmdk-group-items]]:mt-1"
+              >
+                <Command.Item
+                  value="resume tutor continue lesson"
+                  className={itemClass}
+                  onSelect={() => go(`/workspace/${workspaces[0].id}`)}
+                >
+                  <Play size={16} /> Resume tutor
+                  <span className="ml-auto truncate text-xs text-muted-foreground">
+                    {workspaces[0].title}
+                  </span>
+                </Command.Item>
+                <Command.Item
+                  value="practice exam timed quiz"
+                  className={itemClass}
+                  onSelect={() => go(`/workspace/${workspaces[0].id}/exam`)}
+                >
+                  <Swords size={16} /> Start practice exam
+                </Command.Item>
+                <Command.Item
+                  value="review weaknesses weak concepts"
+                  className={itemClass}
+                  onSelect={() => go(`/workspace/${workspaces[0].id}/review`)}
+                >
+                  <AlertTriangle size={16} /> Review weaknesses
+                </Command.Item>
+                <Command.Item
+                  value="saved bookmarks review items"
+                  className={itemClass}
+                  onSelect={() => go("/dashboard/saved")}
+                >
+                  <Bookmark size={16} /> Saved for review
+                </Command.Item>
+              </Command.Group>
+            )}
 
             <Command.Group
               heading="Navigate"
