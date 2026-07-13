@@ -55,7 +55,7 @@ function drawHeader(doc: jsPDF, title: string, kind = "Flashcards") {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
   doc.setTextColor(120);
-  doc.text(`${title} · ${kind}`, MARGIN, MARGIN + 9);
+  doc.text(sanitizePdfText(`${title} - ${kind}`), MARGIN, MARGIN + 9);
 }
 
 function slug(title: string): string {
@@ -71,8 +71,28 @@ function slug(title: string): string {
  * under our control, so wrapped text can never visually crowd or overlap
  * regardless of any font-metric differences between environments.
  */
+/**
+ * jsPDF's built-in Helvetica is WinAnsi-encoded — characters outside Latin-1
+ * (curly quotes, en/em dashes, ellipsis, NBSP — all common in model output)
+ * render with corrupted glyph widths that visually explode into letter-spaced
+ * text overflowing its container. Map the common ones to ASCII equivalents
+ * and strip anything else non-encodable.
+ */
+function sanitizePdfText(text: string): string {
+  return text
+    .replace(/[‘’‚′]/g, "'")
+    .replace(/[“”„″]/g, '"')
+    .replace(/[–—―]/g, "-")
+    .replace(/…/g, "...")
+    .replace(/[  -​ ]/g, " ")
+    .replace(/[•●▪]/g, "-")
+    .replace(/→/g, "->")
+    .replace(/[^\x20-\x7E\nÀ-ÿ]/g, "")
+    .replace(/[ \t]+/g, " ");
+}
+
 function fitLines(doc: jsPDF, text: string, maxWidth: number, maxLines: number): string[] {
-  const wrapped: string[] = doc.splitTextToSize(text, maxWidth);
+  const wrapped: string[] = doc.splitTextToSize(sanitizePdfText(text), maxWidth);
   if (wrapped.length <= maxLines) return wrapped;
   const shown = wrapped.slice(0, maxLines);
   const last = shown[maxLines - 1].replace(/[.,;:!?]*$/, "");
@@ -162,11 +182,13 @@ const TYPE_LABEL: Record<QuizQuestion["type"], string> = {
  *  otherwise "Solve for x: $$x^2-5x+6=0$$" prints with literal $$ and ``` in
  *  the exported PDF. The underlying math/code content stays intact. */
 function plainTextForPdf(text: string): string {
-  return text
-    .replace(/```[a-z]*\n?/gi, "")
-    .replace(/```/g, "")
-    .replace(/\$\$/g, "")
-    .replace(/\$/g, "");
+  return sanitizePdfText(
+    text
+      .replace(/```[a-z]*\n?/gi, "")
+      .replace(/```/g, "")
+      .replace(/\$\$/g, "")
+      .replace(/\$/g, ""),
+  );
 }
 
 /** Advance the cursor, adding a page (with header) when `needed` mm won't fit. */
@@ -202,7 +224,10 @@ function drawQuestion(doc: jsPDF, q: QuizQuestion, n: number, y: number, title: 
   doc.setTextColor(60);
   if (q.type === "mcq") {
     q.options.forEach((opt, i) => {
-      const optLines = doc.splitTextToSize(`${OPTION_LETTERS[i]})  ${opt}`, CONTENT_W - numberW - 4);
+      const optLines = doc.splitTextToSize(
+        sanitizePdfText(`${OPTION_LETTERS[i]})  ${opt}`),
+        CONTENT_W - numberW - 4,
+      );
       y = ensureSpace(doc, y, optLines.length * 5, title, "Quiz");
       optLines.forEach((line: string, j: number) => doc.text(line, MARGIN + numberW + 4, y + j * 5));
       y += optLines.length * 5;

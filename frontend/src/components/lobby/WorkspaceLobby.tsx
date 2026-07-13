@@ -317,7 +317,7 @@ export function WorkspaceLobby({ workspaceId }: { workspaceId: string }) {
             ) : (
               <ul className="space-y-2">
                 {[...chapters]
-                  .sort((a, b) => a.strength - b.strength)
+                  .sort((a, b) => weakSortWeight(a.strength) - weakSortWeight(b.strength))
                   .slice(0, 6)
                   .map((c, i) => {
                     const label = masteryLabel(c.strength);
@@ -346,7 +346,7 @@ export function WorkspaceLobby({ workspaceId }: { workspaceId: string }) {
                   })}
               </ul>
             )}
-            {chapters.some((c) => c.strength < 70) && (
+            {chapters.some((c) => c.strength > 0 && c.strength < 70) && (
               <button
                 onClick={() => router.push(`/workspace/${workspaceId}/review${docQuery}`)}
                 className="mt-3 w-full rounded-xl bg-primary/10 py-2 text-xs font-semibold text-primary transition hover:bg-primary/20"
@@ -460,12 +460,22 @@ function CenteredMessage({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** Label thresholds for the Weak Concepts list — simple, deterministic. */
+/** Label thresholds for the Weak Concepts list — simple, deterministic.
+ *  0% means never attempted, NOT struggling — same rule needsReview uses to
+ *  exclude untouched concepts, so this list and the "Review Weaknesses"
+ *  button never contradict each other ("Review" here + "All clear!" there). */
 function masteryLabel(strength: number): { text: string; tint: string } {
+  if (strength === 0) return { text: "Not started", tint: "bg-slate-100 text-slate-500" };
   if (strength >= 90) return { text: "Mastered", tint: "bg-emerald-100 text-emerald-700" };
   if (strength >= 70) return { text: "Nearly mastered", tint: "bg-teal-100 text-teal-700" };
   if (strength >= 40) return { text: "Practice", tint: "bg-amber-100 text-amber-700" };
   return { text: "Review", tint: "bg-rose-100 text-rose-600" };
+}
+
+/** Sort weight: struggling concepts first (weakest of the attempted), then
+ *  not-started, then the strong ones. */
+function weakSortWeight(strength: number): number {
+  return strength === 0 ? 100.5 : strength;
 }
 
 /** Welcome-back recap: shown only when a saved tutoring session exists for

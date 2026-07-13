@@ -14,7 +14,7 @@ import type {
   StudyMode,
   TutorResponse,
 } from "@/types/prism";
-import { boldTerms, extractOrderedSteps, parseCanvas } from "@/lib/canvas";
+import { boldTerms, extractOrderedSteps, parseCanvas, splitSentences } from "@/lib/canvas";
 import { playDing } from "@/lib/sounds";
 import { addXp as profileAddXp, completeQuest, recordActivity } from "@/lib/profile";
 import { boostConcept } from "@/lib/mastery";
@@ -464,15 +464,26 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         };
         continue;
       }
-      const block = chapter.blocks.find(
+      const candidates = chapter.blocks.filter(
         (b) => b.kind === "text" && b.plain.length > 40 && free(b.id),
       );
-      if (!block) continue;
-      const mode: BlockMode = alt++ % 2 === 0 ? "cloze" : "spot_the_lie";
-      additions[block.id] = {
-        mode,
-        payload: mode === "cloze" ? { choices: conceptPool } : undefined,
-      };
+      if (candidates.length === 0) continue;
+      // Spot-the-lie only works on real prose: a bullet list renders as a
+      // wall of dashes, and short blocks give a trivial 1-2 sentence game
+      // (both confirmed ugly in live testing). If no prose block qualifies,
+      // this chapter gets a cloze instead.
+      const isProse = (b: CanvasBlock) =>
+        !/^\s*[-*+]\s/m.test(b.markdown) && splitSentences(b.plain).length >= 3;
+      const wantSpot = alt++ % 2 === 1;
+      const spotBlock = wantSpot ? candidates.find(isProse) : undefined;
+      if (spotBlock) {
+        additions[spotBlock.id] = { mode: "spot_the_lie", payload: undefined };
+      } else {
+        // Cloze prefers prose too (bullet dashes read poorly inside the game
+        // box) but tolerates a list when it's all the chapter has.
+        const block = candidates.find((b) => !/^\s*[-*+]\s/m.test(b.markdown)) ?? candidates[0];
+        additions[block.id] = { mode: "cloze", payload: { choices: conceptPool } };
+      }
     }
     if (Object.keys(additions).length === 0) return;
     set((s) => ({ blockGames: { ...s.blockGames, ...additions } }));

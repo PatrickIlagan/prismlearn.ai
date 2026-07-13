@@ -48,11 +48,12 @@ const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
  * that first ping lands, or any other transient 5xx/restart.
  */
 // How long a request can run before we assume it's a cold start, not normal
-// latency, and show the waking banner. A warm backend responds in well under
-// this; a sleeping one often doesn't fail fast — it just holds the
-// connection open for 20-40s while the container boots, so triggering on
-// elapsed time (not on failure) is what actually catches that case.
-const WAKING_THRESHOLD_MS = 2500;
+// latency, and show the waking banner. Must sit ABOVE normal model-generation
+// time — tutor turns routinely take 3-8s of legitimate inference, and showing
+// "waking up the server" during ordinary generation is just wrong. A genuine
+// cold start holds the connection for 20-40s, so 10s cleanly separates the
+// two.
+const WAKING_THRESHOLD_MS = 10_000;
 
 // Render's free tier can spin the backend down again mid-session while the
 // user reads. We remember when the backend last answered successfully
