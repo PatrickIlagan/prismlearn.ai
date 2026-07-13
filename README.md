@@ -74,6 +74,8 @@ Two ways to try it, both on the live site:
    same code path a real student hits. There's also a student-facing version: the
    **Practice** toggle in the document toolbar turns every unlocked chapter into a
    mini-game gauntlet at once (and "Exit practice" reverts un-played blocks to reading).
+   Clear every chapter and the **lesson completion summary** pops with a downloadable
+   **mastery certificate** (a social-card PNG drawn client-side).
 5. The floating badge's **Exit** returns you to the landing page.
 
 **Part B — the real thing, live AI (≈3 min):**
@@ -248,6 +250,20 @@ Legend: ✅ built & verified · 🟡 built, credential-gated (untestable without
 - ✅ Gamification — XP, levels, streaks, daily quests (currently `localStorage`-only; the
   backend tables/API for this exist and are wired for a future swap, see §5 Backend)
 - ✅ Analytics page — mastery-by-workspace, weakness/needs-review list
+- ✅ **Closed learning loop, fully deterministic** (no extra AI calls): quiz results feed
+  **Review Mistakes Only** (replay exactly the missed questions) and a **Why Was This
+  Wrong?** panel with a "Review in source" jump; **Study Next** on the dashboard picks the
+  one best action (due flashcards → unfinished session → weakest workspace → continue) and
+  says why; **Weak Concepts** ranked with Review/Practice/Nearly-mastered/Mastered labels;
+  **Welcome Back Recap** rebuilt from stored session data; **estimated study time**
+  ("about 9 min remaining"); a one-time **lesson completion summary**; a **streak-at-risk
+  nudge**; **Save for Review** bookmarks on quiz answers and Lumi explanations with a
+  unified `/dashboard/saved` page; **⌘K palette actions** (resume tutor / practice exam /
+  review weaknesses); preset Lumi chips incl. **Teach It Back**; citation previews with
+  "Open in document"
+- ✅ **Shareable mastery certificate** — a social-card PNG (name, course, mastery %, rank,
+  the AMD/Fireworks stack line) drawn entirely client-side on a canvas; offered in the
+  completion celebration and in the lobby once overall mastery reaches 80%
 - ✅ Client-side PDF export — flashcards (cut-out squares) **and** quizzes (+ answer key)
 - ✅ Settings — study mode, TTS toggle, and an **AI Models** card listing all three models
   in play (gpt-oss-120b / Gemma 3 27B / Gemma 4) plus the Gemma 4 Enterprise toggle demo

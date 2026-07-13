@@ -145,7 +145,7 @@ export function WorkspaceShell({
       {/* Demo-mode-only judge controls: force-trigger any mini-game */}
       <JudgePanel />
       {/* One-time celebration when the final chapter is mastered */}
-      <CompletionSummary workspaceId={workspaceId} />
+      <CompletionSummary workspaceId={workspaceId} workspaceTitle={workspaceTitle} />
 
       {/* ---------- Desktop: resizable 3-pane ---------- */}
       <div className="hidden h-full p-3 md:block">

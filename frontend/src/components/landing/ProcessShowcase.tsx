@@ -43,7 +43,7 @@ const STEPS = [
   {
     icon: Trophy,
     title: "Prove your mastery",
-    body: "Boss battles gate each chapter. Spaced repetition brings concepts back right before you'd forget them.",
+    body: "Boss battles gate each chapter, spaced repetition brings concepts back right before you'd forget — and finishing earns a shareable mastery certificate.",
   },
 ];
 

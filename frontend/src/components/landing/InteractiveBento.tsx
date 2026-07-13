@@ -294,8 +294,9 @@ function MasteryCard({ delay }: { delay: number }) {
           </div>
           <h3 className="font-semibold">Progress that feels like a game</h3>
           <p className="mt-1.5 max-w-md text-sm text-muted-foreground">
-            Streaks, quests, spaced-repetition flashcards, boss battles, practice exams with KaTeX
-            math and real code. Try it — answer correctly:
+            Streaks, quests, spaced-repetition flashcards, boss battles, practice exams — and a
+            shareable <b>mastery certificate</b> when you finish a course. Try it — answer
+            correctly:
           </p>
         </div>
         <div className="flex items-center gap-1.5 rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-600">

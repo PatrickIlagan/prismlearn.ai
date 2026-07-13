@@ -8,6 +8,7 @@ import {
   ArrowLeft,
   Play,
   AlertTriangle,
+  Award,
   FileQuestion,
   Flame,
   Target,
@@ -16,6 +17,9 @@ import {
   Check,
   Loader2,
 } from "lucide-react";
+import { certificateDisplayName, downloadMasteryCertificate } from "@/lib/certificate";
+import { getProfile } from "@/lib/profile";
+import { rankForLevel } from "@/lib/rank";
 import { fetchReviewer, listDocuments, listWorkspaces, renameWorkspace } from "@/lib/api";
 import { useWorkspaceStore } from "@/store/useWorkspaceStore";
 import { chapterMastery, needsReview, overallMastery } from "@/lib/mastery";
@@ -283,6 +287,25 @@ export function WorkspaceLobby({ workspaceId }: { workspaceId: string }) {
           <div className="flex flex-col items-center gap-1">
             <ProgressRing value={mastery} size={104} stroke={9} />
             <span className="text-xs text-muted-foreground">overall mastery</span>
+            {mastery >= 80 && (
+              <button
+                onClick={() => {
+                  const profile = getProfile();
+                  downloadMasteryCertificate({
+                    userName: certificateDisplayName(),
+                    workspaceTitle: title,
+                    masteryPct: mastery,
+                    conceptsMastered: chapters.filter((c) => c.strength >= 70).length,
+                    conceptTotal: chapters.length,
+                    rankName: rankForLevel(profile.level).name,
+                    level: profile.level,
+                  });
+                }}
+                className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-400/20 to-amber-500/20 px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:from-amber-400/30 hover:to-amber-500/30"
+              >
+                <Award size={13} /> Get certificate
+              </button>
+            )}
           </div>
         </div>
 

@@ -3,9 +3,15 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { PartyPopper, Swords, X } from "lucide-react";
+import { Award, PartyPopper, Swords, X } from "lucide-react";
 import { useWorkspaceStore } from "@/store/useWorkspaceStore";
 import { conceptStrength } from "@/lib/mastery";
+import {
+  certificateDisplayName,
+  downloadMasteryCertificate,
+} from "@/lib/certificate";
+import { getProfile } from "@/lib/profile";
+import { rankForLevel } from "@/lib/rank";
 
 /**
  * Lesson completion summary — appears once, the moment the final chapter of
@@ -14,7 +20,13 @@ import { conceptStrength } from "@/lib/mastery";
  * shown-once flag lives in sessionStorage keyed by the document so replays
  * of the same session don't re-celebrate.
  */
-export function CompletionSummary({ workspaceId }: { workspaceId: string }) {
+export function CompletionSummary({
+  workspaceId,
+  workspaceTitle,
+}: {
+  workspaceId: string;
+  workspaceTitle: string;
+}) {
   const chapters = useWorkspaceStore((s) => s.chapters);
   const completedChapters = useWorkspaceStore((s) => s.completedChapters);
   const xp = useWorkspaceStore((s) => s.xp);
@@ -43,6 +55,20 @@ export function CompletionSummary({ workspaceId }: { workspaceId: string }) {
   const avgMastery = Math.round(
     chapters.reduce((s, c) => s + conceptStrength(c.anchorId), 0) / chapters.length,
   );
+
+  // Shareable PNG certificate — drawn on a canvas client-side, no AI.
+  function downloadCertificate() {
+    const profile = getProfile();
+    downloadMasteryCertificate({
+      userName: certificateDisplayName(),
+      workspaceTitle,
+      masteryPct: avgMastery,
+      conceptsMastered: mastered,
+      conceptTotal: chapters.length,
+      rankName: rankForLevel(profile.level).name,
+      level: profile.level,
+    });
+  }
 
   return (
     <AnimatePresence>
@@ -96,6 +122,12 @@ export function CompletionSummary({ workspaceId }: { workspaceId: string }) {
               Average mastery across concepts: <b>{avgMastery}%</b>
             </p>
             <div className="mt-5 flex flex-col gap-2">
+              <button
+                onClick={downloadCertificate}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-amber-400 to-amber-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-amber-500/25 transition hover:shadow-amber-500/40"
+              >
+                <Award size={15} /> Download mastery certificate
+              </button>
               <Link
                 href={`/workspace/${workspaceId}/exam`}
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-violet-500 to-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-500/25 transition hover:shadow-violet-500/40"
