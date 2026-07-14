@@ -552,6 +552,39 @@ export async function deleteWorkspace(workspaceId: string): Promise<void> {
 }
 
 // --- Reviewer retrieval ------------------------------------------------------
+// --- Reviewer request throttling -------------------------------------------
+// The dashboard mounts several components that each want a reviewer for EVERY
+// workspace (WorkspaceCard per card, StatsBento's fetchRealStats, StudyNext),
+// so a 14-workspace account fired 30+ simultaneous authenticated requests.
+// Each one costs the backend an RSA JWT verify plus a Supabase round-trip; on
+// Render's free single-worker tier that burst is what produced the 500s (and
+// because an unhandled 500 skips CORS middleware, it surfaced as a misleading
+// CORS error). Two guards, both here at the single choke point every caller
+// funnels through:
+//   1. in-flight dedupe — the same workspace requested N times in the same tick
+//      shares ONE network request instead of N.
+//   2. a small concurrency gate — at most MAX_PARALLEL reviewer fetches are in
+//      flight at once; the rest queue. Slightly slower to paint, but it never
+//      stampedes the backend.
+const MAX_PARALLEL_REVIEWERS = 3;
+const inFlightReviewers = new Map<string, Promise<IngestPayload>>();
+let activeReviewers = 0;
+const reviewerQueue: (() => void)[] = [];
+
+async function acquireReviewerSlot(): Promise<void> {
+  if (activeReviewers < MAX_PARALLEL_REVIEWERS) {
+    activeReviewers++;
+    return;
+  }
+  await new Promise<void>((resolve) => reviewerQueue.push(resolve));
+  activeReviewers++;
+}
+
+function releaseReviewerSlot(): void {
+  activeReviewers--;
+  reviewerQueue.shift()?.();
+}
+
 export async function fetchReviewer(
   workspaceId: string,
   documentId?: string,
@@ -561,16 +594,33 @@ export async function fetchReviewer(
     return readCachedReviewer(documentId ?? workspaceId) ?? MOCK_INGEST;
   }
   // Session cache first (survives refresh without a re-fetch); server is fallback.
-  const cached = readCachedReviewer(documentId ?? workspaceId);
+  const key = documentId ?? workspaceId;
+  const cached = readCachedReviewer(key);
   if (cached) return cached;
-  const qs = documentId ? `?document_id=${encodeURIComponent(documentId)}` : "";
-  const res = await fetchWithRetry(`${API_URL}/workspaces/${workspaceId}/reviewer${qs}`, {
-    headers: await authHeaders(),
-  });
-  if (!res.ok) throw new Error(`Failed to load reviewer: ${res.status}`);
-  const reviewer: IngestPayload = await res.json();
-  if (documentId) cacheReviewer(documentId, reviewer);
-  return reviewer;
+
+  // Dedupe: identical concurrent requests share one in-flight promise.
+  const existing = inFlightReviewers.get(key);
+  if (existing) return existing;
+
+  const request = (async () => {
+    await acquireReviewerSlot();
+    try {
+      const qs = documentId ? `?document_id=${encodeURIComponent(documentId)}` : "";
+      const res = await fetchWithRetry(`${API_URL}/workspaces/${workspaceId}/reviewer${qs}`, {
+        headers: await authHeaders(),
+      });
+      if (!res.ok) throw new Error(`Failed to load reviewer: ${res.status}`);
+      const reviewer: IngestPayload = await res.json();
+      if (documentId) cacheReviewer(documentId, reviewer);
+      return reviewer;
+    } finally {
+      releaseReviewerSlot();
+      inFlightReviewers.delete(key);
+    }
+  })();
+
+  inFlightReviewers.set(key, request);
+  return request;
 }
 
 // --- Tutor turn --------------------------------------------------------------
