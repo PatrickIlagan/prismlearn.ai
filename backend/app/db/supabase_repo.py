@@ -9,11 +9,17 @@ defense-in-depth, since the service-role key bypasses RLS.
 
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import datetime, timezone
+from typing import Callable, TypeVar
 
 import anyio
 from supabase import Client, create_client
+
+logger = logging.getLogger("prismlearning")
+
+_T = TypeVar("_T")
 
 from app.core.config import settings
 from app.db.base import WorkspaceRepository
@@ -50,6 +56,25 @@ class SupabaseRepository(WorkspaceRepository):
         self._client: Client = create_client(
             settings.supabase_url, settings.supabase_service_role_key
         )
+
+    async def _read(self, fn: Callable[[], _T]) -> _T:
+        """Run a synchronous Supabase read off the event loop, retrying transient
+        failures. On Render's free single-worker tier a burst of concurrent
+        reads (the dashboard fetching a reviewer per workspace) occasionally
+        trips a network/PostgREST blip that raised straight up as a 500. A
+        couple of quick retries turn those into a slightly slower success
+        instead of a failed dashboard tile. Reads are idempotent, so retrying
+        is safe; writes deliberately do NOT go through here."""
+        last: Exception | None = None
+        for attempt in range(3):
+            try:
+                return await anyio.to_thread.run_sync(fn)
+            except Exception as exc:  # noqa: BLE001 - want to retry any transient error
+                last = exc
+                if attempt < 2:
+                    await anyio.sleep(0.4 * (attempt + 1))
+        logger.warning("Supabase read failed after retries: %s", last)
+        raise last  # type: ignore[misc]
 
     def _document_from_row(self, row: dict) -> DocumentRecord:
         return DocumentRecord(
@@ -124,7 +149,7 @@ class SupabaseRepository(WorkspaceRepository):
             )
             return resp.data
 
-        rows = await anyio.to_thread.run_sync(_select)
+        rows = await self._read(_select)
         return [self._document_from_row(r) for r in rows]
 
     async def get_workspace(self, *, user_id: str, workspace_id: str) -> WorkspaceRecord | None:
@@ -139,7 +164,7 @@ class SupabaseRepository(WorkspaceRepository):
             )
             return resp.data
 
-        rows = await anyio.to_thread.run_sync(_select)
+        rows = await self._read(_select)
         if not rows:
             return None
         row = rows[0]
@@ -258,7 +283,7 @@ class SupabaseRepository(WorkspaceRepository):
             )
             return resp.data
 
-        rows = await anyio.to_thread.run_sync(_select)
+        rows = await self._read(_select)
         summaries: list[WorkspaceSummary] = []
         for r in rows:
             documents = await self._load_documents(r["id"])
@@ -312,7 +337,7 @@ class SupabaseRepository(WorkspaceRepository):
             )
             return resp.data
 
-        rows = await anyio.to_thread.run_sync(_select)
+        rows = await self._read(_select)
         return [FlashcardRecord.model_validate(r) for r in rows]
 
     # ---------- Gamification ----------
@@ -324,7 +349,7 @@ class SupabaseRepository(WorkspaceRepository):
             )
             return resp.data
 
-        rows = await anyio.to_thread.run_sync(_select)
+        rows = await self._read(_select)
         if rows:
             return PlayerProfile.model_validate(rows[0])
         # Create a default profile on first access.
@@ -356,7 +381,7 @@ class SupabaseRepository(WorkspaceRepository):
             )
             return resp.data
 
-        rows = await anyio.to_thread.run_sync(_select)
+        rows = await self._read(_select)
         return [ConceptMasteryRecord.model_validate(r) for r in rows]
 
     async def upsert_mastery(
